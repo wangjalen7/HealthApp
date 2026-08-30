@@ -1,0 +1,432 @@
+import { z } from "zod";
+
+import { supabase } from "../../lib/supabase";
+import { createId } from "../vitals/storage";
+import {
+  buildExerciseGuidance,
+  type ExerciseGuidance,
+  type PerformanceSession,
+} from "./progression";
+import { rankSavedNames } from "./catalog";
+
+const workoutSetSchema = z.object({
+  exerciseName: z.string().trim().min(1).max(120),
+  weight: z.number().min(0).max(5000),
+  reps: z.number().int().min(1).max(500),
+});
+export type WorkoutSetInput = z.infer<typeof workoutSetSchema>;
+export type { ExerciseGuidance, ExerciseMemory } from "./progression";
+
+export async function saveWorkout(
+  userId: string,
+  input: {
+    title: string;
+    muscleGroups: string[];
+    templateName?: string;
+    notes?: string;
+    sets: WorkoutSetInput[];
+  },
+): Promise<void> {
+  const sets = input.sets.map((set) => workoutSetSchema.parse(set));
+  if (!sets.length) throw new Error("Add at least one completed set.");
+  const sessionId = createId();
+  const now = new Date().toISOString();
+  const { error: sessionError } = await supabase
+    .from("workout_sessions")
+    .insert({
+      id: sessionId,
+      user_id: userId,
+      title: input.title.trim(),
+      muscle_groups: input.muscleGroups,
+      template_name: input.templateName ?? null,
+      notes: input.notes?.trim() || null,
+      started_at: now,
+      completed_at: now,
+    });
+  if (sessionError) throw new Error(sessionError.message);
+  const setNumbers = new Map<string, number>();
+  const { error: setsError } = await supabase.from("workout_sets").insert(
+    sets.map((set) => {
+      const setNumber = (setNumbers.get(set.exerciseName) ?? 0) + 1;
+      setNumbers.set(set.exerciseName, setNumber);
+      return {
+        id: createId(),
+        user_id: userId,
+        session_id: sessionId,
+        exercise_name: set.exerciseName,
+        set_number: setNumber,
+        weight: set.weight,
+        weight_unit: "lb",
+        reps: set.reps,
+      };
+    }),
+  );
+  if (setsError) throw new Error(setsError.message);
+}
+
+export async function replaceWorkout(
+  userId: string,
+  sessionId: string,
+  input: {
+    title: string;
+    muscleGroups: string[];
+    notes?: string;
+    sets: WorkoutSetInput[];
+  },
+): Promise<void> {
+  const sets = input.sets.map((set) => workoutSetSchema.parse(set));
+  if (!sets.length) throw new Error("Add at least one completed set.");
+  const setNumbers = new Map<string, number>();
+  const replacementSets = sets.map((set) => {
+    const setNumber = (setNumbers.get(set.exerciseName) ?? 0) + 1;
+    setNumbers.set(set.exerciseName, setNumber);
+    return {
+      id: createId(),
+      exercise_name: set.exerciseName,
+      set_number: setNumber,
+      weight: set.weight,
+      weight_unit: "lb",
+      reps: set.reps,
+    };
+  });
+  const { error } = await supabase.rpc("replace_workout_session", {
+    p_session_id: sessionId,
+    p_title: input.title.trim(),
+    p_muscle_groups: input.muscleGroups,
+    p_notes: input.notes?.trim() ?? "",
+    p_sets: replacementSets,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function getExerciseGuidance(
+  userId: string,
+  exerciseName: string,
+): Promise<ExerciseGuidance | undefined> {
+  const since = new Date();
+  since.setDate(since.getDate() - 90);
+  const { data, error } = await supabase
+    .from("workout_sets")
+    .select("session_id, weight, reps, weight_unit, set_number, created_at")
+    .eq("user_id", userId)
+    .eq("exercise_name", exerciseName)
+    .gte("created_at", since.toISOString())
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) throw new Error(error.message);
+  const grouped = new Map<string, PerformanceSession>();
+  for (const set of data ?? []) {
+    const sessionId = String(set.session_id);
+    const current = grouped.get(sessionId) ?? {
+      id: sessionId,
+      occurredAt: String(set.created_at),
+      sets: [],
+    };
+    current.sets.push({ weight: Number(set.weight), reps: Number(set.reps) });
+    grouped.set(sessionId, current);
+  }
+  return buildExerciseGuidance([...grouped.values()]);
+}
+
+export async function getExerciseSuggestions(
+  userId: string,
+  query: string,
+): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("workout_sets")
+    .select("exercise_name")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(250);
+  if (error) throw new Error(error.message);
+  return rankSavedNames(
+    (data ?? []).map((set) => set.exercise_name),
+    query,
+  );
+}
+
+export type WorkoutHistorySet = {
+  exerciseName: string;
+  setNumber: number;
+  weight: number;
+  unit: string;
+  reps: number;
+};
+export type WorkoutHistorySession = {
+  id: string;
+  title: string;
+  muscleGroups: string[];
+  completedAt: string;
+  notes?: string;
+  sets: WorkoutHistorySet[];
+};
+export async function getWorkoutHistory(
+  userId: string,
+): Promise<WorkoutHistorySession[]> {
+  const { data: sessions, error: sessionError } = await supabase
+    .from("workout_sessions")
+    .select("id, title, muscle_groups, completed_at, notes")
+    .eq("user_id", userId)
+    .order("completed_at", { ascending: false })
+    .limit(100);
+  if (sessionError) throw new Error(sessionError.message);
+  if (!sessions?.length) return [];
+  const ids = sessions.map((session) => session.id);
+  const { data: sets, error: setError } = await supabase
+    .from("workout_sets")
+    .select("session_id, exercise_name, set_number, weight, weight_unit, reps")
+    .eq("user_id", userId)
+    .in("session_id", ids)
+    .order("set_number", { ascending: true });
+  if (setError) throw new Error(setError.message);
+  const bySession = new Map<string, WorkoutHistorySet[]>();
+  for (const set of sets ?? []) {
+    const current = bySession.get(set.session_id) ?? [];
+    current.push({
+      exerciseName: set.exercise_name,
+      setNumber: Number(set.set_number),
+      weight: Number(set.weight),
+      unit: set.weight_unit,
+      reps: Number(set.reps),
+    });
+    bySession.set(set.session_id, current);
+  }
+  return sessions.map((session) => ({
+    id: session.id,
+    title: session.title,
+    muscleGroups: Array.isArray(session.muscle_groups)
+      ? session.muscle_groups
+      : [],
+    completedAt: session.completed_at,
+    notes: session.notes ?? undefined,
+    sets: bySession.get(session.id) ?? [],
+  }));
+}
+
+export async function deleteWorkout(
+  userId: string,
+  sessionId: string,
+): Promise<void> {
+  const id = z.string().uuid().parse(sessionId);
+  const { error } = await supabase
+    .from("workout_sessions")
+    .delete()
+    .eq("user_id", userId)
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function getWorkoutById(
+  userId: string,
+  sessionId: string,
+): Promise<WorkoutHistorySession | undefined> {
+  const { data: session, error: sessionError } = await supabase
+    .from("workout_sessions")
+    .select("id, title, muscle_groups, completed_at, notes")
+    .eq("user_id", userId)
+    .eq("id", sessionId)
+    .maybeSingle();
+  if (sessionError) throw new Error(sessionError.message);
+  if (!session) return undefined;
+  const { data: sets, error: setError } = await supabase
+    .from("workout_sets")
+    .select("exercise_name, set_number, weight, weight_unit, reps")
+    .eq("user_id", userId)
+    .eq("session_id", sessionId)
+    .order("set_number", { ascending: true });
+  if (setError) throw new Error(setError.message);
+  return {
+    id: session.id,
+    title: session.title,
+    muscleGroups: Array.isArray(session.muscle_groups)
+      ? session.muscle_groups
+      : [],
+    completedAt: session.completed_at,
+    notes: session.notes ?? undefined,
+    sets: (sets ?? []).map((set) => ({
+      exerciseName: set.exercise_name,
+      setNumber: Number(set.set_number),
+      weight: Number(set.weight),
+      unit: set.weight_unit,
+      reps: Number(set.reps),
+    })),
+  };
+}
+
+export type FoodSuggestion = {
+  name: string;
+  calories: number;
+  proteinGrams: number;
+};
+export async function getFoodSuggestions(
+  userId: string,
+  query: string,
+): Promise<FoodSuggestion[]> {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return [];
+  const { data, error } = await supabase
+    .from("nutrition_entries")
+    .select("food_name, calories, protein_grams")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(250);
+  if (error) throw new Error(error.message);
+  const seen = new Set<string>();
+  return (data ?? [])
+    .filter((item) => {
+      const key = item.food_name.toLowerCase();
+      if (seen.has(key) || !key.includes(normalized)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 5)
+    .map((item) => ({
+      name: item.food_name,
+      calories: Number(item.calories),
+      proteinGrams: Number(item.protein_grams),
+    }));
+}
+
+const cardioSchema = z.object({
+  activityType: z.enum(["walk", "run", "swim", "tennis", "cycle", "other"]),
+  durationMinutes: z.number().int().min(1).max(1440),
+  distanceMiles: z.number().min(0).max(1000).optional(),
+  notes: z.string().max(1000).optional(),
+});
+export type CardioInput = z.infer<typeof cardioSchema>;
+
+export type CardioHistoryEntry = {
+  id: string;
+  activityType: CardioInput["activityType"];
+  durationMinutes: number;
+  distanceMiles?: number;
+  notes?: string;
+  occurredAt: string;
+  source: "manual" | "strava";
+};
+
+export async function saveCardio(
+  userId: string,
+  input: CardioInput,
+): Promise<void> {
+  const value = cardioSchema.parse(input);
+  const { error } = await supabase.from("cardio_entries").insert({
+    id: createId(),
+    user_id: userId,
+    activity_type: value.activityType,
+    duration_minutes: value.durationMinutes,
+    distance_miles: value.distanceMiles ?? null,
+    notes: value.notes?.trim() || null,
+    occurred_at: new Date().toISOString(),
+    source: "manual",
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function getCardioHistory(
+  userId: string,
+): Promise<CardioHistoryEntry[]> {
+  const { data, error } = await supabase
+    .from("cardio_entries")
+    .select(
+      "id, activity_type, duration_minutes, distance_miles, notes, occurred_at, source",
+    )
+    .eq("user_id", userId)
+    .order("occurred_at", { ascending: false })
+    .limit(100);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((entry) => ({
+    id: entry.id,
+    activityType: cardioSchema.shape.activityType.parse(entry.activity_type),
+    durationMinutes: Number(entry.duration_minutes),
+    distanceMiles:
+      entry.distance_miles === null ? undefined : Number(entry.distance_miles),
+    notes: entry.notes ?? undefined,
+    occurredAt: entry.occurred_at,
+    source: entry.source === "strava" ? "strava" : "manual",
+  }));
+}
+
+export async function deleteCardio(
+  userId: string,
+  cardioId: string,
+): Promise<void> {
+  const id = z.string().uuid().parse(cardioId);
+  const { error } = await supabase
+    .from("cardio_entries")
+    .delete()
+    .eq("user_id", userId)
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+const foodSchema = z.object({
+  foodName: z.string().trim().min(1).max(160),
+  mealType: z.enum(["breakfast", "lunch", "dinner", "snack", "meal"]),
+  calories: z.number().int().min(0).max(20000),
+  proteinGrams: z.number().min(0).max(1000),
+});
+export type FoodInput = z.infer<typeof foodSchema>;
+export async function saveFood(
+  userId: string,
+  input: FoodInput,
+): Promise<void> {
+  const value = foodSchema.parse(input);
+  const { error } = await supabase.from("nutrition_entries").insert({
+    id: createId(),
+    user_id: userId,
+    food_name: value.foodName,
+    meal_type: value.mealType,
+    calories: value.calories,
+    protein_grams: value.proteinGrams,
+    occurred_at: new Date().toISOString(),
+    source: "manual",
+  });
+  if (error) throw new Error(error.message);
+}
+
+export type TodaySummary = {
+  calories: number;
+  protein: number;
+  workoutCount: number;
+  cardioMinutes: number;
+};
+export async function getTodaySummary(userId: string): Promise<TodaySummary> {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const [food, workouts, cardio] = await Promise.all([
+    supabase
+      .from("nutrition_entries")
+      .select("calories, protein_grams")
+      .eq("user_id", userId)
+      .gte("occurred_at", start.toISOString()),
+    supabase
+      .from("workout_sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .gte("completed_at", start.toISOString()),
+    supabase
+      .from("cardio_entries")
+      .select("duration_minutes")
+      .eq("user_id", userId)
+      .gte("occurred_at", start.toISOString()),
+  ]);
+  if (food.error) throw new Error(food.error.message);
+  if (workouts.error) throw new Error(workouts.error.message);
+  if (cardio.error) throw new Error(cardio.error.message);
+  return {
+    calories: (food.data ?? []).reduce(
+      (total, item) => total + Number(item.calories),
+      0,
+    ),
+    protein: (food.data ?? []).reduce(
+      (total, item) => total + Number(item.protein_grams),
+      0,
+    ),
+    workoutCount: workouts.count ?? 0,
+    cardioMinutes: (cardio.data ?? []).reduce(
+      (total, item) => total + Number(item.duration_minutes),
+      0,
+    ),
+  };
+}
