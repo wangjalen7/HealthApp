@@ -18,3 +18,11 @@ test('holds weight when the double-progression threshold is not met', () => {
   assert.equal(guidance?.shouldIncrease, false);
   assert.match(guidance?.recommendation ?? '', /Hold 100 lb/);
 });
+
+test('keeps bodyweight performance logged explicitly at zero pounds', () => {
+  const guidance = buildExerciseGuidance([{ id: 'bodyweight', occurredAt: '2026-08-29T20:51:00.000Z', sets: [{ weight: 0, reps: 12 }, { weight: 0, reps: 11 }, { weight: 0, reps: 11 }] }]);
+  assert.equal(guidance?.memory.weight, 0);
+  assert.deepEqual(guidance?.memory.reps, [12, 11, 11]);
+  assert.equal(guidance?.shouldIncrease, false);
+  assert.match(guidance?.recommendation ?? '', /Hold 0 lb/);
+});

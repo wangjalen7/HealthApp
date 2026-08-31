@@ -1,30 +1,422 @@
-import { useCallback, useState } from 'react';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useCallback, useState } from "react";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
-import { useAuth } from '../../../src/features/auth/auth-provider';
-import { getWorkoutById, replaceWorkout, type WorkoutHistorySet, type WorkoutSetInput } from '../../../src/features/training/repository';
-import { createId } from '../../../src/features/vitals/storage';
+import { useAuth } from "../../../src/features/auth/auth-provider";
+import {
+  getWorkoutById,
+  replaceWorkout,
+  type WorkoutHistorySet,
+  type WorkoutSetInput,
+} from "../../../src/features/training/repository";
+import { createId } from "../../../src/features/vitals/storage";
 
-type MuscleGroup = 'Back' | 'Chest' | 'Tri' | 'Bi' | 'Delt' | 'Legs' | 'Abs';
+type MuscleGroup = "Back" | "Chest" | "Tri" | "Bi" | "Delt" | "Legs" | "Abs";
 type Entry = { id: string; name: string; reps: number[]; weight?: number };
-const groups: MuscleGroup[] = ['Back', 'Chest', 'Tri', 'Bi', 'Delt', 'Legs', 'Abs'];
-const blank = (): Entry => ({ id: createId(), name: '', reps: [] });
-function groupedEntries(sets: WorkoutHistorySet[]): Entry[] { const byExercise = new Map<string, WorkoutHistorySet[]>(); for (const set of sets) { const current = byExercise.get(set.exerciseName) ?? []; current.push(set); byExercise.set(set.exerciseName, current); } return [...byExercise.entries()].map(([name, values]) => ({ id: createId(), name, weight: values[0].weight, reps: values.sort((left, right) => left.setNumber - right.setNumber).map((set) => set.reps) })); }
-function legacyGroups(title: string): MuscleGroup[] { return title.replace(/\s+lift$/i, '').split(',').map((part) => part.trim() as MuscleGroup).filter((group): group is MuscleGroup => groups.includes(group)); }
-
-export default function EditWorkoutScreen() {
-  const { session } = useAuth(); const { id } = useLocalSearchParams<{ id: string }>(); const [selectedGroups, setSelectedGroups] = useState<MuscleGroup[]>([]); const [entries, setEntries] = useState<Entry[]>([]); const [notes, setNotes] = useState(''); const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(false); const [feedback, setFeedback] = useState('');
-  const load = useCallback(async () => { if (!session || !id) return; setLoading(true); try { const workout = await getWorkoutById(session.user.id, id); if (!workout) { setFeedback('This workout is no longer available.'); return; } setSelectedGroups((workout.muscleGroups.length ? workout.muscleGroups : legacyGroups(workout.title)).filter((group): group is MuscleGroup => groups.includes(group as MuscleGroup)) as MuscleGroup[]); setEntries(groupedEntries(workout.sets)); setNotes(workout.notes ?? ''); } catch (error) { setFeedback(error instanceof Error ? error.message : 'Could not load this workout.'); } finally { setLoading(false); } }, [id, session]);
-  useFocusEffect(useCallback(() => { void load(); }, [load]));
-  function toggleGroup(group: MuscleGroup) { setSelectedGroups((current) => current.includes(group) ? current.filter((item) => item !== group) : [...current, group]); }
-  function updateEntry(entryId: string, patch: Partial<Entry>) { setEntries((current) => current.map((entry) => entry.id === entryId ? { ...entry, ...patch } : entry)); }
-  function updateCount(entryId: string, raw: string) { const count = Number(raw); const safeCount = Number.isInteger(count) && count > 0 ? Math.min(count, 12) : 0; setEntries((current) => current.map((entry) => entry.id === entryId ? { ...entry, reps: Array.from({ length: safeCount }, (_, index) => entry.reps[index] ?? 0) } : entry)); }
-  function updateRep(entryId: string, index: number, raw: string) { const value = Number(raw); setEntries((current) => current.map((entry) => entry.id === entryId ? { ...entry, reps: entry.reps.map((rep, repIndex) => repIndex === index ? (Number.isFinite(value) ? value : 0) : rep) } : entry)); }
-  function updateWeight(entryId: string, raw: string) { if (!raw.trim()) return updateEntry(entryId, { weight: undefined }); const value = Number(raw.replace(',', '.')); updateEntry(entryId, { weight: Number.isFinite(value) ? value : undefined }); }
-  async function save() { if (!session || !id) return; if (!selectedGroups.length) return setFeedback('Choose one or more muscle groups.'); const valid = entries.filter((entry) => entry.name.trim() && entry.reps.length && entry.reps.every((reps) => Number.isInteger(reps) && reps > 0) && entry.weight !== undefined && entry.weight >= 0); if (!valid.length || valid.length !== entries.length) return setFeedback('Finish or remove incomplete exercises.'); const sets: WorkoutSetInput[] = valid.flatMap((entry) => entry.reps.map((reps) => ({ exerciseName: entry.name.trim(), weight: entry.weight!, reps }))); setSaving(true); setFeedback(''); try { await replaceWorkout(session.user.id, id, { title: `${selectedGroups.join(', ')} lift`, muscleGroups: selectedGroups, notes, sets }); router.back(); } catch (error) { setFeedback(error instanceof Error ? error.message : 'Could not save changes.'); } finally { setSaving(false); } }
-  if (loading) return <View style={styles.loading}><ActivityIndicator color="#16776A" /></View>;
-  return <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled"><Text style={styles.title}>Edit workout</Text><Text style={styles.copy}>Changes replace this workout and its sets.</Text><Text style={styles.label}>Muscle groups</Text><View style={styles.groups}>{groups.map((group) => <Pressable key={group} onPress={() => toggleGroup(group)} style={[styles.chip, selectedGroups.includes(group) && styles.chipActive]}><Text style={selectedGroups.includes(group) ? styles.chipTextActive : styles.chipText}>{group}</Text></Pressable>)}</View>{entries.map((entry) => <View key={entry.id} style={styles.card}><View style={styles.cardHead}><Text style={styles.entryLabel}>EXERCISE</Text><Pressable onPress={() => setEntries((current) => current.filter((item) => item.id !== entry.id))}><Text style={styles.remove}>Remove</Text></Pressable></View><TextInput placeholder="Exercise name" placeholderTextColor="#9FB3C8" style={styles.input} value={entry.name} onChangeText={(name) => updateEntry(entry.id, { name })} /><View style={styles.row}><TextInput keyboardType="number-pad" placeholder="# sets" placeholderTextColor="#9FB3C8" style={styles.count} value={entry.reps.length ? String(entry.reps.length) : ''} onChangeText={(value) => updateCount(entry.id, value)} /><Text style={styles.times}>x</Text><View style={styles.reps}>{entry.reps.map((reps, index) => <TextInput key={index} keyboardType="number-pad" placeholder="_" placeholderTextColor="#9FB3C8" style={styles.rep} value={reps ? String(reps) : ''} onChangeText={(value) => updateRep(entry.id, index, value)} />)}</View><TextInput keyboardType="decimal-pad" placeholder="lb" placeholderTextColor="#9FB3C8" style={styles.weight} value={entry.weight === undefined ? '' : String(entry.weight)} onChangeText={(value) => updateWeight(entry.id, value)} /><Text style={styles.lb}>lb</Text></View></View>)}<Pressable onPress={() => setEntries((current) => [...current, blank()])} style={styles.add}><Text style={styles.addText}>+ Add exercise</Text></Pressable><Text style={styles.label}>Notes</Text><TextInput multiline placeholder="Notes" placeholderTextColor="#9FB3C8" style={[styles.input, styles.notes]} value={notes} onChangeText={setNotes} />{feedback ? <Text style={styles.error}>{feedback}</Text> : null}<Pressable disabled={saving} onPress={() => void save()} style={styles.save}><Text style={styles.saveText}>{saving ? 'Saving...' : 'Save changes'}</Text></Pressable></ScrollView>;
+const groups: MuscleGroup[] = [
+  "Back",
+  "Chest",
+  "Tri",
+  "Bi",
+  "Delt",
+  "Legs",
+  "Abs",
+];
+const blank = (): Entry => ({ id: createId(), name: "", reps: [] });
+function groupedEntries(sets: WorkoutHistorySet[]): Entry[] {
+  const byExercise = new Map<string, WorkoutHistorySet[]>();
+  for (const set of sets) {
+    const current = byExercise.get(set.exerciseName) ?? [];
+    current.push(set);
+    byExercise.set(set.exerciseName, current);
+  }
+  return [...byExercise.entries()].map(([name, values]) => ({
+    id: createId(),
+    name,
+    weight: values[0].weight,
+    reps: values
+      .sort((left, right) => left.setNumber - right.setNumber)
+      .map((set) => set.reps),
+  }));
+}
+function legacyGroups(title: string): MuscleGroup[] {
+  return title
+    .replace(/\s+lift$/i, "")
+    .split(",")
+    .map((part) => part.trim() as MuscleGroup)
+    .filter((group): group is MuscleGroup => groups.includes(group));
 }
 
-const styles = StyleSheet.create({ loading: { alignItems: 'center', backgroundColor: '#F7FAFC', flex: 1, justifyContent: 'center' }, page: { backgroundColor: '#F7FAFC', flexGrow: 1, padding: 20 }, title: { color: '#102A43', fontSize: 30, fontWeight: '800' }, copy: { color: '#627D98', marginBottom: 20, marginTop: 7 }, label: { color: '#486581', fontSize: 14, fontWeight: '800', marginBottom: 8 }, groups: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }, chip: { backgroundColor: '#E6EEF3', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10 }, chipActive: { backgroundColor: '#16776A' }, chipText: { color: '#486581', fontWeight: '800' }, chipTextActive: { color: '#fff', fontWeight: '800' }, card: { backgroundColor: '#fff', borderColor: '#D9E2EC', borderRadius: 15, borderWidth: 1, marginBottom: 12, padding: 14 }, cardHead: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }, entryLabel: { color: '#7B8794', fontSize: 11, fontWeight: '800', letterSpacing: 1 }, remove: { color: '#B42318', fontWeight: '800' }, input: { backgroundColor: '#F7FAFC', borderColor: '#D9E2EC', borderRadius: 11, borderWidth: 1, color: '#102A43', fontSize: 16, padding: 12 }, row: { alignItems: 'center', flexDirection: 'row', gap: 6, marginTop: 12 }, count: { backgroundColor: '#F7FAFC', borderColor: '#D9E2EC', borderRadius: 9, borderWidth: 1, color: '#102A43', padding: 9, textAlign: 'center', width: 47 }, times: { color: '#486581', fontSize: 18, fontWeight: '800' }, reps: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 5 }, rep: { backgroundColor: '#F7FAFC', borderColor: '#D9E2EC', borderRadius: 9, borderWidth: 1, color: '#102A43', padding: 9, textAlign: 'center', width: 45 }, weight: { backgroundColor: '#F7FAFC', borderColor: '#D9E2EC', borderRadius: 9, borderWidth: 1, color: '#102A43', padding: 9, textAlign: 'center', width: 56 }, lb: { color: '#486581', fontSize: 13, fontWeight: '800' }, add: { alignItems: 'center', borderColor: '#16776A', borderRadius: 11, borderStyle: 'dashed', borderWidth: 1, marginBottom: 18, padding: 13 }, addText: { color: '#16776A', fontWeight: '800' }, notes: { minHeight: 80, textAlignVertical: 'top' }, error: { color: '#B42318', marginTop: 10 }, save: { alignItems: 'center', backgroundColor: '#16776A', borderRadius: 13, marginTop: 16, minHeight: 54, justifyContent: 'center' }, saveText: { color: '#fff', fontSize: 16, fontWeight: '800' } });
+export default function EditWorkoutScreen() {
+  const { session } = useAuth();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const [selectedGroups, setSelectedGroups] = useState<MuscleGroup[]>([]);
+  const [entries, setEntries] = useState<Entry[]>([]);
+  const [notes, setNotes] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const load = useCallback(async () => {
+    if (!session || !id) return;
+    setLoading(true);
+    try {
+      const workout = await getWorkoutById(session.user.id, id);
+      if (!workout) {
+        setFeedback("This workout is no longer available.");
+        return;
+      }
+      setSelectedGroups(
+        (workout.muscleGroups.length
+          ? workout.muscleGroups
+          : legacyGroups(workout.title)
+        ).filter((group): group is MuscleGroup =>
+          groups.includes(group as MuscleGroup),
+        ) as MuscleGroup[],
+      );
+      setEntries(groupedEntries(workout.sets));
+      setNotes(workout.notes ?? "");
+    } catch (error) {
+      setFeedback(
+        error instanceof Error ? error.message : "Could not load this workout.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [id, session]);
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
+  function toggleGroup(group: MuscleGroup) {
+    setSelectedGroups((current) =>
+      current.includes(group)
+        ? current.filter((item) => item !== group)
+        : [...current, group],
+    );
+  }
+  function updateEntry(entryId: string, patch: Partial<Entry>) {
+    setEntries((current) =>
+      current.map((entry) =>
+        entry.id === entryId ? { ...entry, ...patch } : entry,
+      ),
+    );
+  }
+  function updateCount(entryId: string, raw: string) {
+    const count = Number(raw);
+    const safeCount =
+      Number.isInteger(count) && count > 0 ? Math.min(count, 12) : 0;
+    setEntries((current) =>
+      current.map((entry) =>
+        entry.id === entryId
+          ? {
+              ...entry,
+              reps: Array.from(
+                { length: safeCount },
+                (_, index) => entry.reps[index] ?? 0,
+              ),
+            }
+          : entry,
+      ),
+    );
+  }
+  function updateRep(entryId: string, index: number, raw: string) {
+    const value = Number(raw);
+    setEntries((current) =>
+      current.map((entry) =>
+        entry.id === entryId
+          ? {
+              ...entry,
+              reps: entry.reps.map((rep, repIndex) =>
+                repIndex === index ? (Number.isFinite(value) ? value : 0) : rep,
+              ),
+            }
+          : entry,
+      ),
+    );
+  }
+  function updateWeight(entryId: string, raw: string) {
+    if (!raw.trim()) return updateEntry(entryId, { weight: undefined });
+    const value = Number(raw.replace(",", "."));
+    updateEntry(entryId, {
+      weight: Number.isFinite(value) ? value : undefined,
+    });
+  }
+  async function save() {
+    if (!session || !id) return;
+    if (!selectedGroups.length)
+      return setFeedback("Choose one or more muscle groups.");
+    const valid = entries.filter(
+      (entry) =>
+        entry.name.trim() &&
+        entry.reps.length &&
+        entry.reps.every((reps) => Number.isInteger(reps) && reps > 0) &&
+        entry.weight !== undefined &&
+        entry.weight >= 0,
+    );
+    if (!valid.length || valid.length !== entries.length)
+      return setFeedback("Finish or remove incomplete exercises.");
+    const sets: WorkoutSetInput[] = valid.flatMap((entry) =>
+      entry.reps.map((reps) => ({
+        exerciseName: entry.name.trim(),
+        weight: entry.weight!,
+        reps,
+      })),
+    );
+    setSaving(true);
+    setFeedback("");
+    try {
+      await replaceWorkout(session.user.id, id, {
+        title: `${selectedGroups.join(", ")} lift`,
+        muscleGroups: selectedGroups,
+        notes,
+        sets,
+      });
+      router.back();
+    } catch (error) {
+      setFeedback(
+        error instanceof Error ? error.message : "Could not save changes.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+  if (loading)
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator color="#16776A" />
+      </View>
+    );
+  return (
+    <ScrollView
+      contentInsetAdjustmentBehavior="automatic"
+      contentContainerStyle={styles.page}
+      keyboardShouldPersistTaps="handled"
+    >
+      <Text style={styles.title}>Edit workout</Text>
+      <Text style={styles.copy}>
+        Changes replace this workout and its sets.
+      </Text>
+      <Text style={styles.label}>Muscle groups</Text>
+      <View style={styles.groups}>
+        {groups.map((group) => (
+          <Pressable
+            key={group}
+            onPress={() => toggleGroup(group)}
+            style={[
+              styles.chip,
+              selectedGroups.includes(group) && styles.chipActive,
+            ]}
+          >
+            <Text
+              style={
+                selectedGroups.includes(group)
+                  ? styles.chipTextActive
+                  : styles.chipText
+              }
+            >
+              {group}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+      {entries.map((entry) => (
+        <View key={entry.id} style={styles.card}>
+          <View style={styles.cardHead}>
+            <Text style={styles.entryLabel}>EXERCISE</Text>
+            <Pressable
+              onPress={() =>
+                setEntries((current) =>
+                  current.filter((item) => item.id !== entry.id),
+                )
+              }
+            >
+              <Text style={styles.remove}>Remove</Text>
+            </Pressable>
+          </View>
+          <TextInput
+            placeholder="Exercise name"
+            placeholderTextColor="#9FB3C8"
+            style={styles.input}
+            value={entry.name}
+            onChangeText={(name) => updateEntry(entry.id, { name })}
+          />
+          <View style={styles.row}>
+            <TextInput
+              keyboardType="number-pad"
+              placeholder="# sets"
+              placeholderTextColor="#9FB3C8"
+              style={styles.count}
+              value={entry.reps.length ? String(entry.reps.length) : ""}
+              onChangeText={(value) => updateCount(entry.id, value)}
+            />
+            <Text style={styles.times}>x</Text>
+            <View style={styles.reps}>
+              {entry.reps.map((reps, index) => (
+                <TextInput
+                  key={index}
+                  keyboardType="number-pad"
+                  placeholder="_"
+                  placeholderTextColor="#9FB3C8"
+                  style={styles.rep}
+                  value={reps ? String(reps) : ""}
+                  onChangeText={(value) => updateRep(entry.id, index, value)}
+                />
+              ))}
+            </View>
+            <TextInput
+              keyboardType="decimal-pad"
+              placeholder="lb"
+              placeholderTextColor="#9FB3C8"
+              style={styles.weight}
+              value={entry.weight === undefined ? "" : String(entry.weight)}
+              onChangeText={(value) => updateWeight(entry.id, value)}
+            />
+            <Text style={styles.lb}>lb</Text>
+          </View>
+        </View>
+      ))}
+      <Pressable
+        onPress={() => setEntries((current) => [...current, blank()])}
+        style={styles.add}
+      >
+        <Text style={styles.addText}>+ Add exercise</Text>
+      </Pressable>
+      <Text style={styles.label}>Notes</Text>
+      <TextInput
+        multiline
+        placeholder="Notes"
+        placeholderTextColor="#9FB3C8"
+        style={[styles.input, styles.notes]}
+        value={notes}
+        onChangeText={setNotes}
+      />
+      {feedback ? <Text style={styles.error}>{feedback}</Text> : null}
+      <Pressable
+        disabled={saving}
+        onPress={() => void save()}
+        style={styles.save}
+      >
+        <Text style={styles.saveText}>
+          {saving ? "Saving..." : "Save changes"}
+        </Text>
+      </Pressable>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  loading: {
+    alignItems: "center",
+    backgroundColor: "#F7FAFC",
+    flex: 1,
+    justifyContent: "center",
+  },
+  page: { backgroundColor: "#F7FAFC", flexGrow: 1, padding: 20 },
+  title: { color: "#102A43", fontSize: 30, fontWeight: "800" },
+  copy: { color: "#627D98", marginBottom: 20, marginTop: 7 },
+  label: { color: "#486581", fontSize: 14, fontWeight: "800", marginBottom: 8 },
+  groups: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 20 },
+  chip: {
+    backgroundColor: "#E6EEF3",
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  chipActive: { backgroundColor: "#16776A" },
+  chipText: { color: "#486581", fontWeight: "800" },
+  chipTextActive: { color: "#fff", fontWeight: "800" },
+  card: {
+    backgroundColor: "#fff",
+    borderColor: "#D9E2EC",
+    borderRadius: 15,
+    borderWidth: 1,
+    marginBottom: 12,
+    padding: 14,
+  },
+  cardHead: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  entryLabel: {
+    color: "#7B8794",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 1,
+  },
+  remove: { color: "#B42318", fontWeight: "800" },
+  input: {
+    backgroundColor: "#F7FAFC",
+    borderColor: "#D9E2EC",
+    borderRadius: 11,
+    borderWidth: 1,
+    color: "#102A43",
+    fontSize: 16,
+    padding: 12,
+  },
+  row: { alignItems: "center", flexDirection: "row", gap: 6, marginTop: 12 },
+  count: {
+    backgroundColor: "#F7FAFC",
+    borderColor: "#D9E2EC",
+    borderRadius: 9,
+    borderWidth: 1,
+    color: "#102A43",
+    padding: 9,
+    textAlign: "center",
+    width: 47,
+  },
+  times: { color: "#486581", fontSize: 18, fontWeight: "800" },
+  reps: { flex: 1, flexDirection: "row", flexWrap: "wrap", gap: 5 },
+  rep: {
+    backgroundColor: "#F7FAFC",
+    borderColor: "#D9E2EC",
+    borderRadius: 9,
+    borderWidth: 1,
+    color: "#102A43",
+    padding: 9,
+    textAlign: "center",
+    width: 45,
+  },
+  weight: {
+    backgroundColor: "#F7FAFC",
+    borderColor: "#D9E2EC",
+    borderRadius: 9,
+    borderWidth: 1,
+    color: "#102A43",
+    padding: 9,
+    textAlign: "center",
+    width: 56,
+  },
+  lb: { color: "#486581", fontSize: 13, fontWeight: "800" },
+  add: {
+    alignItems: "center",
+    borderColor: "#16776A",
+    borderRadius: 11,
+    borderStyle: "dashed",
+    borderWidth: 1,
+    marginBottom: 18,
+    padding: 13,
+  },
+  addText: { color: "#16776A", fontWeight: "800" },
+  notes: { minHeight: 80, textAlignVertical: "top" },
+  error: { color: "#B42318", marginTop: 10 },
+  save: {
+    alignItems: "center",
+    backgroundColor: "#16776A",
+    borderRadius: 13,
+    marginTop: 16,
+    minHeight: 54,
+    justifyContent: "center",
+  },
+  saveText: { color: "#fff", fontSize: 16, fontWeight: "800" },
+});

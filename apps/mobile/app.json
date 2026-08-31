@@ -8,7 +8,10 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.jalen.healthapp"
+      "bundleIdentifier": "com.jalen.healthapp",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -20,9 +23,27 @@
       "predictiveBackGestureEnabled": false
     },
     "scheme": "healthapp",
-    "plugins": ["expo-router", "expo-secure-store"],
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-sqlite",
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "HealthApp reads your weight, blood pressure, and workout data to keep your private health dashboard in sync.",
+          "NSHealthUpdateUsageDescription": false,
+          "background": false
+        }
+      ]
+    ],
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c6276085-8eb1-4598-9856-92fe6ecc8a5d"
+      }
     }
   }
 }

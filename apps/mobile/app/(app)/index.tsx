@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useFocusEffect, useRouter } from "expo-router";
 import {
   ActivityIndicator,
@@ -9,13 +9,14 @@ import {
   Text,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
+  deduplicateVitalSamples,
   latestSample,
   trendRanges,
   type TrendRange,
   type VitalSample,
-  type VitalSource,
 } from "../../src/domain/vitals";
 import { useAuth } from "../../src/features/auth/auth-provider";
 import {
@@ -23,9 +24,14 @@ import {
   type DailyGoals,
 } from "../../src/features/goals/repository";
 import {
+  importHealthKitData,
+  loadHealthKitSyncState,
+} from "../../src/features/healthkit/sync";
+import {
   getTodaySummary,
   type TodaySummary,
 } from "../../src/features/training/repository";
+import { NutritionProgressCard } from "../../src/features/training/nutrition-progress-card";
 import {
   BloodPressureTrendCard,
   TrendCard,
@@ -44,18 +50,19 @@ function formatDateTime(value: string): string {
     minute: "2-digit",
   }).format(new Date(value));
 }
-function progress(value: number, goal: number | undefined, unit = ""): string {
-  return goal === undefined ? `${value}${unit}` : `${value} / ${goal}${unit}`;
-}
+type UnifiedSyncResult = {
+  lastSyncedAt?: string;
+  message: string;
+};
 export default function SummaryScreen() {
   const router = useRouter();
   const { session, configured } = useAuth();
+  const insets = useSafeAreaInsets();
   const [samples, setSamples] = useState<VitalSample[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("");
   const [lastSyncedAt, setLastSyncedAt] = useState<string>();
-  const [sourceFilter, setSourceFilter] = useState<"all" | VitalSource>("all");
-  const [range, setRange] = useState<TrendRange>("M");
+  const [range, setRange] = useState<TrendRange>("W");
   const [summary, setSummary] = useState<TodaySummary>({
     calories: 0,
     protein: 0,
@@ -66,6 +73,63 @@ export default function SummaryScreen() {
     systolicGoal: 120,
     diastolicGoal: 80,
   });
+  const syncInFlight = useRef<Promise<UnifiedSyncResult> | undefined>(
+    undefined,
+  );
+  const synchronize = useCallback(
+    async (userId: string): Promise<UnifiedSyncResult> => {
+      if (!configured) {
+        return { message: "Saved on this device. Supabase is not configured." };
+      }
+      if (syncInFlight.current) return syncInFlight.current;
+
+      const operation = (async () => {
+        const healthKitState = await loadHealthKitSyncState(userId);
+        if (healthKitState.connected) {
+          try {
+            const imported = await importHealthKitData(userId);
+            const importedCount =
+              imported.weightCount + imported.bloodPressureCount;
+            return {
+              lastSyncedAt: imported.lastImportedAt,
+              message: importedCount
+                ? `Sync complete. Imported ${importedCount} Apple Health reading${importedCount === 1 ? "" : "s"}.`
+                : "Sync complete. Apple Health is up to date.",
+            };
+          } catch (error) {
+            const vitalResult = await syncVitals(userId);
+            const reason =
+              error instanceof Error
+                ? error.message
+                : "Could not import Apple Health data.";
+            return vitalResult.error
+              ? { message: `Sync waiting: ${vitalResult.error}` }
+              : {
+                  lastSyncedAt: vitalResult.lastSyncedAt,
+                  message: `Synced Supabase. Apple Health needs attention: ${reason}`,
+                };
+          }
+        }
+
+        const vitalResult = await syncVitals(userId);
+        return vitalResult.error
+          ? { message: `Sync waiting: ${vitalResult.error}` }
+          : {
+              lastSyncedAt: vitalResult.lastSyncedAt,
+              message: "Sync complete",
+            };
+      })();
+      syncInFlight.current = operation;
+      try {
+        return await operation;
+      } finally {
+        if (syncInFlight.current === operation) {
+          syncInFlight.current = undefined;
+        }
+      }
+    },
+    [configured],
+  );
   const load = useCallback(
     async (sync = false) => {
       if (!session) return;
@@ -73,11 +137,9 @@ export default function SummaryScreen() {
       const cached = await loadCachedVitals(session.user.id);
       setSamples(cached);
       setLastSyncedAt(await loadLastVitalSyncAt(session.user.id));
-      if (sync && configured) {
-        const result = await syncVitals(session.user.id);
-        setStatus(
-          result.error ? `Sync waiting: ${result.error}` : "Sync complete",
-        );
+      if (sync) {
+        const result = await synchronize(session.user.id);
+        setStatus(result.message);
         if (result.lastSyncedAt) setLastSyncedAt(result.lastSyncedAt);
         setSamples(await loadCachedVitals(session.user.id));
       }
@@ -95,16 +157,17 @@ export default function SummaryScreen() {
       }
       setLoading(false);
     },
-    [configured, session],
+    [session, synchronize],
   );
   useFocusEffect(
     useCallback(() => {
       void load(true);
     }, [load]),
   );
-  const weight = latestSample(samples, "weight");
-  const systolic = latestSample(samples, "systolic_bp");
-  const diastolic = latestSample(samples, "diastolic_bp");
+  const combinedSamples = deduplicateVitalSamples(samples);
+  const weight = latestSample(combinedSamples, "weight");
+  const systolic = latestSample(combinedSamples, "systolic_bp");
+  const diastolic = latestSample(combinedSamples, "diastolic_bp");
   const weightPounds = weight
     ? weight.unit === "kg"
       ? weight.value * 2.20462
@@ -113,13 +176,10 @@ export default function SummaryScreen() {
   const automaticProteinGoal =
     weightPounds === undefined ? undefined : Math.round(weightPounds * 0.7);
   const proteinGoal = goals.proteinGoal ?? automaticProteinGoal;
-  const filteredSamples =
-    sourceFilter === "all"
-      ? samples
-      : samples.filter((sample) => sample.source === sourceFilter);
   return (
     <ScrollView
-      contentContainerStyle={styles.page}
+      contentInsetAdjustmentBehavior="never"
+      contentContainerStyle={[styles.page, { paddingTop: insets.top + 20 }]}
       refreshControl={
         <RefreshControl
           refreshing={loading}
@@ -168,24 +228,20 @@ export default function SummaryScreen() {
           }
         />
       </View>
-      <View style={styles.metrics}>
-        <Metric
+      <View style={styles.nutritionMetrics}>
+        <NutritionProgressCard
           label="Calories"
+          goal={goals.calorieGoal}
           onPress={() => router.push("/(app)/nutrition")}
-          value={progress(summary.calories, goals.calorieGoal)}
-          detail="Today / daily goal"
+          unit="cal"
+          value={summary.calories}
         />
-        <Metric
+        <NutritionProgressCard
           label="Protein"
+          goal={proteinGoal}
           onPress={() => router.push("/(app)/nutrition")}
-          value={progress(Math.round(summary.protein), proteinGoal, "g")}
-          detail={
-            goals.proteinGoal !== undefined
-              ? "Today / set goal"
-              : proteinGoal === undefined
-                ? "Log weight to calculate target"
-                : "Today / 0.7 g per lb"
-          }
+          unit="g"
+          value={summary.protein}
         />
       </View>
       <View style={styles.activity}>
@@ -198,41 +254,6 @@ export default function SummaryScreen() {
           {summary.cardioMinutes
             ? `${summary.cardioMinutes} cardio min`
             : "No cardio logged"}
-        </Text>
-      </View>
-      <View style={styles.goalsCard}>
-        <Text style={styles.goalsTitle}>Your goals</Text>
-        <GoalLine
-          label="Calories"
-          value={
-            goals.calorieGoal === undefined
-              ? "Not set"
-              : `${goals.calorieGoal} cal/day`
-          }
-        />
-        <GoalLine
-          label="Weight"
-          value={
-            goals.weightGoalLb === undefined
-              ? "Not set"
-              : `${goals.weightGoalLb} lb`
-          }
-        />
-        <GoalLine
-          label="Blood pressure"
-          value={`${goals.systolicGoal ?? 120}/${goals.diastolicGoal ?? 80} mmHg`}
-        />
-        <GoalLine
-          label="Protein"
-          value={
-            proteinGoal === undefined
-              ? "Log weight to calculate"
-              : `${proteinGoal} g/day`
-          }
-        />
-        <Text style={styles.goalsHint}>
-          Change goals in Profile. Protein uses 0.7 g per lb of your latest
-          weight unless you set a custom protein target.
         </Text>
       </View>
       <View style={styles.controls}>
@@ -258,18 +279,6 @@ export default function SummaryScreen() {
           />
         ))}
       </View>
-      <View style={styles.filters}>
-        <SourceChip
-          label="All sources"
-          active={sourceFilter === "all"}
-          onPress={() => setSourceFilter("all")}
-        />
-        <SourceChip
-          label="Manual"
-          active={sourceFilter === "manual"}
-          onPress={() => setSourceFilter("manual")}
-        />
-      </View>
       {loading && samples.length === 0 ? (
         <ActivityIndicator color="#16776A" />
       ) : (
@@ -277,10 +286,10 @@ export default function SummaryScreen() {
           <TrendCard
             title="Weight"
             kind="weight"
-            samples={filteredSamples}
+            samples={combinedSamples}
             range={range}
           />
-          <BloodPressureTrendCard samples={filteredSamples} range={range} />
+          <BloodPressureTrendCard samples={combinedSamples} range={range} />
         </>
       )}
     </ScrollView>
@@ -310,36 +319,6 @@ function Metric({
       <Text style={styles.metricLabel}>{label}</Text>
       <Text style={styles.metricValue}>{value}</Text>
       {detail ? <Text style={styles.metricDetail}>{detail}</Text> : null}
-    </Pressable>
-  );
-}
-function GoalLine({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.goalLine}>
-      <Text style={styles.goalLabel}>{label}</Text>
-      <Text style={styles.goalValue}>{value}</Text>
-    </View>
-  );
-}
-function SourceChip({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-      onPress={onPress}
-      style={[styles.filterChip, active && styles.filterChipActive]}
-    >
-      <Text style={active ? styles.filterTextActive : styles.filterText}>
-        {label}
-      </Text>
     </Pressable>
   );
 }
@@ -377,6 +356,7 @@ const styles = StyleSheet.create({
   title: { color: "#102A43", fontSize: 32, fontWeight: "800", marginTop: 3 },
   copy: { color: "#627D98", marginBottom: 18, marginTop: 6 },
   metrics: { flexDirection: "row", gap: 12, marginBottom: 12 },
+  nutritionMetrics: { flexDirection: "row", gap: 12, marginBottom: 12 },
   metric: {
     backgroundColor: "#E6F7F3",
     borderRadius: 16,
@@ -400,31 +380,6 @@ const styles = StyleSheet.create({
     padding: 13,
   },
   activityText: { color: "#486581", fontSize: 13, fontWeight: "700" },
-  goalsCard: {
-    backgroundColor: "#fff",
-    borderColor: "#D9E2EC",
-    borderRadius: 16,
-    borderWidth: 1,
-    marginBottom: 22,
-    padding: 15,
-  },
-  goalsTitle: {
-    color: "#243B53",
-    fontSize: 17,
-    fontWeight: "800",
-    marginBottom: 7,
-  },
-  goalLine: {
-    alignItems: "center",
-    borderTopColor: "#E6EEF3",
-    borderTopWidth: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 9,
-  },
-  goalLabel: { color: "#486581", fontWeight: "700" },
-  goalValue: { color: "#102A43", fontWeight: "800" },
-  goalsHint: { color: "#627D98", fontSize: 12, lineHeight: 17, marginTop: 4 },
   controls: {
     alignItems: "center",
     flexDirection: "row",
@@ -436,15 +391,6 @@ const styles = StyleSheet.create({
   syncText: { color: "#16776A", fontWeight: "700" },
   syncTime: { color: "#7B8794", fontSize: 10, marginTop: 1 },
   filters: { flexDirection: "row", gap: 8, marginBottom: 12 },
-  filterChip: {
-    backgroundColor: "#E6EEF3",
-    borderRadius: 18,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  filterChipActive: { backgroundColor: "#16776A" },
-  filterText: { color: "#486581", fontSize: 12, fontWeight: "700" },
-  filterTextActive: { color: "#fff", fontSize: 12, fontWeight: "800" },
   rangeChip: {
     alignItems: "center",
     backgroundColor: "#E6EEF3",

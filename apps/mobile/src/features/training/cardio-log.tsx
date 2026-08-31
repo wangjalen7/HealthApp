@@ -38,9 +38,13 @@ const cardioStyles = StyleSheet.create({
   buttonDisabled: { opacity: 0.65 },
 });
 
-export function CardioLog() {
+export function CardioLog({
+  expandedByDefault = false,
+}: {
+  expandedByDefault?: boolean;
+}) {
   const { session } = useAuth();
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(expandedByDefault);
   const [activityType, setActivityType] =
     useState<CardioInput["activityType"]>();
   const [duration, setDuration] = useState("");

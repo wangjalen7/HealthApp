@@ -109,7 +109,7 @@ export async function getExerciseGuidance(
     .from("workout_sets")
     .select("session_id, weight, reps, weight_unit, set_number, created_at")
     .eq("user_id", userId)
-    .eq("exercise_name", exerciseName)
+    .ilike("exercise_name", exerciseName.trim())
     .gte("created_at", since.toISOString())
     .order("created_at", { ascending: false })
     .limit(100);
@@ -298,11 +298,13 @@ export type CardioInput = z.infer<typeof cardioSchema>;
 export type CardioHistoryEntry = {
   id: string;
   activityType: CardioInput["activityType"];
+  activityName?: string;
   durationMinutes: number;
   distanceMiles?: number;
   notes?: string;
   occurredAt: string;
-  source: "manual" | "strava";
+  source: "manual" | "strava" | "healthkit";
+  sourceName?: string;
 };
 
 export async function saveCardio(
@@ -314,6 +316,7 @@ export async function saveCardio(
     id: createId(),
     user_id: userId,
     activity_type: value.activityType,
+    activity_name: null,
     duration_minutes: value.durationMinutes,
     distance_miles: value.distanceMiles ?? null,
     notes: value.notes?.trim() || null,
@@ -329,21 +332,29 @@ export async function getCardioHistory(
   const { data, error } = await supabase
     .from("cardio_entries")
     .select(
-      "id, activity_type, duration_minutes, distance_miles, notes, occurred_at, source",
+      "id, activity_type, activity_name, duration_minutes, distance_miles, notes, occurred_at, source, source_name",
     )
     .eq("user_id", userId)
+    .is("deleted_at", null)
     .order("occurred_at", { ascending: false })
     .limit(100);
   if (error) throw new Error(error.message);
   return (data ?? []).map((entry) => ({
     id: entry.id,
     activityType: cardioSchema.shape.activityType.parse(entry.activity_type),
+    activityName: entry.activity_name ?? undefined,
     durationMinutes: Number(entry.duration_minutes),
     distanceMiles:
       entry.distance_miles === null ? undefined : Number(entry.distance_miles),
     notes: entry.notes ?? undefined,
     occurredAt: entry.occurred_at,
-    source: entry.source === "strava" ? "strava" : "manual",
+    source:
+      entry.source === "strava"
+        ? "strava"
+        : entry.source === "healthkit"
+          ? "healthkit"
+          : "manual",
+    sourceName: entry.source_name ?? undefined,
   }));
 }
 
@@ -354,7 +365,7 @@ export async function deleteCardio(
   const id = z.string().uuid().parse(cardioId);
   const { error } = await supabase
     .from("cardio_entries")
-    .delete()
+    .update({ deleted_at: new Date().toISOString() })
     .eq("user_id", userId)
     .eq("id", id);
   if (error) throw new Error(error.message);
@@ -367,21 +378,74 @@ const foodSchema = z.object({
   proteinGrams: z.number().min(0).max(1000),
 });
 export type FoodInput = z.infer<typeof foodSchema>;
+export type FoodHistoryEntry = FoodInput & {
+  id: string;
+  occurredAt: string;
+  source: "manual";
+};
+
+export async function saveMeal(
+  userId: string,
+  mealType: FoodInput["mealType"],
+  foods: Omit<FoodInput, "mealType">[],
+): Promise<void> {
+  const occurredAt = new Date().toISOString();
+  const values = foods.map((food) => foodSchema.parse({ ...food, mealType }));
+  if (!values.length) throw new Error("Add at least one food.");
+  const { error } = await supabase.from("nutrition_entries").insert(
+    values.map((value) => ({
+      id: createId(),
+      user_id: userId,
+      food_name: value.foodName,
+      meal_type: value.mealType,
+      calories: value.calories,
+      protein_grams: value.proteinGrams,
+      occurred_at: occurredAt,
+      source: "manual",
+    })),
+  );
+  if (error) throw new Error(error.message);
+}
+
 export async function saveFood(
   userId: string,
   input: FoodInput,
 ): Promise<void> {
   const value = foodSchema.parse(input);
-  const { error } = await supabase.from("nutrition_entries").insert({
-    id: createId(),
-    user_id: userId,
-    food_name: value.foodName,
-    meal_type: value.mealType,
-    calories: value.calories,
-    protein_grams: value.proteinGrams,
-    occurred_at: new Date().toISOString(),
+  await saveMeal(userId, value.mealType, [value]);
+}
+
+export async function getFoodHistory(
+  userId: string,
+): Promise<FoodHistoryEntry[]> {
+  const { data, error } = await supabase
+    .from("nutrition_entries")
+    .select("id, food_name, meal_type, calories, protein_grams, occurred_at")
+    .eq("user_id", userId)
+    .order("occurred_at", { ascending: false })
+    .limit(500);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((entry) => ({
+    id: String(entry.id),
+    foodName: String(entry.food_name),
+    mealType: foodSchema.shape.mealType.parse(entry.meal_type),
+    calories: Number(entry.calories),
+    proteinGrams: Number(entry.protein_grams),
+    occurredAt: String(entry.occurred_at),
     source: "manual",
-  });
+  }));
+}
+
+export async function deleteFood(
+  userId: string,
+  foodId: string,
+): Promise<void> {
+  const id = z.string().uuid().parse(foodId);
+  const { error } = await supabase
+    .from("nutrition_entries")
+    .delete()
+    .eq("user_id", userId)
+    .eq("id", id);
   if (error) throw new Error(error.message);
 }
 
@@ -409,6 +473,7 @@ export async function getTodaySummary(userId: string): Promise<TodaySummary> {
       .from("cardio_entries")
       .select("duration_minutes")
       .eq("user_id", userId)
+      .is("deleted_at", null)
       .gte("occurred_at", start.toISOString()),
   ]);
   if (food.error) throw new Error(food.error.message);

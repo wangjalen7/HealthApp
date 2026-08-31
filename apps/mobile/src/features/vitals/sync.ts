@@ -24,6 +24,8 @@ const remoteRow = (sample: VitalSample) => ({
   occurred_at: sample.occurredAt,
   correlation_id: sample.correlationId ?? null,
   source: sample.source,
+  external_id: sample.externalId ?? null,
+  source_name: sample.sourceName ?? null,
   created_at: sample.createdAt,
   deleted_at: sample.deletedAt ?? null,
 });
@@ -41,6 +43,8 @@ const localSample = (row: Record<string, unknown>): VitalSample => ({
   occurredAt: String(row.occurred_at),
   correlationId: row.correlation_id ? String(row.correlation_id) : undefined,
   source: readSource(row.source),
+  externalId: row.external_id ? String(row.external_id) : undefined,
+  sourceName: row.source_name ? String(row.source_name) : undefined,
   createdAt: String(row.created_at),
   deletedAt: row.deleted_at ? String(row.deleted_at) : undefined,
 });
@@ -60,9 +64,7 @@ export async function markVitalsDeleted(
   return tombstones;
 }
 
-export async function syncVitals(
-  userId: string,
-): Promise<{
+export async function syncVitals(userId: string): Promise<{
   synced: number;
   pending: number;
   lastSyncedAt?: string;

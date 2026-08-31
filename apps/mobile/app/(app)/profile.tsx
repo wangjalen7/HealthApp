@@ -16,6 +16,15 @@ import {
   saveDailyGoals,
   type DailyGoals,
 } from "../../src/features/goals/repository";
+import {
+  connectHealthKit,
+  healthKitAvailability,
+  loadHealthKitSyncState,
+} from "../../src/features/healthkit/sync";
+import type {
+  HealthKitAvailability,
+  HealthKitSyncState,
+} from "../../src/features/healthkit/types";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -29,6 +38,15 @@ export default function ProfileScreen() {
   const [systolicGoal, setSystolicGoal] = useState("120");
   const [diastolicGoal, setDiastolicGoal] = useState("80");
   const [savingGoals, setSavingGoals] = useState(false);
+  const [healthKit, setHealthKit] = useState<HealthKitAvailability>({
+    available: false,
+  });
+  const [healthKitState, setHealthKitState] = useState<HealthKitSyncState>({
+    connected: false,
+    anchors: {},
+  });
+  const [healthKitBusy, setHealthKitBusy] = useState(false);
+  const [healthKitFeedback, setHealthKitFeedback] = useState("");
   const loadGoals = useCallback(async () => {
     if (!session) return;
     setLoadingGoals(true);
@@ -53,11 +71,42 @@ export default function ProfileScreen() {
       setLoadingGoals(false);
     }
   }, [session]);
+  const loadAppleHealth = useCallback(async () => {
+    const availability = await healthKitAvailability();
+    setHealthKit(availability);
+    if (session) {
+      setHealthKitState(await loadHealthKitSyncState(session.user.id));
+    }
+  }, [session]);
   useFocusEffect(
     useCallback(() => {
       void loadGoals();
-    }, [loadGoals]),
+      void loadAppleHealth();
+    }, [loadAppleHealth, loadGoals]),
   );
+  async function connectAppleHealth() {
+    if (!session)
+      return setHealthKitFeedback(
+        "Please sign in before connecting Apple Health.",
+      );
+    setHealthKitBusy(true);
+    setHealthKitFeedback("");
+    try {
+      const connectedState = await connectHealthKit(session.user.id);
+      setHealthKitState(connectedState);
+      setHealthKitFeedback(
+        "Apple Health connected. Summary will include it in automatic syncs.",
+      );
+    } catch (error) {
+      setHealthKitFeedback(
+        error instanceof Error
+          ? error.message
+          : "Could not connect Apple Health.",
+      );
+    } finally {
+      setHealthKitBusy(false);
+    }
+  }
   async function saveGoals() {
     if (!session) return;
     setSavingGoals(true);
@@ -71,9 +120,7 @@ export default function ProfileScreen() {
         diastolicGoal,
       );
       await saveDailyGoals(session.user.id, goals);
-      setStatus(
-        "Goals saved. A blank protein goal uses 0.7 g per lb of your latest weight.",
-      );
+      setStatus("Goals saved.");
     } catch (error) {
       setStatus(
         error instanceof Error ? error.message : "Could not save goals.",
@@ -95,7 +142,10 @@ export default function ProfileScreen() {
     }
   }
   return (
-    <ScrollView contentContainerStyle={styles.page}>
+    <ScrollView
+      contentInsetAdjustmentBehavior="automatic"
+      contentContainerStyle={styles.page}
+    >
       <Text style={styles.title}>Profile</Text>
       <View style={styles.card}>
         <Text style={styles.label}>Signed in as</Text>
@@ -159,6 +209,49 @@ export default function ProfileScreen() {
             </Pressable>
           </>
         )}
+      </View>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Apple Health</Text>
+        <Text style={styles.copy}>
+          Connect once to let Summary automatically import your weight and
+          blood-pressure readings. Summary Sync now remains available whenever
+          you want to force a sync.
+        </Text>
+        <Text style={styles.healthKitStatus}>
+          {healthKitState.connected
+            ? healthKitState.lastImportedAt
+              ? `Connected · last synced ${new Date(healthKitState.lastImportedAt).toLocaleString()}`
+              : "Connected · Summary will sync Apple Health automatically."
+            : (healthKit.reason ?? "Ready to connect on this iPhone.")}
+        </Text>
+        {healthKitFeedback ? (
+          <Text
+            style={
+              healthKitFeedback.startsWith("Apple Health connected")
+                ? styles.success
+                : styles.error
+            }
+          >
+            {healthKitFeedback}
+          </Text>
+        ) : null}
+        {!healthKitState.connected ? (
+          <Pressable
+            accessibilityRole="button"
+            disabled={!healthKit.available || healthKitBusy}
+            onPress={() => void connectAppleHealth()}
+            style={[
+              styles.saveButton,
+              (!healthKit.available || healthKitBusy) && styles.disabledButton,
+            ]}
+          >
+            {healthKitBusy ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.saveText}>Connect Apple Health</Text>
+            )}
+          </Pressable>
+        ) : null}
       </View>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Privacy first</Text>
@@ -282,6 +375,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   saveText: { color: "#fff", fontWeight: "800" },
+  healthKitStatus: {
+    color: "#7B8794",
+    fontSize: 12,
+    marginBottom: 12,
+    marginTop: -4,
+  },
+  disabledButton: { opacity: 0.65 },
   success: { color: "#16776A", fontWeight: "700", marginBottom: 6 },
   error: { color: "#B42318", marginBottom: 6 },
   button: {

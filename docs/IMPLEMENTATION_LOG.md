@@ -50,3 +50,83 @@
 - 2026-08-29: Applied `202608290007_daily_protein_goal.sql`. Summary cards now open their matching detail screen; Exercise History merges cardio and lifts by timestamp, and individual cardio cards have a confirmed delete action. Profile accepts an optional protein target and otherwise uses the automatic 0.7 g/lb target. Verified with the full check suite (6/6 tests) and a web export.
 - 2026-08-29: Added confirmed deletion to every History entry: workouts, cardio, weight, and blood-pressure readings. Vital deletion uses a queued soft-delete tombstone so it remains correct offline and includes all values associated with a single BP measurement. Verified with the full check suite (6/6 tests) and a web export.
 - 2026-08-29: Replaced platform alert dialogs with an in-app History deletion sheet, so confirmation is visible and usable in browser preview and mobile. Verified with the full check suite (6/6 tests) and a web export.
+
+## 2026-08-30 — Reliability and mobile readability pass
+
+- Fixed exercise-history retrieval so an explicit 0 lb bodyweight performance remains valid, names match without case sensitivity, and a stale blur/partial-name request cannot overwrite the selected saved exercise. Search now also matches punctuation variants such as `pullups` to `Pull-ups`.
+- Rebuilt the weight and blood-pressure plots with labeled y-axis values, inclusive non-daily date labels, larger tappable points, and an exact reading/timestamp inspector. The W/M endpoint no longer displays the next day's exclusive midnight.
+- Removed the duplicate Summary goals card, kept goal context in the top metrics, and made the six-item bottom tab bar safe-area aware with compact labels.
+- Replaced alert-callback-dependent signup/reset success behavior with an explicit check-email screen and in-app authentication errors, so browser preview and mobile share the same route behavior.
+- Simplified goal-save feedback to `Goals saved.`; the automatic protein explanation remains beside the setting where it is relevant.
+- The user observed that a second account does not display the first account's data, confirming basic read isolation. Direct cross-user update/delete policy checks remain before the RLS roadmap gate is complete.
+- Verified with `npm run check` (lint, strict TypeScript, 12/12 tests), `git diff --check`, and `npx expo export --platform web`.
+
+## 2026-08-30 — EAS and Apple signing foundation
+
+- Linked `@jalenwang/healthapp`, installed Expo dev client, configured development/preview/production EAS profiles, and registered the app as `com.jalen.healthapp`.
+- Apple Developer enrollment, the managed distribution certificate, ad hoc provisioning profile, and the physical development iPhone are active. No credentials need to be regenerated for the retry.
+- Diagnosed the pre-upload failure by reproducing EAS's exact shallow local clone: the apostrophe in `Jalen's Ultimate Health App` breaks Git-for-Windows quoting for the generated `file:///` clone URL.
+- Validated Expo's supported no-VCS packaging workaround with `build:inspect`; it includes the workspace root lockfile and mobile EAS configuration while excluding the ignored mobile `.env`.
+- Updated runtime configuration to accept EAS's `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` while preserving support for the legacy anon-key variable name.
+
+## 2026-08-30 — HealthKit read-only import foundation
+
+- Standardized local and EAS Supabase variables on the canonical HealthHub project after diagnosing an accidental second-project override.
+- Added `@kingstinct/react-native-healthkit` 14.1 with Nitro Modules, a read-only HealthKit entitlement, and a focused Apple privacy explanation. No HealthKit write or background-delivery access is requested.
+- Added permission-gated, one-year foreground imports for body mass, paired blood pressure correlations, and supported cardio workouts. Strength workouts remain in Apple Health because they do not include the exercise/set detail required by the lifting model.
+- Added local per-user HealthKit anchors, deterministic UUIDv5 record identities, imported-deletion handling, source app/device provenance, and tombstone preservation so sync is incremental and retry-safe.
+- Applied `202608300001_healthkit_imports.sql` to HealthHub. It adds external IDs/source labels, HealthKit cardio support, durable cardio tombstones, and per-user uniqueness indexes under the existing RLS policies.
+- Added an Apple Health card to Health Log, an Apple Health Summary filter, and source labels in History. Combined graphs deduplicate identical manual/imported readings within five minutes while source-specific history remains available.
+- Pinned React 19.2.3 at both workspace levels after Expo Doctor found npm had hoisted React 19.2.8. Verification passes: lint, strict TypeScript, 16/16 tests, Expo Doctor 21/21, web export, Expo entitlement introspection, and a clean remote migration dry run.
+- EAS enabled the HealthKit capability, regenerated the registered-iPhone provisioning profile, and successfully produced development build `96ed5eb2-ec55-4cc0-9c40-308e1b84d998`.
+- During device validation, Metro reported a missing `NitroModules` runtime. The successful build's Xcode log confirms that `NitroModules` and `ReactNativeHealthkit` were both compiled and linked with `RCT_NEW_ARCH_ENABLED=1`, identifying an older installed client or Expo Go as the mismatch. Added a pre-import native-module guard and documented a clean installation of the exact EAS build.
+- After the correct client reached HealthKit, the first Connect action terminated natively. Split permission authorization from data import so no query runs during the permission interaction, and serialized the three anchored reads instead of invoking them concurrently. This is a Metro-delivered TypeScript change and does not require another native build; a repeated native termination now has a precisely isolated Connect or Sync phase for crash-report analysis.
+- The exported iOS 26.6.1 crash report localized the repeated termination to `CoreModule.requestAuthorization`, with `EXC_BREAKPOINT`/`SIGTRAP` while an Objective-C `NSException` was being raised. Verified the signed IPA contains `NSHealthShareUsageDescription`, then removed the blood-pressure correlation type from the permission set while retaining its systolic and diastolic quantity types. A regression test prevents reintroducing that interdependent authorization combination; correlation reads remain unchanged.
+
+## 2026-08-30 — Combined sources, meal builder, and mobile navigation pass
+
+- Removed the tab navigator's duplicate native headers and enabled automatic iOS scroll insets on the affected screens, eliminating the blank top area while preserving status-bar safety.
+- Removed Summary's source selector. Weight and BP charts now always use the deduplicated combination of manual and Apple readings; History continues to expose source provenance per record.
+- Split Exercise into Lifting and Cardio subsections so each logger has a focused surface without adding another bottom-navigation item.
+- Replaced the single-food form with a meal-first, multi-food builder. Each row supports add/remove, search against only the current user's saved foods, and calorie/protein entry; one save gives the meal's items a shared timestamp.
+- Added Food History grouped by local date and meal, including daily calorie/protein totals and confirmation-based deletion for each food item.
+- Replaced timestamp-shaped fallback IDs with valid UUIDv4 generation on native and web runtimes, fixing PostgreSQL `invalid input syntax for type uuid` failures.
+- Reduced Apple Health permissions and import queries to weight and paired BP only. Suppressed the bridge-only `SourceProxy` label while retaining meaningful source-app names.
+- Verified lint, strict TypeScript, 18/18 tests, `git diff --check`, and a successful Expo web export.
+
+## 2026-08-30 — Durable lifting drafts
+
+- Added a validated, user-scoped AsyncStorage workout draft. Lifting changes save continuously, restore after tab navigation or an app restart, and are flushed again when the app becomes inactive.
+- Incomplete drafts stay on the current device and do not enter Supabase or Exercise History. A successful Finish workout save clears the local draft only after the completed workout is written remotely.
+- Updated every Food History entry to use the same bordered Delete button and existing in-app confirmation sheet as workout, cardio, weight, and BP history entries.
+- Verified with `npm run check`, `git diff --check`, and 20/20 tests.
+
+## 2026-08-30 — Returning-tab top inset correction
+
+- Diagnosed the Summary and History top gap as iOS reapplying `ScrollView` automatic content insets after a tab regained focus. Both screens now explicitly use `contentInsetAdjustmentBehavior="never"` and a fixed Safe Area top inset, matching the other tabs on first load and after tab navigation without a duplicate header-sized gap.
+- Set the shared tab scene background to the app surface color. This makes the safe-area/status-bar region consistent across Summary, History, Exercise, Health Log, Food, and Profile; loading data no longer changes its appearance.
+
+## 2026-08-30 — Unified Summary and Apple Health sync
+
+- Moved the one-time Apple Health connection and status card from Health Log to Profile. Health Log now focuses solely on manual vital entry.
+- Summary now uses a single guarded sync path: on tab focus it syncs Supabase and, for a connected iPhone user, imports Apple Health weight/BP in the same operation. The existing **Sync now** control forces that identical combined operation.
+- Removed the standalone Apple Health sync action so connected users do not need to run two different sync controls. A failure to import Apple Health still allows the ordinary Supabase vital sync to complete and reports a clear status.
+- Verified `npm run check`, `git diff --check`, and a successful Expo web export.
+
+## 2026-08-30 — Focused mobile creation flow
+
+- Replaced the six-tab bar with Summary, a raised center Create control, History, and Profile. The center control presents a native Expo Router form sheet with Food, Health, Exercise, and Weight choices, then routes directly to the selected logger.
+- Made Weight and Blood pressure distinct logging surfaces. Both continue to write the same user-owned `vital_samples` records and use the existing offline outbox/Supabase sync, so no new table or migration is needed.
+- Verified lint, strict TypeScript, 21/21 tests, `git diff --check`, and a successful iOS bundle export.
+
+## 2026-08-30 — Summary nutrition and trend refinement
+
+- Replaced the text-only Summary calories/protein cards with compact circular progress rings that retain current and goal numbers and open Food when tapped.
+- Changed the initial Summary trend range to weekly. Chart-point inspection now toggles: one tap opens the value/time panel and another tap on the same point closes it.
+- Added a pure regression test for the point-selection toggle. Verified lint, strict TypeScript, 21/21 tests, and `git diff --check`.
+
+## 2026-08-30 — Centered creation and future-care placeholders
+
+- Reordered the five visible tabs to Summary, History, centered Create, AI Coach, and Profile. Reminders is available as a Create-sheet choice, which preserves the clean permanent navigation while keeping medication/supplement/BP prompt setup discoverable.
+- Added clear Reminders and AI Coach placeholder pages. Reminders previews supplement/medication completion and BP prompts without scheduling notifications yet; AI Coach documents the future consented, wellness-only direction without connecting any AI service.
+- Verified lint, strict TypeScript, 20/20 tests, and `git diff --check`.
