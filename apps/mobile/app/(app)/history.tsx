@@ -14,18 +14,32 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { type VitalSample } from "../../src/domain/vitals";
 import { useAuth } from "../../src/features/auth/auth-provider";
+import { mlToFluidOunces } from "../../src/features/hydration/model";
+import {
+  getHydrationHistory,
+  type HydrationHistoryEntry,
+} from "../../src/features/hydration/repository";
+import { foodAmountDescription } from "../../src/features/nutrition/model";
+import {
+  dailyNutritionTotals,
+  type DailyNutritionTotals,
+  type OptionalNutritionTotal,
+} from "../../src/features/nutrition/history-totals";
+import {
+  deleteFood,
+  getFoodHistory,
+  type FoodHistoryEntry,
+} from "../../src/features/nutrition/repository";
 import {
   deleteCardio,
-  deleteFood,
   deleteWorkout,
   getCardioHistory,
-  getFoodHistory,
   getWorkoutHistory,
   type CardioHistoryEntry,
-  type FoodHistoryEntry,
   type WorkoutHistorySession,
   type WorkoutHistorySet,
 } from "../../src/features/training/repository";
+import { workoutSetBreakdown } from "../../src/features/training/workout-history";
 import {
   loadCachedVitals,
   markVitalsDeleted,
@@ -78,6 +92,11 @@ function muscleGroups(session: WorkoutHistorySession): string {
   return session.muscleGroups.length
     ? session.muscleGroups.join(", ")
     : session.title.replace(/\s+lift$/i, "") || "Mixed";
+}
+function muscleGroupSetBreakdown(session: WorkoutHistorySession): string {
+  return workoutSetBreakdown(session.sets, session.muscleGroups)
+    .map(({ muscleGroup, setCount }) => `${muscleGroup} ${setCount}`)
+    .join(" · ");
 }
 function cleanSourceName(value: string | undefined): string | undefined {
   const sourceName = value?.trim();
@@ -136,6 +155,7 @@ export default function HistoryScreen() {
   const [history, setHistory] = useState<WorkoutHistorySession[]>([]);
   const [cardio, setCardio] = useState<CardioHistoryEntry[]>([]);
   const [food, setFood] = useState<FoodHistoryEntry[]>([]);
+  const [hydration, setHydration] = useState<HydrationHistoryEntry[]>([]);
   const [vitals, setVitals] = useState<VitalSample[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -145,16 +165,18 @@ export default function HistoryScreen() {
     setLoading(true);
     try {
       if (configured) await syncVitals(session.user.id);
-      const [workouts, cardioEntries, foodEntries, readings] =
+      const [workouts, cardioEntries, foodEntries, hydrationEntries, readings] =
         await Promise.all([
           getWorkoutHistory(session.user.id),
           getCardioHistory(session.user.id),
           getFoodHistory(session.user.id),
+          getHydrationHistory(session.user.id),
           loadCachedVitals(session.user.id),
         ]);
       setHistory(workouts);
       setCardio(cardioEntries);
       setFood(foodEntries);
+      setHydration(hydrationEntries);
       setVitals(readings);
       setError("");
     } catch (caught) {
@@ -276,11 +298,11 @@ export default function HistoryScreen() {
     >
       <Text style={styles.title}>History</Text>
       <Text style={styles.copy}>
-        Your complete exercise and health-record history.
+        Your complete workout and health-record history.
       </Text>
       <View style={styles.tabs}>
         <HistoryTab
-          label="Exercise"
+          label="Workout"
           active={view === "exercise"}
           onPress={() => setView("exercise")}
         />
@@ -304,6 +326,7 @@ export default function HistoryScreen() {
       !history.length &&
       !cardio.length &&
       !food.length &&
+      !hydration.length &&
       !vitals.length ? (
         <ActivityIndicator color="#16776A" />
       ) : null}
@@ -341,6 +364,7 @@ export default function HistoryScreen() {
       {view === "food" ? (
         <FoodHistory
           entries={food}
+          hydration={hydration}
           loading={loading}
           onDelete={confirmRemoveFood}
         />
@@ -453,8 +477,8 @@ function ExerciseHistory({
   if (!loading && !timeline.length)
     return (
       <Empty
-        title="No exercise saved yet"
-        copy="Completed lifts and cardio activities will appear here."
+        title="No workouts saved yet"
+        copy="Completed lifting and cardio activities will appear here."
       />
     );
   return (
@@ -493,21 +517,39 @@ function WorkoutHistoryCard({
           <Text style={styles.group}>
             Muscle groups: {muscleGroups(session)}
           </Text>
+          <Text style={styles.groupBreakdown}>
+            Sets by muscle: {muscleGroupSetBreakdown(session)}
+          </Text>
         </View>
         <Text style={styles.setTotal}>{session.sets.length} sets</Text>
       </View>
       {groupSets(session.sets).map((exercise) => (
         <View key={exercise.name} style={styles.exercise}>
-          <Text style={styles.exerciseName}>{exercise.name}</Text>
+          <View style={styles.exerciseSummary}>
+            <Text style={styles.exerciseName}>{exercise.name}</Text>
+            <Text style={styles.exerciseSetTotal}>
+              {exercise.sets.length}{" "}
+              {exercise.sets.length === 1 ? "set" : "sets"}
+            </Text>
+          </View>
           <Text style={styles.detail}>
-            {exercise.sets.length} x{" "}
-            {exercise.sets.map((set) => set.reps).join(", ")} at{" "}
+            Reps {exercise.sets.map((set) => set.reps).join(", ")} at{" "}
             {exercise.sets[0].weight} {exercise.sets[0].unit}
+          </Text>
+          <Text style={styles.exerciseGroup}>
+            Muscle group:{" "}
+            {exercise.sets[0].muscleGroup ??
+              (session.muscleGroups.length === 1
+                ? session.muscleGroups[0]
+                : "Unassigned")}
           </Text>
         </View>
       ))}
       {session.notes ? (
         <Text style={styles.notes}>Notes: {session.notes}</Text>
+      ) : null}
+      {session.location ? (
+        <Text style={styles.location}>Gym: {session.location}</Text>
       ) : null}
       <View style={styles.cardActions}>
         <Pressable
@@ -564,17 +606,33 @@ function CardioHistoryCard({
       {entry.notes ? (
         <Text style={styles.notes}>Notes: {entry.notes}</Text>
       ) : null}
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => onDelete(entry.id)}
-        style={styles.deleteButton}
-      >
-        <Text style={styles.deleteText}>
-          {entry.source === "healthkit"
-            ? "Remove from HealthApp"
-            : "Delete cardio"}
-        </Text>
-      </Pressable>
+      <View style={styles.cardActions}>
+        {entry.source === "manual" ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() =>
+              router.push({
+                pathname: "/(app)/history/edit",
+                params: { id: entry.id, kind: "cardio" },
+              })
+            }
+            style={styles.editButton}
+          >
+            <Text style={styles.editText}>Edit cardio</Text>
+          </Pressable>
+        ) : null}
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => onDelete(entry.id)}
+          style={[styles.deleteButton, styles.compactDeleteButton]}
+        >
+          <Text style={styles.deleteText}>
+            {entry.source === "healthkit"
+              ? "Remove from HealthApp"
+              : "Delete cardio"}
+          </Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -608,13 +666,29 @@ function BloodPressureHistory({
             {formatDateTime(systolic.occurredAt)}
           </Text>
           <Text style={styles.readingSource}>{vitalSourceName(systolic)}</Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => onDelete({ systolic, diastolic })}
-            style={styles.deleteButton}
-          >
-            <Text style={styles.deleteText}>Delete reading</Text>
-          </Pressable>
+          <View style={styles.cardActions}>
+            {systolic.source === "manual" && diastolic?.source === "manual" ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() =>
+                  router.push({
+                    pathname: "/(app)/history/edit",
+                    params: { id: systolic.id, kind: "blood_pressure" },
+                  })
+                }
+                style={styles.editButton}
+              >
+                <Text style={styles.editText}>Edit reading</Text>
+              </Pressable>
+            ) : null}
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => onDelete({ systolic, diastolic })}
+              style={[styles.deleteButton, styles.compactDeleteButton]}
+            >
+              <Text style={styles.deleteText}>Delete reading</Text>
+            </Pressable>
+          </View>
         </View>
       ))}
     </>
@@ -647,13 +721,29 @@ function WeightHistory({
             {formatDateTime(reading.occurredAt)}
           </Text>
           <Text style={styles.readingSource}>{vitalSourceName(reading)}</Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => onDelete(reading)}
-            style={styles.deleteButton}
-          >
-            <Text style={styles.deleteText}>Delete reading</Text>
-          </Pressable>
+          <View style={styles.cardActions}>
+            {reading.source === "manual" ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() =>
+                  router.push({
+                    pathname: "/(app)/history/edit",
+                    params: { id: reading.id, kind: "weight" },
+                  })
+                }
+                style={styles.editButton}
+              >
+                <Text style={styles.editText}>Edit reading</Text>
+              </Pressable>
+            ) : null}
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => onDelete(reading)}
+              style={[styles.deleteButton, styles.compactDeleteButton]}
+            >
+              <Text style={styles.deleteText}>Delete reading</Text>
+            </Pressable>
+          </View>
         </View>
       ))}
     </>
@@ -663,36 +753,60 @@ type FoodHistoryDay = {
   key: string;
   occurredAt: string;
   entries: FoodHistoryEntry[];
+  waterMl: number;
 };
-function groupFoodByDay(entries: FoodHistoryEntry[]): FoodHistoryDay[] {
+function localHistoryDateKey(value: string): string {
+  const date = new Date(value);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+function groupFoodByDay(
+  entries: FoodHistoryEntry[],
+  hydration: HydrationHistoryEntry[],
+): FoodHistoryDay[] {
   const days = new Map<string, FoodHistoryDay>();
   for (const entry of entries) {
-    const date = new Date(entry.occurredAt);
-    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    const key = localHistoryDateKey(entry.occurredAt);
     const day = days.get(key) ?? {
       key,
       occurredAt: entry.occurredAt,
       entries: [],
+      waterMl: 0,
     };
     day.entries.push(entry);
     days.set(key, day);
   }
-  return [...days.values()];
+  for (const entry of hydration) {
+    const key = localHistoryDateKey(entry.occurredAt);
+    const day = days.get(key) ?? {
+      key,
+      occurredAt: entry.occurredAt,
+      entries: [],
+      waterMl: 0,
+    };
+    day.waterMl += entry.volumeMl;
+    days.set(key, day);
+  }
+  return [...days.values()].sort((left, right) =>
+    right.key.localeCompare(left.key),
+  );
 }
 function FoodHistory({
   entries,
+  hydration,
   loading,
   onDelete,
 }: {
   entries: FoodHistoryEntry[];
+  hydration: HydrationHistoryEntry[];
   loading: boolean;
   onDelete: (foodId: string) => void;
 }) {
-  if (!loading && !entries.length)
+  const [selectedDay, setSelectedDay] = useState<FoodHistoryDay>();
+  if (!loading && !entries.length && !hydration.length)
     return (
       <Empty
-        title="No meals saved yet"
-        copy="Foods logged from the Food tab will be grouped here by date and meal."
+        title="No food or water saved yet"
+        copy="Foods and daily hydration totals will be grouped here by date."
       />
     );
   const mealOrder: FoodHistoryEntry["mealType"][] = [
@@ -704,15 +818,8 @@ function FoodHistory({
   ];
   return (
     <>
-      {groupFoodByDay(entries).map((day) => {
-        const calories = day.entries.reduce(
-          (total, entry) => total + entry.calories,
-          0,
-        );
-        const protein = day.entries.reduce(
-          (total, entry) => total + entry.proteinGrams,
-          0,
-        );
+      {groupFoodByDay(entries, hydration).map((day) => {
+        const totals = dailyNutritionTotals(day.entries, day.waterMl);
         return (
           <View key={day.key} style={styles.card}>
             <View style={styles.cardHeader}>
@@ -723,9 +830,25 @@ function FoodHistory({
                   year: "numeric",
                 }).format(new Date(day.occurredAt))}
               </Text>
-              <Text style={styles.setTotal}>
-                {calories} cal · {Math.round(protein * 10) / 10}g protein
-              </Text>
+              <View style={styles.dayTotals}>
+                <Text style={styles.setTotal}>
+                  {totals.calories} cal ·{" "}
+                  {Math.round(totals.proteinGrams * 10) / 10}g protein
+                </Text>
+                <Text style={styles.waterTotal}>
+                  {mlToFluidOunces(day.waterMl)} fl oz water
+                </Text>
+                <Pressable
+                  accessibilityLabel={`View full totals for ${day.key}`}
+                  accessibilityRole="button"
+                  onPress={() => setSelectedDay(day)}
+                  style={styles.dailyTotalsButton}
+                >
+                  <Text style={styles.dailyTotalsButtonText}>
+                    View daily totals
+                  </Text>
+                </Pressable>
+              </View>
             </View>
             {mealOrder.map((meal) => {
               const foods = day.entries.filter(
@@ -738,7 +861,24 @@ function FoodHistory({
                   {foods.map((food) => (
                     <View key={food.id} style={styles.foodRow}>
                       <View style={styles.foodDetails}>
-                        <Text style={styles.exerciseName}>{food.foodName}</Text>
+                        <View style={styles.foodHistoryHeader}>
+                          <View style={styles.foodDetails}>
+                            <Text style={styles.exerciseName}>
+                              {food.foodName}
+                            </Text>
+                            {food.brand ? (
+                              <Text style={styles.foodBrand}>{food.brand}</Text>
+                            ) : null}
+                          </View>
+                        </View>
+                        <Text style={styles.detail}>
+                          {foodAmountDescription(
+                            food.amount,
+                            food.unit,
+                            food.householdUnit,
+                            food.servingLabel,
+                          )}
+                        </Text>
                         <Text style={styles.detail}>
                           {food.calories} cal · {food.proteinGrams}g protein ·{" "}
                           {new Intl.DateTimeFormat(undefined, {
@@ -746,14 +886,46 @@ function FoodHistory({
                             minute: "2-digit",
                           }).format(new Date(food.occurredAt))}
                         </Text>
-                        <Pressable
-                          accessibilityLabel={`Delete ${food.foodName}`}
-                          accessibilityRole="button"
-                          onPress={() => onDelete(food.id)}
-                          style={styles.deleteButton}
-                        >
-                          <Text style={styles.deleteText}>Delete food</Text>
-                        </Pressable>
+                        {food.carbohydrateGrams !== undefined ? (
+                          <Text style={styles.foodFacts}>
+                            Carbs {food.carbohydrateGrams}g · Fat{" "}
+                            {food.fatGrams ?? 0}g
+                            {food.fiberGrams !== undefined
+                              ? ` · Fiber ${food.fiberGrams}g`
+                              : ""}
+                          </Text>
+                        ) : null}
+                        {food.note ? (
+                          <Text style={styles.foodNote}>Note: {food.note}</Text>
+                        ) : null}
+                        <View style={styles.cardActions}>
+                          {food.source !== "import" ? (
+                            <Pressable
+                              accessibilityLabel={`Edit ${food.foodName}`}
+                              accessibilityRole="button"
+                              onPress={() =>
+                                router.push({
+                                  pathname: "/(app)/history/edit",
+                                  params: { id: food.id, kind: "food" },
+                                })
+                              }
+                              style={styles.editButton}
+                            >
+                              <Text style={styles.editText}>Edit food</Text>
+                            </Pressable>
+                          ) : null}
+                          <Pressable
+                            accessibilityLabel={`Delete ${food.foodName}`}
+                            accessibilityRole="button"
+                            onPress={() => onDelete(food.id)}
+                            style={[
+                              styles.deleteButton,
+                              styles.compactDeleteButton,
+                            ]}
+                          >
+                            <Text style={styles.deleteText}>Delete food</Text>
+                          </Pressable>
+                        </View>
                       </View>
                     </View>
                   ))}
@@ -763,7 +935,127 @@ function FoodHistory({
           </View>
         );
       })}
+      <DailyTotalsModal
+        day={selectedDay}
+        onClose={() => setSelectedDay(undefined)}
+      />
     </>
+  );
+}
+
+function roundedTotal(value: number, digits = 1): string {
+  const multiplier = 10 ** digits;
+  return String(Math.round(value * multiplier) / multiplier);
+}
+
+function optionalTotalLabel(
+  total: OptionalNutritionTotal,
+  unit: string,
+): string {
+  if (!total.hasAny) return "Not available";
+  const value = `${roundedTotal(total.value)} ${unit}`;
+  return total.complete ? value : `${value} recorded`;
+}
+
+function DailyTotalsModal({
+  day,
+  onClose,
+}: {
+  day?: FoodHistoryDay;
+  onClose: () => void;
+}) {
+  const totals: DailyNutritionTotals | undefined = day
+    ? dailyNutritionTotals(day.entries, day.waterMl)
+    : undefined;
+  const incomplete = totals
+    ? [
+        totals.carbohydrateGrams,
+        totals.fatGrams,
+        totals.fiberGrams,
+        totals.sugarGrams,
+        totals.sodiumMg,
+      ].some((total) => !total.complete)
+    : false;
+  return (
+    <Modal
+      animationType="fade"
+      onRequestClose={onClose}
+      transparent
+      visible={Boolean(day)}
+    >
+      <View style={styles.modalBackdrop}>
+        <View accessibilityViewIsModal style={styles.modalCard}>
+          <Text style={styles.modalTitle}>Daily totals</Text>
+          <Text style={styles.modalCopy}>
+            {day
+              ? new Intl.DateTimeFormat(undefined, {
+                  month: "long",
+                  day: "numeric",
+                  year: "numeric",
+                }).format(new Date(day.occurredAt))
+              : ""}
+          </Text>
+          {totals ? (
+            <View style={styles.dailyTotalsList}>
+              <DailyTotalRow
+                label="Calories"
+                value={`${totals.calories} cal`}
+              />
+              <DailyTotalRow
+                label="Protein"
+                value={`${roundedTotal(totals.proteinGrams)} g`}
+              />
+              <DailyTotalRow
+                label="Water / fluids"
+                value={`${mlToFluidOunces(totals.waterMl)} fl oz`}
+              />
+              <DailyTotalRow
+                label="Carbohydrates"
+                value={optionalTotalLabel(totals.carbohydrateGrams, "g")}
+              />
+              <DailyTotalRow
+                label="Fat"
+                value={optionalTotalLabel(totals.fatGrams, "g")}
+              />
+              <DailyTotalRow
+                label="Fiber"
+                value={optionalTotalLabel(totals.fiberGrams, "g")}
+              />
+              <DailyTotalRow
+                label="Sodium"
+                value={optionalTotalLabel(totals.sodiumMg, "mg")}
+              />
+              <DailyTotalRow
+                label="Sugar"
+                value={optionalTotalLabel(totals.sugarGrams, "g")}
+              />
+            </View>
+          ) : null}
+          {incomplete ? (
+            <Text style={styles.dailyTotalsNote}>
+              “Recorded” or “Not available” means at least one food did not
+              include that nutrient value.
+            </Text>
+          ) : null}
+          <Pressable
+            accessibilityRole="button"
+            onPress={onClose}
+            style={styles.dailyTotalsClose}
+          >
+            <Text style={styles.dailyTotalsCloseText}>Close</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function DailyTotalRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.dailyTotalRow}>
+      <Text style={styles.dailyTotalLabel}>{label}</Text>
+      <Text style={styles.dailyTotalValue}>{value}</Text>
+    </View>
   );
 }
 function Empty({ title, copy }: { title: string; copy: string }) {
@@ -812,6 +1104,7 @@ const styles = StyleSheet.create({
   },
   date: { color: "#243B53", fontSize: 16, fontWeight: "800" },
   group: { color: "#16776A", fontSize: 13, fontWeight: "700", marginTop: 3 },
+  groupBreakdown: { color: "#486581", fontSize: 12, marginTop: 4 },
   cardioBadge: {
     color: "#7B8794",
     fontSize: 11,
@@ -820,8 +1113,41 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   setTotal: { color: "#627D98", fontSize: 13, fontWeight: "700" },
+  dayTotals: { alignItems: "flex-end", marginLeft: 8 },
+  waterTotal: {
+    color: "#126B83",
+    fontSize: 12,
+    fontWeight: "800",
+    marginTop: 3,
+  },
+  dailyTotalsButton: {
+    marginTop: 6,
+    paddingHorizontal: 2,
+    paddingVertical: 3,
+  },
+  dailyTotalsButtonText: {
+    color: "#16776A",
+    fontSize: 11,
+    fontWeight: "800",
+  },
   exercise: { marginTop: 10 },
+  exerciseSummary: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
   exerciseName: { color: "#243B53", fontWeight: "800" },
+  exerciseSetTotal: {
+    backgroundColor: "#E6F7F3",
+    borderRadius: 11,
+    color: "#16776A",
+    fontSize: 11,
+    fontWeight: "800",
+    overflow: "hidden",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  exerciseGroup: { color: "#7B8794", fontSize: 11, marginTop: 3 },
   cardioTitle: {
     color: "#243B53",
     fontSize: 17,
@@ -843,6 +1169,18 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   foodDetails: { flex: 1 },
+  foodHistoryHeader: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+  },
+  foodBrand: { color: "#627D98", fontSize: 12, marginTop: 2 },
+  foodFacts: { color: "#627D98", fontSize: 12, marginTop: 4 },
+  foodNote: {
+    color: "#7B8794",
+    fontSize: 12,
+    fontStyle: "italic",
+    marginTop: 5,
+  },
   notes: {
     borderTopColor: "#E6EEF3",
     borderTopWidth: 1,
@@ -852,6 +1190,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 10,
   },
+  location: { color: "#16776A", fontSize: 13, fontWeight: "700", marginTop: 9 },
   cardActions: { flexDirection: "row", gap: 8, marginTop: 14 },
   editButton: {
     alignSelf: "flex-start",
@@ -914,6 +1253,40 @@ const styles = StyleSheet.create({
   },
   modalTitle: { color: "#102A43", fontSize: 19, fontWeight: "800" },
   modalCopy: { color: "#486581", lineHeight: 20, marginTop: 8 },
+  dailyTotalsList: {
+    borderColor: "#D9E2EC",
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 16,
+    overflow: "hidden",
+  },
+  dailyTotalRow: {
+    alignItems: "center",
+    borderBottomColor: "#E6EEF3",
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    minHeight: 43,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  dailyTotalLabel: { color: "#486581", fontSize: 13, fontWeight: "700" },
+  dailyTotalValue: { color: "#102A43", fontSize: 13, fontWeight: "800" },
+  dailyTotalsNote: {
+    color: "#7B8794",
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 11,
+  },
+  dailyTotalsClose: {
+    alignItems: "center",
+    backgroundColor: "#16776A",
+    borderRadius: 10,
+    justifyContent: "center",
+    marginTop: 16,
+    minHeight: 44,
+  },
+  dailyTotalsCloseText: { color: "#fff", fontWeight: "800" },
   modalActions: {
     flexDirection: "row",
     gap: 10,

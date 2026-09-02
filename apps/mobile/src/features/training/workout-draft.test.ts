@@ -1,13 +1,31 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { workoutDraftHasContent, workoutDraftSchema } from "./workout-draft";
+import {
+  moveWorkoutEntry,
+  workoutDraftHasContent,
+  workoutDraftSchema,
+} from "./workout-draft";
 
 const emptyDraft = {
   muscleGroups: [],
   entries: [],
+  location: "",
   notes: "",
 };
+
+test("moves a workout exercise without changing its contents", () => {
+  const entries = [{ id: "one" }, { id: "two" }, { id: "three" }];
+  assert.deepEqual(
+    moveWorkoutEntry(entries, "two", -1).map((entry) => entry.id),
+    ["two", "one", "three"],
+  );
+  assert.deepEqual(
+    moveWorkoutEntry(entries, "two", 1).map((entry) => entry.id),
+    ["one", "three", "two"],
+  );
+  assert.equal(moveWorkoutEntry(entries, "one", -1), entries);
+});
 
 test("recognizes meaningful unfinished workout drafts", () => {
   assert.equal(
@@ -45,6 +63,7 @@ test("accepts incomplete entries while a workout is in progress", () => {
       },
     ],
     notes: "",
+    location: "",
   });
 
   assert.equal(draft.entries[0].weight, undefined);

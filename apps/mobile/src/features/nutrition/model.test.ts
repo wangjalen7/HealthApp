@@ -1,0 +1,117 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  availableFoodUnits,
+  calculateFoodAmount,
+  canonicalFoodBarcode,
+  foodAmountDescription,
+  foodAmountUnitLabel,
+  foodNameMatchesQuery,
+  normalizeHouseholdUnit,
+  type FoodBasis,
+} from "./model";
+
+test("canonicalizes equivalent UPC and EAN profile barcodes", () => {
+  assert.equal(canonicalFoodBarcode("034000470693"), "00034000470693");
+  assert.equal(canonicalFoodBarcode("0034000470693"), "00034000470693");
+  assert.equal(canonicalFoodBarcode(" 04-252-614 "), "00000004252614");
+  assert.equal(canonicalFoodBarcode(undefined), undefined);
+});
+
+test("requires an exact normalized food name before suppressing label creation", () => {
+  assert.equal(foodNameMatchesQuery("Chicken  Thigh", " chicken thigh "), true);
+  assert.equal(foodNameMatchesQuery("Chicken Thigh", "chicken"), false);
+  assert.equal(foodNameMatchesQuery("Chicken Thigh", ""), false);
+});
+
+test("does not repeat a household amount already present in the serving label", () => {
+  assert.equal(
+    foodAmountDescription(1, "household", "bottle", "1 bottle (14 fl oz)"),
+    "1 bottle (14 fl oz)",
+  );
+  assert.equal(
+    foodAmountDescription(1, "household", "package", "1 package (49.6 g)"),
+    "1 package (49.6 g)",
+  );
+  assert.equal(
+    foodAmountDescription(2, "household", "bottle", "1 bottle (14 fl oz)"),
+    "2 bottles · 1 bottle (14 fl oz)",
+  );
+});
+
+const basis: FoodBasis = {
+  name: "Test food",
+  source: "manual",
+  isUserCorrected: false,
+  servingWeightGrams: 28.349523125,
+  servingVolumeMl: 236.5882365,
+  nutrientsPerServing: { calories: 100, proteinGrams: 10, sodiumMg: 200 },
+};
+
+test("converts exact weight units before scaling nutrition", () => {
+  const oneOunce = calculateFoodAmount(basis, 1, "oz");
+  const onePound = calculateFoodAmount(basis, 1, "lb");
+  assert.equal(oneOunce.servingCount, 1);
+  assert.equal(oneOunce.totalNutrients.calories, 100);
+  assert.equal(onePound.servingCount, 16);
+  assert.equal(onePound.totalNutrients.proteinGrams, 160);
+});
+
+test("converts US volume units without guessing density", () => {
+  const cup = calculateFoodAmount(basis, 1, "cup");
+  const tablespoons = calculateFoodAmount(basis, 16, "tbsp");
+  assert.equal(cup.servingCount, 1);
+  assert.equal(tablespoons.servingCount, 1);
+  assert.equal(cup.totalNutrients.sodiumMg, 200);
+});
+
+test("only exposes conversions backed by serving metadata", () => {
+  const servingOnly: FoodBasis = {
+    name: "Serving only",
+    source: "manual",
+    isUserCorrected: false,
+    nutrientsPerServing: { calories: 80, proteinGrams: 0 },
+  };
+  assert.deepEqual(availableFoodUnits(servingOnly), ["serving"]);
+  assert.throws(
+    () => calculateFoodAmount(servingOnly, 20, "g"),
+    /weight conversion/,
+  );
+});
+
+test("keeps zero protein as a valid nutrition value", () => {
+  const result = calculateFoodAmount(
+    {
+      name: "Oil",
+      source: "manual",
+      isUserCorrected: false,
+      nutrientsPerServing: { calories: 120, proteinGrams: 0, fatGrams: 14 },
+    },
+    2,
+    "serving",
+  );
+  assert.equal(result.totalNutrients.proteinGrams, 0);
+  assert.equal(result.totalNutrients.fatGrams, 28);
+});
+
+test("scales a package or piece amount through its household serving", () => {
+  const crackers: FoodBasis = {
+    name: "Crackers",
+    source: "open_food_facts",
+    isUserCorrected: false,
+    householdQuantityPerServing: 12,
+    householdUnit: "piece",
+    servingLabel: "12 pieces",
+    nutrientsPerServing: { calories: 150, proteinGrams: 3 },
+  };
+  assert.deepEqual(availableFoodUnits(crackers), ["serving", "household"]);
+  assert.equal(calculateFoodAmount(crackers, 6, "household").servingCount, 0.5);
+  assert.equal(
+    calculateFoodAmount(crackers, 6, "household").totalNutrients.calories,
+    75,
+  );
+  assert.equal(foodAmountUnitLabel("household", 1, "piece"), "piece");
+  assert.equal(foodAmountUnitLabel("household", 6, "piece"), "pieces");
+  assert.equal(normalizeHouseholdUnit(" Pieces "), "piece");
+});

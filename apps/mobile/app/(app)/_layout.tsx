@@ -15,7 +15,7 @@ function CreateTabButton() {
       <View style={styles.createCircle}>
         <Text style={styles.createPlus}>+</Text>
       </View>
-      <Text style={styles.createLabel}>Create</Text>
+      <Text style={styles.createLabel}>Track</Text>
     </Pressable>
   );
 }
@@ -56,7 +56,9 @@ export default function AppLayout() {
         name="history/[id]"
         options={{ href: null, title: "Edit workout" }}
       />
+      <Tabs.Screen name="history/edit" options={{ href: null }} />
       <Tabs.Screen name="nutrition" options={{ href: null }} />
+      <Tabs.Screen name="water" options={{ href: null }} />
       <Tabs.Screen name="weight" options={{ href: null }} />
       <Tabs.Screen name="reminders" options={{ href: null }} />
       <Tabs.Screen name="coach" options={{ title: "AI Coach" }} />
@@ -86,6 +88,16 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     width: 58,
   },
-  createPlus: { color: "#fff", fontSize: 34, fontWeight: "300", lineHeight: 37 },
-  createLabel: { color: "#16776A", fontSize: 10, fontWeight: "800", marginTop: 1 },
+  createPlus: {
+    color: "#fff",
+    fontSize: 34,
+    fontWeight: "300",
+    lineHeight: 37,
+  },
+  createLabel: {
+    color: "#16776A",
+    fontSize: 10,
+    fontWeight: "800",
+    marginTop: 1,
+  },
 });

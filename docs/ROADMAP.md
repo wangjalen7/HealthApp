@@ -26,7 +26,7 @@ Status key: `[ ]` planned, `[-]` in progress, `[x]` complete.
 - [x] Produce and install the baseline iOS development build; the repository path no longer contains the apostrophe that triggered Windows Git clone failures.
 - [x] Implement source-aware, read-only HealthKit import for weight and paired blood pressure with incremental reconciliation.
 - [x] Move Apple Health connection to Profile and consolidate foreground Apple Health import into Summary's automatic and manual sync path.
-- [-] Validate HealthKit permissions, imports, duplicate prevention, and deletion handling on the registered iPhone using the replacement development build.
+- [ ] Validate HealthKit permissions, imports, duplicate prevention, and deletion handling on the registered iPhone using the replacement development build.
 
 ## Release 3 â€” Training, cardio, and nutrition core
 
@@ -60,13 +60,21 @@ Status key: `[ ]` planned, `[-]` in progress, `[x]` complete.
 - [x] Use the standard History deletion button and confirmation sheet for every individual food entry.
 - [x] Remove Summary source filters: combined charts always include manual and Apple readings while preserving record-level provenance in History.
 - [x] Remove duplicate mobile screen headers and retain safe-area-aware scroll content.
-- [x] Simplify the mobile shell to Summary / History / Create / AI Coach / Profile, with a raised Create action sheet containing Reminders, placeholders for future reminders/coach work, and separate Weight/Blood pressure pages backed by the existing vital timeline.
+- [x] Simplify the mobile shell to Summary / History / Track / AI Coach / Profile, with a raised Track action sheet containing Reminders, placeholders for future reminders/coach work, and separate Weight/Blood pressure pages backed by the existing vital timeline.
 - [x] Add Summary calorie/protein circular progress visuals, a weekly trend default, and tap-again-to-dismiss trend inspection.
-- [ ] Add location capture, barcode lookup, and Strava import after their respective platform/API setup.
+- [x] Add reusable, brand-aware food profiles with immutable meal snapshots, exact serving/mass/volume calculations, and user-scoped unfinished meal drafts.
+- [x] Combine Basic entry with saved-food search, offer prefilled reusable-label creation only when no exact saved name exists, and deduplicate reusable profiles by catalog product or canonical per-user barcode.
+- [x] Deploy an authenticated, cached Open Food Facts barcode resolver as a TypeScript Supabase Edge Function.
+- [-] Validate the unified nutrition/barcode flow and the tracking expansion on the camera-enabled iPhone client, including hydration, workout ordering/location, Summary navigation/calendar, and manual-history editing.
+- [x] Add reorderable/location-aware exercise logging, hydration tracking and goals, calorie-calendar summaries, corrected Summary navigation, and editing for all history categories.
+- [x] Rename the user-facing Exercise area to Workout and persist per-exercise muscle groups for per-exercise and per-muscle set totals in Workout History.
+- [x] Include daily water/fluid totals in Food History and restore the unified saved-food search/new-label flow after an accidental UI regression.
+- [x] Add a per-day Food History totals popup for calories, protein, water/fluids, carbohydrates, fat, fiber, sodium, and sugar with incomplete-data labeling.
+- [ ] Add Strava import after its platform/API setup.
 
 ## Later releases
 
-- [ ] Release 4: progress pictures, workout locations, barcode lookup, Strava import, and richer source filters.
+- [ ] Release 4: progress pictures, Strava import, USDA external food search/fallback, and richer source filters.
 - [ ] Release 5: progress photos, medication/supplement reminders, notifications.
 - [ ] Release 6: consented, wellness-only AI daily coach and evaluation suite.
 - [ ] Release 7: multi-user operational hardening, observability, cost controls, and web companion.

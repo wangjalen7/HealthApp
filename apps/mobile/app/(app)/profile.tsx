@@ -25,6 +25,10 @@ import type {
   HealthKitAvailability,
   HealthKitSyncState,
 } from "../../src/features/healthkit/types";
+import {
+  hydrationAmountToMl,
+  mlToFluidOunces,
+} from "../../src/features/hydration/model";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -34,6 +38,7 @@ export default function ProfileScreen() {
   const [loadingGoals, setLoadingGoals] = useState(true);
   const [calorieGoal, setCalorieGoal] = useState("");
   const [proteinGoal, setProteinGoal] = useState("");
+  const [waterGoal, setWaterGoal] = useState("");
   const [weightGoal, setWeightGoal] = useState("");
   const [systolicGoal, setSystolicGoal] = useState("120");
   const [diastolicGoal, setDiastolicGoal] = useState("80");
@@ -57,6 +62,11 @@ export default function ProfileScreen() {
       );
       setProteinGoal(
         goals.proteinGoal === undefined ? "" : String(goals.proteinGoal),
+      );
+      setWaterGoal(
+        goals.waterGoalMl === undefined
+          ? ""
+          : String(mlToFluidOunces(goals.waterGoalMl)),
       );
       setWeightGoal(
         goals.weightGoalLb === undefined ? "" : String(goals.weightGoalLb),
@@ -115,6 +125,7 @@ export default function ProfileScreen() {
       const goals = goalValues(
         calorieGoal,
         proteinGoal,
+        waterGoal,
         weightGoal,
         systolicGoal,
         diastolicGoal,
@@ -156,8 +167,9 @@ export default function ProfileScreen() {
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Goals</Text>
         <Text style={styles.copy}>
-          Set your targets here. Leave protein blank to use 0.7 g per lb of your
-          latest logged weight, or enter your own daily protein target.
+          Set your daily nutrition, hydration, weight, and blood-pressure
+          targets here. Leave protein blank to use 0.7 g per lb of your latest
+          logged weight.
         </Text>
         {loadingGoals ? (
           <ActivityIndicator color="#16776A" />
@@ -174,6 +186,13 @@ export default function ProfileScreen() {
                 placeholder="Auto: 0.7 g/lb"
                 value={proteinGoal}
                 onChangeText={setProteinGoal}
+              />
+            </View>
+            <View style={styles.fullGoal}>
+              <GoalField
+                label="Water / day (fl oz)"
+                value={waterGoal}
+                onChangeText={setWaterGoal}
               />
             </View>
             <View style={styles.fullGoal}>
@@ -284,15 +303,21 @@ export default function ProfileScreen() {
 function goalValues(
   calories: string,
   protein: string,
+  water: string,
   weight: string,
   systolic: string,
   diastolic: string,
 ): DailyGoals {
   const optional = (value: string) =>
     value.trim() ? Number(value) : undefined;
+  const waterOunces = optional(water);
   return {
     calorieGoal: optional(calories),
     proteinGoal: optional(protein),
+    waterGoalMl:
+      waterOunces === undefined
+        ? undefined
+        : hydrationAmountToMl(waterOunces, "fl_oz"),
     weightGoalLb: optional(weight),
     systolicGoal: optional(systolic),
     diastolicGoal: optional(diastolic),

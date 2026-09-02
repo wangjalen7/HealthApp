@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { z } from "zod";
 
-const muscleGroupSchema = z.enum([
+export const muscleGroups = [
   "Back",
   "Chest",
   "Tri",
@@ -9,10 +9,12 @@ const muscleGroupSchema = z.enum([
   "Delt",
   "Legs",
   "Abs",
-]);
+] as const;
+export const muscleGroupSchema = z.enum(muscleGroups);
 const draftEntrySchema = z.object({
   id: z.string().min(1),
   name: z.string().max(120),
+  muscleGroup: muscleGroupSchema.optional(),
   setCount: z.number().int().min(0).max(12),
   reps: z.array(z.number().int().min(0).max(500)).max(12),
   weight: z.number().min(0).max(5000).optional(),
@@ -21,6 +23,7 @@ const draftEntrySchema = z.object({
 export const workoutDraftSchema = z.object({
   muscleGroups: z.array(muscleGroupSchema).max(7),
   entries: z.array(draftEntrySchema).max(30),
+  location: z.string().max(160).default(""),
   notes: z.string().max(1000),
 });
 
@@ -43,8 +46,24 @@ function queueWrite(key: string, write: () => Promise<void>): Promise<void> {
 
 export function workoutDraftHasContent(draft: WorkoutDraft): boolean {
   return Boolean(
-    draft.muscleGroups.length || draft.entries.length || draft.notes.trim(),
+    draft.muscleGroups.length ||
+    draft.entries.length ||
+    draft.location.trim() ||
+    draft.notes.trim(),
   );
+}
+
+export function moveWorkoutEntry<T extends { id: string }>(
+  entries: T[],
+  entryId: string,
+  direction: -1 | 1,
+): T[] {
+  const index = entries.findIndex((entry) => entry.id === entryId);
+  const target = index + direction;
+  if (index < 0 || target < 0 || target >= entries.length) return entries;
+  const moved = [...entries];
+  [moved[index], moved[target]] = [moved[target], moved[index]];
+  return moved;
 }
 
 export async function loadWorkoutDraft(

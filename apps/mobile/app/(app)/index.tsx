@@ -23,10 +23,15 @@ import {
   getDailyGoals,
   type DailyGoals,
 } from "../../src/features/goals/repository";
+import { mlToFluidOunces } from "../../src/features/hydration/model";
+import { getTodayHydrationMl } from "../../src/features/hydration/repository";
 import {
   importHealthKitData,
   loadHealthKitSyncState,
 } from "../../src/features/healthkit/sync";
+import type { DailyCalorieTotal } from "../../src/features/nutrition/calendar";
+import { CalorieCalendar } from "../../src/features/nutrition/calorie-calendar";
+import { getCurrentMonthCalorieTotals } from "../../src/features/nutrition/repository";
 import {
   getTodaySummary,
   type TodaySummary,
@@ -66,9 +71,11 @@ export default function SummaryScreen() {
   const [summary, setSummary] = useState<TodaySummary>({
     calories: 0,
     protein: 0,
-    workoutCount: 0,
-    cardioMinutes: 0,
   });
+  const [waterMl, setWaterMl] = useState(0);
+  const [monthCalories, setMonthCalories] = useState<
+    Record<string, DailyCalorieTotal>
+  >({});
   const [goals, setGoals] = useState<DailyGoals>({
     systolicGoal: 120,
     diastolicGoal: 80,
@@ -144,12 +151,17 @@ export default function SummaryScreen() {
         setSamples(await loadCachedVitals(session.user.id));
       }
       try {
-        const [today, savedGoals] = await Promise.all([
-          getTodaySummary(session.user.id),
-          getDailyGoals(session.user.id),
-        ]);
+        const [today, savedGoals, todayWater, monthlyCalories] =
+          await Promise.all([
+            getTodaySummary(session.user.id),
+            getDailyGoals(session.user.id),
+            getTodayHydrationMl(session.user.id),
+            getCurrentMonthCalorieTotals(session.user.id),
+          ]);
         setSummary(today);
         setGoals(savedGoals);
+        setWaterMl(todayWater);
+        setMonthCalories(monthlyCalories);
       } catch (error) {
         setStatus(
           error instanceof Error ? error.message : "Could not load summary.",
@@ -230,32 +242,46 @@ export default function SummaryScreen() {
       </View>
       <View style={styles.nutritionMetrics}>
         <NutritionProgressCard
+          accessibilityHint="Opens Food history."
           label="Calories"
           goal={goals.calorieGoal}
-          onPress={() => router.push("/(app)/nutrition")}
+          onPress={() =>
+            router.push({
+              pathname: "/(app)/history",
+              params: { view: "food" },
+            })
+          }
           unit="cal"
           value={summary.calories}
         />
         <NutritionProgressCard
+          accessibilityHint="Opens Food history."
           label="Protein"
           goal={proteinGoal}
-          onPress={() => router.push("/(app)/nutrition")}
+          onPress={() =>
+            router.push({
+              pathname: "/(app)/history",
+              params: { view: "food" },
+            })
+          }
           unit="g"
           value={summary.protein}
         />
       </View>
-      <View style={styles.activity}>
-        <Text style={styles.activityText}>
-          {summary.workoutCount
-            ? `${summary.workoutCount} lift session today`
-            : "No lift logged today"}
-        </Text>
-        <Text style={styles.activityText}>
-          {summary.cardioMinutes
-            ? `${summary.cardioMinutes} cardio min`
-            : "No cardio logged"}
-        </Text>
+      <View style={styles.waterMetric}>
+        <NutritionProgressCard
+          label="Water"
+          goal={
+            goals.waterGoalMl === undefined
+              ? undefined
+              : mlToFluidOunces(goals.waterGoalMl)
+          }
+          onPress={() => router.push("/(app)/water")}
+          unit="fl oz"
+          value={mlToFluidOunces(waterMl)}
+        />
       </View>
+      <CalorieCalendar goal={goals.calorieGoal} totals={monthCalories} />
       <View style={styles.controls}>
         <Text style={styles.sectionTitle}>Trends</Text>
         <View>
@@ -357,6 +383,7 @@ const styles = StyleSheet.create({
   copy: { color: "#627D98", marginBottom: 18, marginTop: 6 },
   metrics: { flexDirection: "row", gap: 12, marginBottom: 12 },
   nutritionMetrics: { flexDirection: "row", gap: 12, marginBottom: 12 },
+  waterMetric: { flexDirection: "row", marginBottom: 12 },
   metric: {
     backgroundColor: "#E6F7F3",
     borderRadius: 16,
@@ -371,15 +398,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   metricDetail: { color: "#627D98", fontSize: 11, marginTop: 5 },
-  activity: {
-    backgroundColor: "#fff",
-    borderRadius: 13,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 18,
-    padding: 13,
-  },
-  activityText: { color: "#486581", fontSize: 13, fontWeight: "700" },
   controls: {
     alignItems: "center",
     flexDirection: "row",

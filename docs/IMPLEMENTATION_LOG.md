@@ -1,5 +1,22 @@
 # Implementation log
 
+## 2026-09-02 — Tracking expansion and editable manual history
+
+- Deduplicated food amount text when the serving label already begins with the same amount and unit, so History and the current meal show `1 bottle (14 fl oz)` instead of `1 bottle · 1 bottle (14 fl oz)` without product-specific rules.
+- Removed the Open Food Facts/My label/Manual source badge from Food History cards while retaining source metadata internally.
+- Added a **View daily totals** action to every Food History date. Its in-app popup totals calories, protein, water/fluids, carbohydrates, fat, fiber, sodium, and sugar. Optional nutrients show `recorded` or `Not available` when older/basic entries make a complete daily total impossible.
+- Restored the unified **Find or add food** flow after it was accidentally reverted: the same screen searches Recent/My Foods, uses a selected saved match, and offers a reusable label prefilled from the query only when no exact saved food name exists. Basic Entry is no longer a separate new-food method; legacy unfinished basic entries remain editable.
+- Added daily water/fluid totals to Food History, including hydration-only dates, using the same local-day grouping as food history.
+- Renamed the user-facing Exercise destination and History tab to Workout. Workout History now shows an explicit total for each exercise and a session-level set breakdown by muscle group.
+- Added a per-exercise muscle-group selection for multi-muscle lifting sessions and workout editing. Applied `202609020002_workout_muscle_group_sets.sql`; existing single-muscle sessions backfill automatically, while legacy multi-muscle sets remain visibly unassigned instead of being guessed.
+- Added explicit exercise up/down ordering to the lifting logger and workout editor, repeated Add exercise below long workout lists, and persisted an optional gym/location value with each workout.
+- Added user-owned hydration storage and logging for water/other fluids in mL, fl oz, and cups. Profile now stores a daily water goal, and Summary renders today's fluid-ounce progress.
+- Reordered the Track sheet into the requested two-column Food/Water, Blood Pressure/Weight, Exercise/Reminders layout.
+- Added a current-month calorie calendar using green progress rings at/under the daily goal and red rings over it. Calories and Protein now open Food History, and the former lift/cardio-today strip was removed.
+- Added edit actions for manual cardio, weight, blood pressure, and food history. Workout editing retains exercise order and location. HealthKit/imported health records and imported food records remain read-only.
+- Applied `202609020001_tracking_expansion.sql` to HealthHub. Remote migration history is aligned and database lint reports no schema errors.
+- Verified ESLint, strict TypeScript, 39/39 mobile tests, 14/14 Edge tests, and `git diff --check`.
+
 ## 2026-08-29 — Releases 0–1 implemented locally
 
 - Added `AGENTS.md`, roadmap, status, implementation log, ADR, and hosted Supabase setup guide for continuous project context.
@@ -119,6 +136,17 @@
 - Made Weight and Blood pressure distinct logging surfaces. Both continue to write the same user-owned `vital_samples` records and use the existing offline outbox/Supabase sync, so no new table or migration is needed.
 - Verified lint, strict TypeScript, 21/21 tests, `git diff --check`, and a successful iOS bundle export.
 
+## 2026-08-31 — Reusable nutrition and Open Food Facts barcode foundation
+
+- Replaced the name-only nutrition form with Basic, Search saved foods, Create food label, and Scan barcode workflows while preserving meal-first multi-food logging.
+- Added private brand-aware food profiles, immutable nutrition-entry snapshots, core label nutrients, exact serving/mass/volume conversion metadata, meal grouping IDs, RLS, and server-only catalog/cache tables in `202608310001_food_catalog.sql`.
+- Applied the migration to HealthHub and deployed the authenticated `resolve-food-barcode` TypeScript Edge Function. It validates/canonicalizes UPC/EAN codes, caches results, identifies HealthApp to Open Food Facts, and returns editable normalized nutrition without exposing server credentials.
+- Added exact g/oz/lb and US mL/fl oz/cup/tbsp/tsp calculations, runtime Zod validation, private provider corrections, brand/source badges, enhanced Food History, and user-scoped AsyncStorage meal drafts.
+- Installed and configured the Expo SDK 57 camera module with a purpose-specific iOS permission message and manual barcode fallback for web.
+- Added an explicit failed-lookup fallback that offers to create a private profile with the scanned barcode already attached instead of leaving the user at an error message.
+- Preserved the existing uncommitted center-tab `Track` label change and its prior documentation update.
+- Verified lint, strict TypeScript, 26/26 tests, Expo Doctor 21/21, `git diff --check`, web export, iOS/Hermes export, the remote migration list, and ACTIVE Edge Function deployment. A replacement EAS binary remains pending because adding the native camera module requires a new iOS development build.
+
 ## 2026-08-30 — Summary nutrition and trend refinement
 
 - Replaced the text-only Summary calories/protein cards with compact circular progress rings that retain current and goal numbers and open Food when tapped.
@@ -129,4 +157,46 @@
 
 - Reordered the five visible tabs to Summary, History, centered Create, AI Coach, and Profile. Reminders is available as a Create-sheet choice, which preserves the clean permanent navigation while keeping medication/supplement/BP prompt setup discoverable.
 - Added clear Reminders and AI Coach placeholder pages. Reminders previews supplement/medication completion and BP prompts without scheduling notifications yet; AI Coach documents the future consented, wellness-only direction without connecting any AI service.
-- Verified lint, strict TypeScript, 20/20 tests, and `git diff --check`.
+- Verified lint, strict TypeScript, 21/21 tests, `git diff --check`, and a successful iOS bundle export.
+
+## 2026-08-31 — Cross-agent context handoff audit
+
+- Added a root `CLAUDE.md` that loads the authoritative working agreement, current status, and roadmap; the mobile Claude file now inherits that context as well as its Expo-specific rule.
+- Updated the working agreement for the current iPhone/EAS, hosted Supabase Edge Function, browser-preview, user-learned suggestion, and dirty-worktree constraints.
+- Replaced the stale Releases 0–1/Expo Go README with the current HealthHub, dev-client, HealthKit, camera, and barcode workflow.
+- Recorded the uncommitted nutrition/barcode feature set, already-deployed backend state, pending camera-enabled EAS binary, and current `Track` navigation label in the concise handoff.
+
+## 2026-08-31 — Barcode nutrition and household-serving correction
+
+- Reproduced the missing-nutrient problem against a real PopCorners UPC: Open Food Facts v3 returned the requested identity/serving fields but not the legacy `nutriments` object expected by the resolver, while its v2 endpoint returned the normalized nutrient fields.
+- Moved product lookup to the documented v2 product endpoint, added kilojoule calorie fallback and US total-carbohydrate preference, sentence-cased all-uppercase provider food names, and versioned the server cache so previously broken rows refresh on their next scan.
+- Removed the unsafe fallback that treated a named but unweighted package as 100 g. The provider's 100 g basis is used only when it supplies no serving description at all.
+- Added generic package/piece/bar-style household conversions across catalog products, private profiles, meal drafts, immutable history snapshots, manual label editing, and amount calculations. Partial piece counts scale through the provider's serving quantity without guessing mass or density.
+- Applied `202608310002_food_household_servings.sql` to HealthHub and deployed ACTIVE `resolve-food-barcode` version 3, including protection against serving a pre-fix stale cache row when the provider is unavailable. Remote schema lint reports no errors.
+- Verified the full check suite (27/27 mobile tests and 5/5 provider-normalization tests), `git diff --check`, and a production web export. Live iPhone rescanning of the corrected PopCorners flow remains the active validation item.
+
+## 2026-09-01 — Detailed package nutrition and liquid-volume correction
+
+- Reproduced both phone findings against the live Open Food Facts records. PopCorners `0810607023346` exposes a generic 100 g serving in the flat v2 product but a distinct 240-calorie packaging serving in its structured detailed panel; Fairlife `0811620021968` imports `1 bottle (414 g)` despite an explicit 14 oz liquid package.
+- Added a guarded v3 knowledge-panel lookup only for generic 100 g records whose flat serving values duplicate the per-100 g values. The resolver parses the packaging-serving column, infers the 49.6 g package basis from its calorie ratio, and returns the detailed package nutrients rather than the flattened 100 g values.
+- Added a constrained liquid-container rule: an explicit package ounce quantity is treated as fluid volume only when OFF also identifies a one-container liquid product. Fairlife now returns one `14 fl oz` bottle, 414 mL, and no weight conversion; no density conversion is introduced.
+- Suppressed zero-valued count/weight/volume conversions while retaining valid zero nutrient values, and clarified in the label editor that most products should use weight or volume according to the package, leaving the other blank unless both are explicitly stated.
+- Applied `202609010001_food_provider_servings.sql`, which expires pre-version-3 barcode cache rows, and deployed ACTIVE `resolve-food-barcode` version 4 with JWT verification. Live normalization returns PopCorners at 49.6 g/240 calories and Fairlife at 414 mL/170 calories.
+- Verified `npm run check` with 27/27 mobile tests and 7/7 provider-normalization tests, plus `git diff --check`. Registered-iPhone re-scanning and Food History confirmation remain the active validation step.
+
+## 2026-09-01 — Open Food Facts v3.6 contract and lookup-error correction
+
+- Audited the implementation against the official Open Food Facts API introduction and v3 OpenAPI source. The documentation now marks v2 deprecated and recommends v3; v3.6 exposes structured nutrition through `nutrition.aggregated_set` and `nutrition.input_sets` and reports lookup outcome through `result.id`.
+- Replaced the v2 product request plus generated knowledge-panel parsing with one identified `GET /api/v3.6/product/{barcode}.json` request using an explicit field list. The resolver accepts `product_found`, negative-caches `product_not_found`, and treats malformed responses, non-success HTTP statuses, timeouts, and rate limits as provider failures.
+- Removed the inferred PopCorners package size. Its live OFF record does not state that one serving is one package and its two packaging input sets are internally inconsistent, so the app now retains the explicit 240-calorie per-serving nutrients while leaving serving description/count/weight/volume blank for confirmation from the bag.
+- Added generic structured-unit handling: a `100ml` provider basis produces volume, a `100g` basis produces mass, and a reliable serving input uses its own unit. Explicit one-container fluid quantities remain volume-only without checking a product name, brand, or barcode.
+- Added typed mobile lookup errors. Confirmed not-found products open the private label editor automatically; invalid UPC/EAN values remain on the scanner with digit guidance; provider/network failures remain on the scanner with retry and manual-barcode guidance.
+- Applied `202609010002_open_food_facts_v3.sql`, deployed ACTIVE `resolve-food-barcode` version 6 with JWT verification, and confirmed the linked migration list and schema lint. A generic conflict guard now also leaves conversions blank when OFF reports a 100 g aggregate for a package explicitly labeled by volume. Verification passes with 27/27 mobile tests and 10/10 Edge normalization/contract tests; live v3.6 checks cover inconsistent serving data, a 414 mL bottle, and a separate 355 mL soda serving.
+- Removed the EAN-13/EAN-8/UPC-A/UPC-E selector from manual entry. Camera scans continue to use Expo's detected symbology, while manual values are detected from their digits and check digit. OFF now receives the original UPC/EAN digits for its documented leading-zero normalization; UPC-E is expanded only to validate its check digit. Deployed ACTIVE resolver version 8 and verified the full suite with 27/27 mobile tests and 14/14 Edge tests.
+
+## 2026-09-01 — Unified food lookup and reusable-profile deduplication
+
+- Removed Basic entry as a separate new-food path and combined it with saved-food search under **Find or add food**. Recent and reusable matches continue to open the amount editor; a non-empty name without an exact normalized match now asks whether to create a reusable label and prefills that name. Existing unfinished/basic entries remain editable through the common amount model.
+- Canonicalized reusable-profile barcodes and made `saveFoodProfile` reuse an existing per-user profile by either catalog product ID or barcode. Name-only profiles are deliberately not merged because the same name can represent different brands, servings, and nutrition.
+- Added and applied `202609010003_user_food_profile_barcode_dedup.sql`. It normalizes existing profile barcodes, repoints immutable nutrition-history references to a selected keeper, deletes only the redundant profile rows, and enforces `unique (user_id, barcode)`. The linked migration list is current and remote schema lint reports no errors.
+- Verified lint, strict TypeScript, 29/29 mobile tests, 14/14 Edge tests, and `git diff --check`. The TypeScript UI change requires only a Metro/app restart, not another EAS build.

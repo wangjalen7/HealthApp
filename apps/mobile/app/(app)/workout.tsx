@@ -21,6 +21,8 @@ import {
 import {
   clearWorkoutDraft,
   loadWorkoutDraft,
+  muscleGroups,
+  moveWorkoutEntry,
   saveWorkoutDraft,
   type MuscleGroup,
   type WorkoutDraft,
@@ -31,24 +33,17 @@ import { createId } from "../../src/features/vitals/storage";
 type ExerciseEntry = {
   id: string;
   name: string;
+  muscleGroup?: MuscleGroup;
   setCount: number;
   reps: number[];
   weight?: number;
   guidance?: ExerciseGuidance;
   guidanceState: "idle" | "loading" | "loaded";
 };
-const muscleGroups: MuscleGroup[] = [
-  "Back",
-  "Chest",
-  "Tri",
-  "Bi",
-  "Delt",
-  "Legs",
-  "Abs",
-];
-const blankExercise = (): ExerciseEntry => ({
+const blankExercise = (selectedGroups: MuscleGroup[]): ExerciseEntry => ({
   id: createId(),
   name: "",
+  muscleGroup: selectedGroups.length === 1 ? selectedGroups[0] : undefined,
   setCount: 0,
   reps: [],
   guidanceState: "idle",
@@ -73,6 +68,7 @@ export default function WorkoutScreen() {
   const [entries, setEntries] = useState<ExerciseEntry[]>([]);
   const [activeEntry, setActiveEntry] = useState<string>();
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [location, setLocation] = useState("");
   const [notes, setNotes] = useState("");
   const [feedback, setFeedback] = useState("");
   const [saving, setSaving] = useState(false);
@@ -83,21 +79,26 @@ export default function WorkoutScreen() {
   const draftRef = useRef<WorkoutDraft>({
     muscleGroups: [],
     entries: [],
+    location: "",
     notes: "",
   });
   const draft = useMemo<WorkoutDraft>(
     () => ({
       muscleGroups: selectedGroups,
-      entries: entries.map(({ id, name, setCount, reps, weight }) => ({
-        id,
-        name,
-        setCount,
-        reps,
-        weight,
-      })),
+      entries: entries.map(
+        ({ id, name, muscleGroup, setCount, reps, weight }) => ({
+          id,
+          name,
+          muscleGroup,
+          setCount,
+          reps,
+          weight,
+        }),
+      ),
+      location,
       notes,
     }),
-    [entries, notes, selectedGroups],
+    [entries, location, notes, selectedGroups],
   );
   draftRef.current = draft;
 
@@ -106,6 +107,7 @@ export default function WorkoutScreen() {
     setDraftLoaded(false);
     setSelectedGroups([]);
     setEntries([]);
+    setLocation("");
     setNotes("");
     setFeedback("");
     entryNames.current.clear();
@@ -122,12 +124,18 @@ export default function WorkoutScreen() {
         setEntries(
           savedDraft.entries.map((entry) => ({
             ...entry,
+            muscleGroup:
+              entry.muscleGroup ??
+              (savedDraft.muscleGroups.length === 1
+                ? savedDraft.muscleGroups[0]
+                : undefined),
             guidanceState: "idle",
           })),
         );
         for (const entry of savedDraft.entries) {
           entryNames.current.set(entry.id, entry.name);
         }
+        setLocation(savedDraft.location);
       }
       setDraftLoaded(true);
     });
@@ -152,15 +160,27 @@ export default function WorkoutScreen() {
     return () => subscription.remove();
   }, [draftLoaded, userId]);
   function toggleGroup(group: MuscleGroup) {
-    setSelectedGroups((current) =>
-      current.includes(group)
+    setSelectedGroups((current) => {
+      const next = current.includes(group)
         ? current.filter((item) => item !== group)
-        : [...current, group],
-    );
+        : [...current, group];
+      setEntries((currentEntries) =>
+        currentEntries.map((entry) => ({
+          ...entry,
+          muscleGroup:
+            entry.muscleGroup && next.includes(entry.muscleGroup)
+              ? entry.muscleGroup
+              : next.length === 1
+                ? next[0]
+                : undefined,
+        })),
+      );
+      return next;
+    });
     setFeedback("");
   }
   function addExercise() {
-    const entry = blankExercise();
+    const entry = blankExercise(selectedGroups);
     entryNames.current.set(entry.id, "");
     setEntries((current) => [...current, entry]);
     setActiveEntry(entry.id);
@@ -174,6 +194,10 @@ export default function WorkoutScreen() {
       setActiveEntry(undefined);
       setSuggestions([]);
     }
+  }
+  function moveExercise(id: string, direction: -1 | 1) {
+    setEntries((current) => moveWorkoutEntry(current, id, direction));
+    setFeedback("");
   }
   function updateEntry(id: string, patch: Partial<ExerciseEntry>) {
     setEntries((current) =>
@@ -277,6 +301,8 @@ export default function WorkoutScreen() {
     const validEntries = entries.filter(
       (entry) =>
         entry.name.trim() &&
+        entry.muscleGroup !== undefined &&
+        selectedGroups.includes(entry.muscleGroup) &&
         entry.setCount > 0 &&
         entry.reps.length === entry.setCount &&
         entry.reps.every((reps) => Number.isInteger(reps) && reps > 0) &&
@@ -285,18 +311,21 @@ export default function WorkoutScreen() {
     );
     if (!validEntries.length)
       return setFeedback(
-        "Add an exercise, set count, every rep target, and a working weight.",
+        "Add an exercise, choose its muscle group, set count, every rep target, and a working weight.",
       );
     if (validEntries.length !== entries.length)
       return setFeedback(
         "Finish or remove incomplete exercises before saving.",
       );
-    const sets: WorkoutSetInput[] = validEntries.flatMap((entry) =>
-      entry.reps.map((reps) => ({
-        exerciseName: entry.name.trim(),
-        weight: entry.weight!,
-        reps,
-      })),
+    const sets: WorkoutSetInput[] = validEntries.flatMap(
+      (entry, exerciseIndex) =>
+        entry.reps.map((reps) => ({
+          exerciseName: entry.name.trim(),
+          exerciseOrder: exerciseIndex + 1,
+          muscleGroup: entry.muscleGroup!,
+          weight: entry.weight!,
+          reps,
+        })),
     );
     setSaving(true);
     setFeedback("");
@@ -304,6 +333,7 @@ export default function WorkoutScreen() {
       await saveWorkout(session.user.id, {
         title: `${selectedGroups.join(", ")} lift`,
         muscleGroups: selectedGroups,
+        location,
         notes,
         sets,
       });
@@ -314,6 +344,7 @@ export default function WorkoutScreen() {
       entryNames.current.clear();
       guidanceRequests.current.clear();
       setEntries([]);
+      setLocation("");
       setNotes("");
       setSelectedGroups([]);
     } catch (error) {
@@ -330,7 +361,7 @@ export default function WorkoutScreen() {
       contentContainerStyle={styles.page}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.title}>Exercise</Text>
+      <Text style={styles.title}>Workout</Text>
       <Text style={styles.copy}>
         Log lifting and cardio in separate, focused sections.
       </Text>
@@ -382,8 +413,17 @@ export default function WorkoutScreen() {
           </View>
           {selectedGroups.length ? (
             <>
+              <Text style={styles.label}>2. Gym location (optional)</Text>
+              <TextInput
+                accessibilityLabel="Gym location"
+                placeholder="Gym, studio, or home"
+                placeholderTextColor="#9FB3C8"
+                style={[styles.exerciseInput, styles.locationInput]}
+                value={location}
+                onChangeText={setLocation}
+              />
               <View style={styles.exerciseBar}>
-                <Text style={styles.label}>2. Lifting exercises</Text>
+                <Text style={styles.label}>3. Lifting exercises</Text>
                 <Pressable
                   accessibilityRole="button"
                   onPress={addExercise}
@@ -400,17 +440,46 @@ export default function WorkoutScreen() {
                   </Text>
                 </View>
               ) : null}
-              {entries.map((entry) => (
+              {entries.map((entry, index) => (
                 <View key={entry.id} style={styles.exerciseCard}>
                   <View style={styles.exerciseHeader}>
-                    <Text style={styles.exerciseNumber}>EXERCISE</Text>
-                    <Pressable
-                      accessibilityRole="button"
-                      onPress={() => removeExercise(entry.id)}
-                      hitSlop={8}
-                    >
-                      <Text style={styles.remove}>Remove</Text>
-                    </Pressable>
+                    <Text style={styles.exerciseNumber}>
+                      EXERCISE {index + 1}
+                    </Text>
+                    <View style={styles.exerciseHeaderActions}>
+                      <Pressable
+                        accessibilityLabel={`Move exercise ${index + 1} up`}
+                        accessibilityRole="button"
+                        disabled={index === 0}
+                        onPress={() => moveExercise(entry.id, -1)}
+                        style={[
+                          styles.orderButton,
+                          index === 0 && styles.orderButtonDisabled,
+                        ]}
+                      >
+                        <Text style={styles.orderText}>↑</Text>
+                      </Pressable>
+                      <Pressable
+                        accessibilityLabel={`Move exercise ${index + 1} down`}
+                        accessibilityRole="button"
+                        disabled={index === entries.length - 1}
+                        onPress={() => moveExercise(entry.id, 1)}
+                        style={[
+                          styles.orderButton,
+                          index === entries.length - 1 &&
+                            styles.orderButtonDisabled,
+                        ]}
+                      >
+                        <Text style={styles.orderText}>↓</Text>
+                      </Pressable>
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() => removeExercise(entry.id)}
+                        hitSlop={8}
+                      >
+                        <Text style={styles.remove}>Remove</Text>
+                      </Pressable>
+                    </View>
                   </View>
                   <TextInput
                     accessibilityLabel="Exercise name"
@@ -458,6 +527,42 @@ export default function WorkoutScreen() {
                         <Text style={styles.suggestionName}>{name}</Text>
                       </Pressable>
                     ))}
+                  {selectedGroups.length > 1 ? (
+                    <>
+                      <Text style={styles.exerciseGroupLabel}>
+                        Muscle group
+                      </Text>
+                      <View style={styles.exerciseGroups}>
+                        {selectedGroups.map((group) => (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityState={{
+                              selected: entry.muscleGroup === group,
+                            }}
+                            key={group}
+                            onPress={() =>
+                              updateEntry(entry.id, { muscleGroup: group })
+                            }
+                            style={[
+                              styles.exerciseGroupChip,
+                              entry.muscleGroup === group &&
+                                styles.exerciseGroupChipActive,
+                            ]}
+                          >
+                            <Text
+                              style={
+                                entry.muscleGroup === group
+                                  ? styles.exerciseGroupTextActive
+                                  : styles.exerciseGroupText
+                              }
+                            >
+                              {group}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    </>
+                  ) : null}
                   <View style={styles.prescriptionLabel}>
                     <Text style={styles.subLabel}>Number of sets</Text>
                     <Text style={styles.subLabel}>Reps per set</Text>
@@ -538,7 +643,18 @@ export default function WorkoutScreen() {
                   )}
                 </View>
               ))}
-              <Text style={styles.label}>Notes (optional)</Text>
+              {entries.length ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={addExercise}
+                  style={styles.bottomAddButton}
+                >
+                  <Text style={styles.bottomAddButtonText}>
+                    + Add another exercise
+                  </Text>
+                </Pressable>
+              ) : null}
+              <Text style={styles.label}>4. Notes (optional)</Text>
               <TextInput
                 multiline
                 placeholder="Energy, form cues, PR..."
@@ -676,6 +792,17 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 8,
   },
+  exerciseHeaderActions: { alignItems: "center", flexDirection: "row", gap: 7 },
+  orderButton: {
+    alignItems: "center",
+    backgroundColor: "#E6F7F3",
+    borderRadius: 9,
+    height: 32,
+    justifyContent: "center",
+    width: 34,
+  },
+  orderButtonDisabled: { opacity: 0.3 },
+  orderText: { color: "#16776A", fontSize: 18, fontWeight: "800" },
   exerciseNumber: {
     color: "#7B8794",
     fontSize: 11,
@@ -692,6 +819,43 @@ const styles = StyleSheet.create({
     fontSize: 16,
     padding: 12,
   },
+  exerciseGroupLabel: {
+    color: "#486581",
+    fontSize: 12,
+    fontWeight: "800",
+    marginBottom: 6,
+    marginTop: 4,
+  },
+  exerciseGroups: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginBottom: 12,
+  },
+  exerciseGroupChip: {
+    backgroundColor: "#E6EEF3",
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  exerciseGroupChipActive: { backgroundColor: "#16776A" },
+  exerciseGroupText: { color: "#486581", fontSize: 12, fontWeight: "700" },
+  exerciseGroupTextActive: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  locationInput: { marginBottom: 20 },
+  bottomAddButton: {
+    alignItems: "center",
+    borderColor: "#16776A",
+    borderRadius: 12,
+    borderStyle: "dashed",
+    borderWidth: 1,
+    marginBottom: 20,
+    padding: 13,
+  },
+  bottomAddButtonText: { color: "#16776A", fontWeight: "800" },
   suggestion: {
     borderBottomColor: "#E6EEF3",
     borderBottomWidth: 1,

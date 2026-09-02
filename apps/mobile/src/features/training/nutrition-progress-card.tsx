@@ -15,12 +15,14 @@ export function NutritionProgressCard({
   goal,
   unit,
   onPress,
+  accessibilityHint,
 }: {
   label: string;
   value: number;
   goal: number | undefined;
   unit: string;
   onPress: () => void;
+  accessibilityHint?: string;
 }) {
   const fraction = progressFraction(value, goal);
   const roundedValue = Math.round(value);
@@ -31,7 +33,7 @@ export function NutritionProgressCard({
 
   return (
     <Pressable
-      accessibilityHint="Opens food logging."
+      accessibilityHint={accessibilityHint ?? "Opens the matching tracker."}
       accessibilityLabel={
         hasGoal
           ? `${label}: ${roundedValue} of ${roundedGoal} ${unit}`
@@ -84,13 +86,7 @@ export function NutritionProgressCard({
         >
           {percentage === undefined ? "—" : `${percentage}%`}
         </SvgText>
-        <SvgText
-          fill="#627D98"
-          fontSize="8"
-          textAnchor="middle"
-          x="38"
-          y="52"
-        >
+        <SvgText fill="#627D98" fontSize="8" textAnchor="middle" x="38" y="52">
           {hasGoal ? "today" : "no goal"}
         </SvgText>
       </Svg>

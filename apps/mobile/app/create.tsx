@@ -7,31 +7,31 @@ const actions = [
     title: "Food",
     copy: "Calories and protein",
     href: "/(app)/nutrition",
-    wide: false,
   },
   {
-    title: "Health",
-    copy: "Blood pressure and pulse",
+    title: "Water",
+    copy: "Water and other fluids",
+    href: "/(app)/water",
+  },
+  {
+    title: "Blood pressure",
+    copy: "Pressure and optional pulse",
     href: "/(app)/track",
-    wide: false,
-  },
-  {
-    title: "Exercise",
-    copy: "Lifting or cardio",
-    href: "/(app)/workout",
-    wide: false,
   },
   {
     title: "Weight",
     copy: "Body-weight reading",
     href: "/(app)/weight",
-    wide: false,
+  },
+  {
+    title: "Workout",
+    copy: "Lifting or cardio",
+    href: "/(app)/workout",
   },
   {
     title: "Reminders",
     copy: "Medication, supplements, and BP prompts",
     href: "/(app)/reminders",
-    wide: true,
   },
 ] as const;
 
@@ -59,7 +59,7 @@ export default function CreateScreen() {
             accessibilityRole="button"
             key={action.title}
             onPress={() => router.replace(action.href)}
-            style={[styles.action, action.wide && styles.wideAction]}
+            style={styles.action}
           >
             <Text style={styles.actionTitle}>{action.title}</Text>
             <Text style={styles.actionCopy}>{action.copy}</Text>
@@ -79,7 +79,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 20,
   },
-  eyebrow: { color: "#16776A", fontSize: 11, fontWeight: "800", letterSpacing: 1.1 },
+  eyebrow: {
+    color: "#16776A",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 1.1,
+  },
   title: { color: "#102A43", fontSize: 22, fontWeight: "800", marginTop: 5 },
   closeButton: { paddingHorizontal: 2, paddingVertical: 5 },
   closeText: { color: "#486581", fontSize: 14, fontWeight: "700" },
@@ -94,7 +99,19 @@ const styles = StyleSheet.create({
     width: "48%",
   },
   actionTitle: { color: "#102A43", fontSize: 17, fontWeight: "800" },
-  wideAction: { width: "100%" },
-  actionCopy: { color: "#627D98", fontSize: 12, lineHeight: 17, marginTop: 5, paddingRight: 12 },
-  actionArrow: { bottom: 10, color: "#16776A", fontSize: 19, fontWeight: "700", position: "absolute", right: 13 },
+  actionCopy: {
+    color: "#627D98",
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 5,
+    paddingRight: 12,
+  },
+  actionArrow: {
+    bottom: 10,
+    color: "#16776A",
+    fontSize: 19,
+    fontWeight: "700",
+    position: "absolute",
+    right: 13,
+  },
 });

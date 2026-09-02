@@ -1,18 +1,20 @@
 # HealthApp
 
-An iPhone-first personal wellness tracker. Releases 0–1 deliver secure accounts, offline manual weight and blood-pressure tracking, cloud sync, and readable trends. It is a wellness tool, not medical advice or a diagnostic device.
+An iPhone-first personal wellness tracker for vitals, lifting, cardio, nutrition, goals, and Apple Health weight/blood-pressure imports. Food logging supports reusable private labels, exact serving conversions, and cached Open Food Facts barcode lookup. It is a wellness tool, not medical advice or a diagnostic device.
 
-## Run the first working release
+## Run the current app
 
-1. Create a free Supabase **development** project and follow [the setup guide](docs/SUPABASE_SETUP.md).
-2. Copy `apps/mobile/.env.example` to `apps/mobile/.env`; add the project URL and anonymous key only.
-3. Run `npm install` and `npm run check`.
-4. Run `npm run dev`; scan the QR code with Expo Go on an iPhone.
+1. Copy `apps/mobile/.env.example` to the ignored `apps/mobile/.env` and use the canonical HealthHub Supabase public URL/key.
+2. Run `npm install` and `npm run check`.
+3. Run `npx expo start --dev-client` and open the installed HealthApp development client on the registered iPhone.
 
-Docker, WSL2, the Apple Developer Program, and a Mac are intentionally not prerequisites for Releases 0–1. The persistent [status](docs/STATUS.md) and [roadmap](docs/ROADMAP.md) are updated as implementation progresses.
+Expo Go and the browser preview cannot load Apple Health. The camera-enabled development client is now installed on the registered iPhone; UI and TypeScript changes normally update through Metro without a new native build. Docker, WSL2, and a Mac are not required for the current hosted-Supabase/EAS workflow.
+
+The Supabase migrations and barcode Edge Function are already deployed to the canonical HealthHub development project. Follow [the Supabase setup guide](docs/SUPABASE_SETUP.md) only when configuring a new environment, and use [the barcode setup guide](docs/FOOD_BARCODE_SETUP.md) for deployment/validation details. The persistent [status](docs/STATUS.md), [roadmap](docs/ROADMAP.md), and [implementation log](docs/IMPLEMENTATION_LOG.md) provide the cross-session handoff.
 
 ## Project map
 
 - `apps/mobile` — Expo Router React Native app
 - `supabase/migrations` — reviewed database schema and RLS policies
-- `docs` — roadmap, decisions, status, and setup context
+- `supabase/functions` — hosted TypeScript Edge Functions
+- `docs` — roadmap, decisions, status, setup, and handoff context

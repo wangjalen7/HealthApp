@@ -8,9 +8,12 @@ import {
   type PerformanceSession,
 } from "./progression";
 import { rankSavedNames } from "./catalog";
+import { muscleGroupSchema, type MuscleGroup } from "./workout-draft";
 
 const workoutSetSchema = z.object({
   exerciseName: z.string().trim().min(1).max(120),
+  exerciseOrder: z.number().int().min(1).max(100),
+  muscleGroup: muscleGroupSchema,
   weight: z.number().min(0).max(5000),
   reps: z.number().int().min(1).max(500),
 });
@@ -23,12 +26,16 @@ export async function saveWorkout(
     title: string;
     muscleGroups: string[];
     templateName?: string;
+    location?: string;
     notes?: string;
     sets: WorkoutSetInput[];
   },
 ): Promise<void> {
   const sets = input.sets.map((set) => workoutSetSchema.parse(set));
   if (!sets.length) throw new Error("Add at least one completed set.");
+  if (sets.some((set) => !input.muscleGroups.includes(set.muscleGroup))) {
+    throw new Error("Choose a selected muscle group for every exercise.");
+  }
   const sessionId = createId();
   const now = new Date().toISOString();
   const { error: sessionError } = await supabase
@@ -39,6 +46,7 @@ export async function saveWorkout(
       title: input.title.trim(),
       muscle_groups: input.muscleGroups,
       template_name: input.templateName ?? null,
+      location: input.location?.trim() || null,
       notes: input.notes?.trim() || null,
       started_at: now,
       completed_at: now,
@@ -54,6 +62,8 @@ export async function saveWorkout(
         user_id: userId,
         session_id: sessionId,
         exercise_name: set.exerciseName,
+        exercise_order: set.exerciseOrder,
+        muscle_group: set.muscleGroup ?? null,
         set_number: setNumber,
         weight: set.weight,
         weight_unit: "lb",
@@ -70,12 +80,16 @@ export async function replaceWorkout(
   input: {
     title: string;
     muscleGroups: string[];
+    location?: string;
     notes?: string;
     sets: WorkoutSetInput[];
   },
 ): Promise<void> {
   const sets = input.sets.map((set) => workoutSetSchema.parse(set));
   if (!sets.length) throw new Error("Add at least one completed set.");
+  if (sets.some((set) => !input.muscleGroups.includes(set.muscleGroup))) {
+    throw new Error("Choose a selected muscle group for every exercise.");
+  }
   const setNumbers = new Map<string, number>();
   const replacementSets = sets.map((set) => {
     const setNumber = (setNumbers.get(set.exerciseName) ?? 0) + 1;
@@ -83,6 +97,8 @@ export async function replaceWorkout(
     return {
       id: createId(),
       exercise_name: set.exerciseName,
+      exercise_order: set.exerciseOrder,
+      muscle_group: set.muscleGroup ?? null,
       set_number: setNumber,
       weight: set.weight,
       weight_unit: "lb",
@@ -93,6 +109,7 @@ export async function replaceWorkout(
     p_session_id: sessionId,
     p_title: input.title.trim(),
     p_muscle_groups: input.muscleGroups,
+    p_location: input.location?.trim() ?? "",
     p_notes: input.notes?.trim() ?? "",
     p_sets: replacementSets,
   });
@@ -147,6 +164,8 @@ export async function getExerciseSuggestions(
 
 export type WorkoutHistorySet = {
   exerciseName: string;
+  exerciseOrder: number;
+  muscleGroup?: MuscleGroup;
   setNumber: number;
   weight: number;
   unit: string;
@@ -157,6 +176,7 @@ export type WorkoutHistorySession = {
   title: string;
   muscleGroups: string[];
   completedAt: string;
+  location?: string;
   notes?: string;
   sets: WorkoutHistorySet[];
 };
@@ -165,7 +185,7 @@ export async function getWorkoutHistory(
 ): Promise<WorkoutHistorySession[]> {
   const { data: sessions, error: sessionError } = await supabase
     .from("workout_sessions")
-    .select("id, title, muscle_groups, completed_at, notes")
+    .select("id, title, muscle_groups, completed_at, location, notes")
     .eq("user_id", userId)
     .order("completed_at", { ascending: false })
     .limit(100);
@@ -174,9 +194,12 @@ export async function getWorkoutHistory(
   const ids = sessions.map((session) => session.id);
   const { data: sets, error: setError } = await supabase
     .from("workout_sets")
-    .select("session_id, exercise_name, set_number, weight, weight_unit, reps")
+    .select(
+      "session_id, exercise_name, exercise_order, muscle_group, set_number, weight, weight_unit, reps",
+    )
     .eq("user_id", userId)
     .in("session_id", ids)
+    .order("exercise_order", { ascending: true })
     .order("set_number", { ascending: true });
   if (setError) throw new Error(setError.message);
   const bySession = new Map<string, WorkoutHistorySet[]>();
@@ -184,6 +207,10 @@ export async function getWorkoutHistory(
     const current = bySession.get(set.session_id) ?? [];
     current.push({
       exerciseName: set.exercise_name,
+      exerciseOrder: Number(set.exercise_order),
+      muscleGroup: muscleGroupSchema.safeParse(set.muscle_group).success
+        ? muscleGroupSchema.parse(set.muscle_group)
+        : undefined,
       setNumber: Number(set.set_number),
       weight: Number(set.weight),
       unit: set.weight_unit,
@@ -198,6 +225,7 @@ export async function getWorkoutHistory(
       ? session.muscle_groups
       : [],
     completedAt: session.completed_at,
+    location: session.location ?? undefined,
     notes: session.notes ?? undefined,
     sets: bySession.get(session.id) ?? [],
   }));
@@ -222,7 +250,7 @@ export async function getWorkoutById(
 ): Promise<WorkoutHistorySession | undefined> {
   const { data: session, error: sessionError } = await supabase
     .from("workout_sessions")
-    .select("id, title, muscle_groups, completed_at, notes")
+    .select("id, title, muscle_groups, completed_at, location, notes")
     .eq("user_id", userId)
     .eq("id", sessionId)
     .maybeSingle();
@@ -230,9 +258,12 @@ export async function getWorkoutById(
   if (!session) return undefined;
   const { data: sets, error: setError } = await supabase
     .from("workout_sets")
-    .select("exercise_name, set_number, weight, weight_unit, reps")
+    .select(
+      "exercise_name, exercise_order, muscle_group, set_number, weight, weight_unit, reps",
+    )
     .eq("user_id", userId)
     .eq("session_id", sessionId)
+    .order("exercise_order", { ascending: true })
     .order("set_number", { ascending: true });
   if (setError) throw new Error(setError.message);
   return {
@@ -242,49 +273,20 @@ export async function getWorkoutById(
       ? session.muscle_groups
       : [],
     completedAt: session.completed_at,
+    location: session.location ?? undefined,
     notes: session.notes ?? undefined,
     sets: (sets ?? []).map((set) => ({
       exerciseName: set.exercise_name,
+      exerciseOrder: Number(set.exercise_order),
+      muscleGroup: muscleGroupSchema.safeParse(set.muscle_group).success
+        ? muscleGroupSchema.parse(set.muscle_group)
+        : undefined,
       setNumber: Number(set.set_number),
       weight: Number(set.weight),
       unit: set.weight_unit,
       reps: Number(set.reps),
     })),
   };
-}
-
-export type FoodSuggestion = {
-  name: string;
-  calories: number;
-  proteinGrams: number;
-};
-export async function getFoodSuggestions(
-  userId: string,
-  query: string,
-): Promise<FoodSuggestion[]> {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) return [];
-  const { data, error } = await supabase
-    .from("nutrition_entries")
-    .select("food_name, calories, protein_grams")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(250);
-  if (error) throw new Error(error.message);
-  const seen = new Set<string>();
-  return (data ?? [])
-    .filter((item) => {
-      const key = item.food_name.toLowerCase();
-      if (seen.has(key) || !key.includes(normalized)) return false;
-      seen.add(key);
-      return true;
-    })
-    .slice(0, 5)
-    .map((item) => ({
-      name: item.food_name,
-      calories: Number(item.calories),
-      proteinGrams: Number(item.protein_grams),
-    }));
 }
 
 const cardioSchema = z.object({
@@ -306,6 +308,28 @@ export type CardioHistoryEntry = {
   source: "manual" | "strava" | "healthkit";
   sourceName?: string;
 };
+
+function cardioHistoryEntry(row: Record<string, unknown>): CardioHistoryEntry {
+  return {
+    id: String(row.id),
+    activityType: cardioSchema.shape.activityType.parse(row.activity_type),
+    activityName: row.activity_name ? String(row.activity_name) : undefined,
+    durationMinutes: Number(row.duration_minutes),
+    distanceMiles:
+      row.distance_miles === null || row.distance_miles === undefined
+        ? undefined
+        : Number(row.distance_miles),
+    notes: row.notes ? String(row.notes) : undefined,
+    occurredAt: String(row.occurred_at),
+    source:
+      row.source === "strava"
+        ? "strava"
+        : row.source === "healthkit"
+          ? "healthkit"
+          : "manual",
+    sourceName: row.source_name ? String(row.source_name) : undefined,
+  };
+}
 
 export async function saveCardio(
   userId: string,
@@ -339,23 +363,50 @@ export async function getCardioHistory(
     .order("occurred_at", { ascending: false })
     .limit(100);
   if (error) throw new Error(error.message);
-  return (data ?? []).map((entry) => ({
-    id: entry.id,
-    activityType: cardioSchema.shape.activityType.parse(entry.activity_type),
-    activityName: entry.activity_name ?? undefined,
-    durationMinutes: Number(entry.duration_minutes),
-    distanceMiles:
-      entry.distance_miles === null ? undefined : Number(entry.distance_miles),
-    notes: entry.notes ?? undefined,
-    occurredAt: entry.occurred_at,
-    source:
-      entry.source === "strava"
-        ? "strava"
-        : entry.source === "healthkit"
-          ? "healthkit"
-          : "manual",
-    sourceName: entry.source_name ?? undefined,
-  }));
+  return (data ?? []).map((entry) => cardioHistoryEntry(entry));
+}
+
+export async function getCardioById(
+  userId: string,
+  cardioId: string,
+): Promise<CardioHistoryEntry | undefined> {
+  const id = z.string().uuid().parse(cardioId);
+  const { data, error } = await supabase
+    .from("cardio_entries")
+    .select(
+      "id, activity_type, activity_name, duration_minutes, distance_miles, notes, occurred_at, source, source_name",
+    )
+    .eq("user_id", userId)
+    .eq("id", id)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? cardioHistoryEntry(data) : undefined;
+}
+
+export async function updateCardio(
+  userId: string,
+  cardioId: string,
+  input: CardioInput,
+): Promise<void> {
+  const id = z.string().uuid().parse(cardioId);
+  const value = cardioSchema.parse(input);
+  const { data, error } = await supabase
+    .from("cardio_entries")
+    .update({
+      activity_type: value.activityType,
+      duration_minutes: value.durationMinutes,
+      distance_miles: value.distanceMiles ?? null,
+      notes: value.notes?.trim() || null,
+    })
+    .eq("user_id", userId)
+    .eq("id", id)
+    .eq("source", "manual")
+    .is("deleted_at", null)
+    .select("id")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Only manually logged cardio can be edited.");
 }
 
 export async function deleteCardio(
@@ -371,114 +422,19 @@ export async function deleteCardio(
   if (error) throw new Error(error.message);
 }
 
-const foodSchema = z.object({
-  foodName: z.string().trim().min(1).max(160),
-  mealType: z.enum(["breakfast", "lunch", "dinner", "snack", "meal"]),
-  calories: z.number().int().min(0).max(20000),
-  proteinGrams: z.number().min(0).max(1000),
-});
-export type FoodInput = z.infer<typeof foodSchema>;
-export type FoodHistoryEntry = FoodInput & {
-  id: string;
-  occurredAt: string;
-  source: "manual";
-};
-
-export async function saveMeal(
-  userId: string,
-  mealType: FoodInput["mealType"],
-  foods: Omit<FoodInput, "mealType">[],
-): Promise<void> {
-  const occurredAt = new Date().toISOString();
-  const values = foods.map((food) => foodSchema.parse({ ...food, mealType }));
-  if (!values.length) throw new Error("Add at least one food.");
-  const { error } = await supabase.from("nutrition_entries").insert(
-    values.map((value) => ({
-      id: createId(),
-      user_id: userId,
-      food_name: value.foodName,
-      meal_type: value.mealType,
-      calories: value.calories,
-      protein_grams: value.proteinGrams,
-      occurred_at: occurredAt,
-      source: "manual",
-    })),
-  );
-  if (error) throw new Error(error.message);
-}
-
-export async function saveFood(
-  userId: string,
-  input: FoodInput,
-): Promise<void> {
-  const value = foodSchema.parse(input);
-  await saveMeal(userId, value.mealType, [value]);
-}
-
-export async function getFoodHistory(
-  userId: string,
-): Promise<FoodHistoryEntry[]> {
-  const { data, error } = await supabase
-    .from("nutrition_entries")
-    .select("id, food_name, meal_type, calories, protein_grams, occurred_at")
-    .eq("user_id", userId)
-    .order("occurred_at", { ascending: false })
-    .limit(500);
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((entry) => ({
-    id: String(entry.id),
-    foodName: String(entry.food_name),
-    mealType: foodSchema.shape.mealType.parse(entry.meal_type),
-    calories: Number(entry.calories),
-    proteinGrams: Number(entry.protein_grams),
-    occurredAt: String(entry.occurred_at),
-    source: "manual",
-  }));
-}
-
-export async function deleteFood(
-  userId: string,
-  foodId: string,
-): Promise<void> {
-  const id = z.string().uuid().parse(foodId);
-  const { error } = await supabase
-    .from("nutrition_entries")
-    .delete()
-    .eq("user_id", userId)
-    .eq("id", id);
-  if (error) throw new Error(error.message);
-}
-
 export type TodaySummary = {
   calories: number;
   protein: number;
-  workoutCount: number;
-  cardioMinutes: number;
 };
 export async function getTodaySummary(userId: string): Promise<TodaySummary> {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
-  const [food, workouts, cardio] = await Promise.all([
-    supabase
-      .from("nutrition_entries")
-      .select("calories, protein_grams")
-      .eq("user_id", userId)
-      .gte("occurred_at", start.toISOString()),
-    supabase
-      .from("workout_sessions")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .gte("completed_at", start.toISOString()),
-    supabase
-      .from("cardio_entries")
-      .select("duration_minutes")
-      .eq("user_id", userId)
-      .is("deleted_at", null)
-      .gte("occurred_at", start.toISOString()),
-  ]);
+  const food = await supabase
+    .from("nutrition_entries")
+    .select("calories, protein_grams")
+    .eq("user_id", userId)
+    .gte("occurred_at", start.toISOString());
   if (food.error) throw new Error(food.error.message);
-  if (workouts.error) throw new Error(workouts.error.message);
-  if (cardio.error) throw new Error(cardio.error.message);
   return {
     calories: (food.data ?? []).reduce(
       (total, item) => total + Number(item.calories),
@@ -486,11 +442,6 @@ export async function getTodaySummary(userId: string): Promise<TodaySummary> {
     ),
     protein: (food.data ?? []).reduce(
       (total, item) => total + Number(item.protein_grams),
-      0,
-    ),
-    workoutCount: workouts.count ?? 0,
-    cardioMinutes: (cardio.data ?? []).reduce(
-      (total, item) => total + Number(item.duration_minutes),
       0,
     ),
   };

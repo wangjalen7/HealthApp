@@ -10,10 +10,11 @@
     "dev": "npm run dev --workspace=@healthapp/mobile",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present && npm run test:edge",
+    "test:edge": "tsx --test supabase/functions/**/*.test.ts",
     "precheck": "npm run lint --workspaces --if-present",
     "check": "npm run typecheck --workspaces --if-present",
-    "postcheck": "npm run test --workspaces --if-present"
+    "postcheck": "npm run test"
   },
   "engines": {
     "node": ">=22.13.0"

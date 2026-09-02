@@ -28,6 +28,14 @@
       "expo-secure-store",
       "expo-sqlite",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow HealthApp to use the camera while you scan a food barcode.",
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
+        }
+      ],
+      [
         "@kingstinct/react-native-healthkit",
         {
           "NSHealthShareUsageDescription": "HealthApp reads your weight, blood pressure, and workout data to keep your private health dashboard in sync.",

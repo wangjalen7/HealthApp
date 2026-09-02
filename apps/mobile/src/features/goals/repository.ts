@@ -5,6 +5,7 @@ import { supabase } from "../../lib/supabase";
 const goalsSchema = z.object({
   calorieGoal: z.number().int().min(0).max(20000).optional(),
   proteinGoal: z.number().int().min(0).max(5000).optional(),
+  waterGoalMl: z.number().positive().max(20000).optional(),
   weightGoalLb: z.number().positive().max(2000).optional(),
   systolicGoal: z.number().int().positive().max(300).optional(),
   diastolicGoal: z.number().int().positive().max(200).optional(),
@@ -14,7 +15,7 @@ export async function getDailyGoals(userId: string): Promise<DailyGoals> {
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      "daily_calorie_goal, daily_protein_goal, weight_goal_lb, bp_systolic_goal, bp_diastolic_goal",
+      "daily_calorie_goal, daily_protein_goal, daily_water_goal_ml, weight_goal_lb, bp_systolic_goal, bp_diastolic_goal",
     )
     .eq("id", userId)
     .maybeSingle();
@@ -23,6 +24,10 @@ export async function getDailyGoals(userId: string): Promise<DailyGoals> {
   return goalsSchema.parse({
     calorieGoal: data.daily_calorie_goal ?? undefined,
     proteinGoal: data.daily_protein_goal ?? undefined,
+    waterGoalMl:
+      data.daily_water_goal_ml === null
+        ? undefined
+        : Number(data.daily_water_goal_ml),
     weightGoalLb:
       data.weight_goal_lb === null ? undefined : Number(data.weight_goal_lb),
     systolicGoal: data.bp_systolic_goal ?? undefined,
@@ -39,6 +44,7 @@ export async function saveDailyGoals(
     .update({
       daily_calorie_goal: goals.calorieGoal ?? null,
       daily_protein_goal: goals.proteinGoal ?? null,
+      daily_water_goal_ml: goals.waterGoalMl ?? null,
       weight_goal_lb: goals.weightGoalLb ?? null,
       bp_systolic_goal: goals.systolicGoal ?? null,
       bp_diastolic_goal: goals.diastolicGoal ?? null,
