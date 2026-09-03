@@ -49,7 +49,7 @@ export function NutritionProgressCard({
           {roundedValue} {unit}
         </Text>
         <Text style={styles.detail}>
-          {hasGoal ? `Goal ${roundedGoal} ${unit}` : "Set goal in Profile"}
+          {hasGoal ? `Goal: ${roundedGoal} ${unit}` : "Set goal in Profile"}
         </Text>
       </View>
       <Svg height="76" width="76" viewBox="0 0 76 76">

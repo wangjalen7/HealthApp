@@ -2,10 +2,18 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  muscleGroupLabel,
   moveWorkoutEntry,
   workoutDraftHasContent,
   workoutDraftSchema,
 } from "./workout-draft";
+
+test("expands abbreviated muscle-group labels for display", () => {
+  assert.equal(muscleGroupLabel("Bi"), "Bicep");
+  assert.equal(muscleGroupLabel("Tri"), "Tricep");
+  assert.equal(muscleGroupLabel("Delt"), "Shoulders");
+  assert.equal(muscleGroupLabel("Back"), "Back");
+});
 
 const emptyDraft = {
   muscleGroups: [],

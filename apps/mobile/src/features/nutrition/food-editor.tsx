@@ -2,6 +2,7 @@ import type { BarcodeScanningResult, BarcodeType } from "expo-camera";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Keyboard,
   Linking,
   Modal,
   Platform,
@@ -18,28 +19,35 @@ import { createId } from "../vitals/storage";
 import {
   availableFoodUnits,
   calculateFoodAmount,
+  convertVolumeAmount,
+  convertWeightAmount,
   foodNameMatchesQuery,
+  formatFoodMeasurementAmount,
   foodUnitLabel,
   mealDraftEntrySchema,
   normalizeHouseholdUnit,
+  shouldPreferSavedFoodProfile,
   volumeAmountToMl,
   weightAmountToGrams,
   type FoodBasis,
   type FoodUnit,
   type MealDraftEntry,
+  type VolumeUnit,
+  type WeightUnit,
 } from "./model";
 import {
+  archiveFoodProfile,
   FoodBarcodeLookupError,
+  getFoodProfileByIdentity,
   getFoodSuggestions,
   resolveFoodBarcode,
   saveFoodProfile,
+  updateFoodProfile,
   type BarcodeProduct,
   type FoodSuggestion,
 } from "./repository";
 
 type EditorMode = "methods" | "basic" | "label" | "search" | "scan" | "amount";
-type WeightUnit = "g" | "oz" | "lb";
-type VolumeUnit = "ml" | "fl_oz" | "cup" | "tbsp" | "tsp";
 type LabelForm = {
   name: string;
   brand: string;
@@ -110,6 +118,27 @@ function productForm(product: BarcodeProduct): LabelForm {
   };
 }
 
+function basisForm(basis: FoodBasis): LabelForm {
+  return {
+    name: basis.name,
+    brand: basis.brand ?? "",
+    servingLabel: basis.servingLabel ?? "",
+    householdAmount: positiveValueOrBlank(basis.householdQuantityPerServing),
+    householdUnit: basis.householdUnit ?? "",
+    weightAmount: positiveValueOrBlank(basis.servingWeightGrams),
+    weightUnit: "g",
+    volumeAmount: positiveValueOrBlank(basis.servingVolumeMl),
+    volumeUnit: "ml",
+    calories: valueOrBlank(basis.nutrientsPerServing.calories),
+    protein: valueOrBlank(basis.nutrientsPerServing.proteinGrams),
+    carbohydrates: valueOrBlank(basis.nutrientsPerServing.carbohydrateGrams),
+    fat: valueOrBlank(basis.nutrientsPerServing.fatGrams),
+    fiber: valueOrBlank(basis.nutrientsPerServing.fiberGrams),
+    sugar: valueOrBlank(basis.nutrientsPerServing.sugarGrams),
+    sodium: valueOrBlank(basis.nutrientsPerServing.sodiumMg),
+  };
+}
+
 const numberOrUndefined = (value: string) => {
   if (!value.trim()) return undefined;
   const parsed = Number(value.replace(",", "."));
@@ -159,6 +188,8 @@ export function FoodEditor({
   const [catalogProductId, setCatalogProductId] = useState<string>();
   const [barcode, setBarcode] = useState<string>();
   const [providerSignature, setProviderSignature] = useState<string>();
+  const [labelProfileId, setLabelProfileId] = useState<string>();
+  const [labelAlreadyCorrected, setLabelAlreadyCorrected] = useState(false);
   const [basis, setBasis] = useState<FoodBasis>();
   const [entryMethod, setEntryMethod] =
     useState<MealDraftEntry["entryMethod"]>("label");
@@ -173,6 +204,9 @@ export function FoodEditor({
   const [scanLocked, setScanLocked] = useState(false);
   const [torch, setTorch] = useState(false);
   const [manualBarcode, setManualBarcode] = useState("");
+  const [editingProfileId, setEditingProfileId] = useState<string>();
+  const [pendingProfileDeletion, setPendingProfileDeletion] =
+    useState<FoodSuggestion>();
 
   useEffect(() => {
     if (!visible) return;
@@ -183,6 +217,10 @@ export function FoodEditor({
     setScanLocked(false);
     setTorch(false);
     setManualBarcode("");
+    setEditingProfileId(undefined);
+    setLabelProfileId(undefined);
+    setLabelAlreadyCorrected(false);
+    setPendingProfileDeletion(undefined);
     if (!initial) {
       setMode("methods");
       setBasicName("");
@@ -266,6 +304,9 @@ export function FoodEditor({
 
   function openLabel() {
     setLabel(blankLabel());
+    setEditingProfileId(undefined);
+    setLabelProfileId(undefined);
+    setLabelAlreadyCorrected(false);
     setLabelSource("manual");
     setCatalogProductId(undefined);
     setBarcode(undefined);
@@ -278,6 +319,9 @@ export function FoodEditor({
     const name = query.trim();
     if (!name) return;
     setLabel({ ...blankLabel(), name });
+    setEditingProfileId(undefined);
+    setLabelProfileId(undefined);
+    setLabelAlreadyCorrected(false);
     setLabelSource("manual");
     setCatalogProductId(undefined);
     setBarcode(undefined);
@@ -286,49 +330,50 @@ export function FoodEditor({
     setMode("label");
   }
 
-  function continueLabel() {
+  function currentLabelBasis(): FoodBasis | undefined {
     const calories = numberOrUndefined(label.calories);
     const protein = numberOrUndefined(label.protein);
     if (!label.name.trim() || calories === undefined || protein === undefined) {
-      return setFeedback(
-        "Enter the food name, calories, and protein per serving.",
-      );
+      setFeedback("Enter the food name, calories, and protein per serving.");
+      return undefined;
     }
     const weight = numberOrUndefined(label.weightAmount);
     const volume = numberOrUndefined(label.volumeAmount);
     const householdAmount = numberOrUndefined(label.householdAmount);
     const householdUnit = normalizeHouseholdUnit(label.householdUnit);
     if (label.weightAmount.trim() && (!weight || weight <= 0)) {
-      return setFeedback(
-        "Serving weight must be greater than zero or left blank.",
-      );
+      setFeedback("Serving weight must be greater than zero or left blank.");
+      return undefined;
     }
     if (label.volumeAmount.trim() && (!volume || volume <= 0)) {
-      return setFeedback(
-        "Serving volume must be greater than zero or left blank.",
-      );
+      setFeedback("Serving volume must be greater than zero or left blank.");
+      return undefined;
     }
     if (Boolean(label.householdAmount.trim()) !== Boolean(householdUnit)) {
-      return setFeedback(
+      setFeedback(
         "Enter both the package/piece amount and its unit, or leave both blank.",
       );
+      return undefined;
     }
     if (
       label.householdAmount.trim() &&
       (!householdAmount || householdAmount <= 0)
     ) {
-      return setFeedback("Package or piece amount must be greater than zero.");
+      setFeedback("Package or piece amount must be greater than zero.");
+      return undefined;
     }
-    const nextBasis: FoodBasis = {
+    return {
+      profileId: editingProfileId ?? labelProfileId,
       catalogProductId,
       name: label.name.trim(),
       brand: label.brand.trim() || undefined,
       barcode,
       source: labelSource,
       isUserCorrected:
-        labelSource === "open_food_facts" &&
-        providerSignature !== undefined &&
-        providerSignature !== formSignature(label),
+        labelAlreadyCorrected ||
+        (labelSource === "open_food_facts" &&
+          providerSignature !== undefined &&
+          providerSignature !== formSignature(label)),
       servingLabel: label.servingLabel.trim() || undefined,
       servingWeightGrams:
         weight === undefined
@@ -350,12 +395,88 @@ export function FoodEditor({
         sodiumMg: numberOrUndefined(label.sodium),
       },
     };
+  }
+
+  function continueLabel() {
+    const nextBasis = currentLabelBasis();
+    if (!nextBasis) return;
+    const householdAmount = nextBasis.householdQuantityPerServing;
+    const householdUnit = nextBasis.householdUnit;
     setBasis(nextBasis);
     setAmount(String(householdAmount ?? 1));
     setUnit(householdAmount && householdUnit ? "household" : "serving");
     setEntryMethod(labelSource === "open_food_facts" ? "barcode" : "label");
     setFeedback("");
     setMode("amount");
+  }
+
+  async function saveEditedLabel() {
+    const nextBasis = currentLabelBasis();
+    if (!nextBasis?.profileId) return;
+    setSaving(true);
+    setFeedback("");
+    try {
+      const updated = await updateFoodProfile(userId, nextBasis);
+      setSuggestions((current) =>
+        current.map((item) =>
+          item.basis.profileId === updated.profileId
+            ? { ...item, basis: updated }
+            : item,
+        ),
+      );
+      setEditingProfileId(undefined);
+      setLabelProfileId(undefined);
+      setLabelAlreadyCorrected(false);
+      setMode("search");
+      setFeedback("Food label updated.");
+    } catch (error) {
+      setFeedback(
+        error instanceof Error ? error.message : "Could not update food label.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function editSuggestion(item: FoodSuggestion) {
+    if (!item.basis.profileId) return;
+    const nextForm = basisForm(item.basis);
+    setLabel(nextForm);
+    setLabelSource(item.basis.source);
+    setCatalogProductId(item.basis.catalogProductId);
+    setBarcode(item.basis.barcode);
+    setProviderSignature(
+      item.basis.source === "open_food_facts"
+        ? formSignature(nextForm)
+        : undefined,
+    );
+    setEditingProfileId(item.basis.profileId);
+    setLabelProfileId(item.basis.profileId);
+    setLabelAlreadyCorrected(item.basis.isUserCorrected);
+    setPendingProfileDeletion(undefined);
+    setFeedback("");
+    setMode("label");
+  }
+
+  async function deletePendingProfile() {
+    const profileId = pendingProfileDeletion?.basis.profileId;
+    if (!profileId) return;
+    setSaving(true);
+    setFeedback("");
+    try {
+      await archiveFoodProfile(userId, profileId);
+      setSuggestions((current) =>
+        current.filter((item) => item.basis.profileId !== profileId),
+      );
+      setPendingProfileDeletion(undefined);
+      setFeedback("Food label deleted. Past food history is unchanged.");
+    } catch (error) {
+      setFeedback(
+        error instanceof Error ? error.message : "Could not delete food label.",
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function finishAmount() {
@@ -365,10 +486,12 @@ export function FoodEditor({
     setSaving(true);
     setFeedback("");
     try {
-      const finalBasis =
-        !basis.profileId && ["label", "barcode"].includes(entryMethod)
-          ? await saveFoodProfile(userId, basis)
-          : basis;
+      const shouldPersistLabel = ["label", "barcode"].includes(entryMethod);
+      const finalBasis = shouldPersistLabel
+        ? basis.profileId
+          ? await updateFoodProfile(userId, basis)
+          : await saveFoodProfile(userId, basis)
+        : basis;
       const parsedAmount = Number(amount.replace(",", "."));
       const result = calculateFoodAmount(finalBasis, parsedAmount, unit);
       onSave(
@@ -440,16 +563,42 @@ export function FoodEditor({
     setFeedback("Looking up this product...");
     try {
       const product = await resolveFoodBarcode(raw, type);
-      const nextForm = productForm(product);
+      const savedProfile = await getFoodProfileByIdentity(userId, {
+        barcode: product.barcode,
+        catalogProductId: product.catalogProductId,
+      });
+      const useSavedProfile = shouldPreferSavedFoodProfile(savedProfile);
+      const nextForm = useSavedProfile
+        ? basisForm(savedProfile)
+        : productForm(product);
       setLabel(nextForm);
-      setLabelSource("open_food_facts");
-      setCatalogProductId(product.catalogProductId);
-      setBarcode(product.barcode);
-      setProviderSignature(formSignature(nextForm));
+      setEditingProfileId(undefined);
+      setLabelProfileId(useSavedProfile ? savedProfile.profileId : undefined);
+      setLabelAlreadyCorrected(
+        useSavedProfile ? savedProfile.isUserCorrected : false,
+      );
+      setLabelSource(useSavedProfile ? savedProfile.source : "open_food_facts");
+      setCatalogProductId(
+        useSavedProfile
+          ? (savedProfile.catalogProductId ?? product.catalogProductId)
+          : product.catalogProductId,
+      );
+      setBarcode(
+        useSavedProfile
+          ? (savedProfile.barcode ?? product.barcode)
+          : product.barcode,
+      );
+      setProviderSignature(
+        !useSavedProfile || savedProfile.source === "open_food_facts"
+          ? formSignature(nextForm)
+          : undefined,
+      );
       setFeedback(
-        product.complete
-          ? "Confirm the package nutrition before continuing."
-          : "Some serving or nutrition details are missing or inconsistent. Confirm them from the package.",
+        useSavedProfile
+          ? "Using your saved corrections for this barcode. Confirm them against the package before continuing."
+          : product.complete
+            ? "Confirm the package nutrition before continuing."
+            : "Some serving or nutrition details are missing or inconsistent. Confirm them from the package.",
       );
       setMode("label");
     } catch (error) {
@@ -458,7 +607,45 @@ export function FoodEditor({
         error instanceof FoodBarcodeLookupError &&
         error.code === "not_found"
       ) {
+        let savedProfile: FoodBasis | undefined;
+        try {
+          savedProfile = await getFoodProfileByIdentity(userId, {
+            barcode: scannedDigits,
+          });
+        } catch (profileError) {
+          setFeedback(
+            profileError instanceof Error
+              ? profileError.message
+              : "Could not load your saved food label.",
+          );
+          setScanLocked(false);
+          return;
+        }
+        if (savedProfile) {
+          const nextForm = basisForm(savedProfile);
+          setLabel(nextForm);
+          setEditingProfileId(undefined);
+          setLabelProfileId(savedProfile.profileId);
+          setLabelAlreadyCorrected(savedProfile.isUserCorrected);
+          setLabelSource(savedProfile.source);
+          setCatalogProductId(savedProfile.catalogProductId);
+          setBarcode(savedProfile.barcode ?? scannedDigits);
+          setProviderSignature(
+            savedProfile.source === "open_food_facts"
+              ? formSignature(nextForm)
+              : undefined,
+          );
+          setFeedback(
+            "Open Food Facts does not have this barcode, so the app loaded your saved private label.",
+          );
+          setScanLocked(false);
+          setMode("label");
+          return;
+        }
         setLabel(blankLabel());
+        setEditingProfileId(undefined);
+        setLabelProfileId(undefined);
+        setLabelAlreadyCorrected(false);
         setLabelSource("manual");
         setCatalogProductId(undefined);
         setBarcode(scannedDigits);
@@ -496,15 +683,30 @@ export function FoodEditor({
   function back() {
     setFeedback("");
     if (mode === "methods") return onClose();
-    if (mode === "amount" && labelSource === "open_food_facts")
+    if (mode === "label" && editingProfileId) {
+      setEditingProfileId(undefined);
+      return setMode("search");
+    }
+    if (mode === "amount" && (labelSource === "open_food_facts" || barcode))
       return setMode("label");
     setMode("methods");
+  }
+
+  function cancelProfileDeletion() {
+    if (!saving) setPendingProfileDeletion(undefined);
+  }
+
+  function requestProfileDeletion(item: FoodSuggestion) {
+    Keyboard.dismiss();
+    setPendingProfileDeletion(item);
   }
 
   return (
     <Modal
       animationType="slide"
-      onRequestClose={back}
+      onRequestClose={() =>
+        pendingProfileDeletion ? cancelProfileDeletion() : back()
+      }
       presentationStyle="pageSheet"
       visible={visible}
     >
@@ -520,7 +722,9 @@ export function FoodEditor({
             </Text>
           </Pressable>
           <Text style={styles.headerTitle}>
-            {modeTitle(mode, Boolean(initial))}
+            {editingProfileId
+              ? "Edit food label"
+              : modeTitle(mode, Boolean(initial))}
           </Text>
           <View style={styles.headerSpacer} />
         </View>
@@ -576,7 +780,19 @@ export function FoodEditor({
                 setForm={setLabel}
                 provider={labelSource === "open_food_facts"}
                 attachedBarcode={labelSource === "manual" ? barcode : undefined}
-                onContinue={continueLabel}
+                actionLabel={
+                  editingProfileId
+                    ? saving
+                      ? "Saving..."
+                      : "Save label"
+                    : "Continue to amount"
+                }
+                disabled={saving}
+                onContinue={
+                  editingProfileId
+                    ? () => void saveEditedLabel()
+                    : continueLabel
+                }
               />
             ) : null}
             {mode === "search" ? (
@@ -587,6 +803,8 @@ export function FoodEditor({
                 searching={searching}
                 choose={chooseSuggestion}
                 createLabel={createLabelFromQuery}
+                edit={editSuggestion}
+                requestDelete={requestProfileDeletion}
               />
             ) : null}
             {mode === "amount" && basis ? (
@@ -606,7 +824,10 @@ export function FoodEditor({
             {feedback ? (
               <Text
                 style={
-                  feedback.startsWith("Confirm") ? styles.info : styles.feedback
+                  feedback.startsWith("Confirm") ||
+                  feedback.startsWith("Food label")
+                    ? styles.info
+                    : styles.feedback
                 }
               >
                 {feedback}
@@ -616,6 +837,14 @@ export function FoodEditor({
         )}
         {mode === "scan" && feedback ? (
           <Text style={styles.scanFeedback}>{feedback}</Text>
+        ) : null}
+        {pendingProfileDeletion ? (
+          <DeleteLabelConfirmation
+            deleting={saving}
+            foodName={pendingProfileDeletion.basis.name}
+            onCancel={cancelProfileDeletion}
+            onConfirm={() => void deletePendingProfile()}
+          />
         ) : null}
       </SafeAreaView>
     </Modal>
@@ -736,16 +965,44 @@ function LabelEditor({
   setForm,
   provider,
   attachedBarcode,
+  actionLabel,
+  disabled,
   onContinue,
 }: {
   form: LabelForm;
   setForm: React.Dispatch<React.SetStateAction<LabelForm>>;
   provider: boolean;
   attachedBarcode?: string;
+  actionLabel: string;
+  disabled: boolean;
   onContinue: () => void;
 }) {
   const change = (patch: Partial<LabelForm>) =>
     setForm((current) => ({ ...current, ...patch }));
+  const selectWeightUnit = (weightUnit: WeightUnit) => {
+    const amount = numberOrUndefined(form.weightAmount);
+    change({
+      weightUnit,
+      weightAmount:
+        amount === undefined || weightUnit === form.weightUnit
+          ? form.weightAmount
+          : formatFoodMeasurementAmount(
+              convertWeightAmount(amount, form.weightUnit, weightUnit),
+            ),
+    });
+  };
+  const selectVolumeUnit = (volumeUnit: VolumeUnit) => {
+    const amount = numberOrUndefined(form.volumeAmount);
+    change({
+      volumeUnit,
+      volumeAmount:
+        amount === undefined || volumeUnit === form.volumeUnit
+          ? form.volumeAmount
+          : formatFoodMeasurementAmount(
+              convertVolumeAmount(amount, form.volumeUnit, volumeUnit),
+            ),
+    });
+  };
   return (
     <>
       {provider ? (
@@ -780,20 +1037,22 @@ function LabelEditor({
         onChangeText={(brand) => change({ brand })}
       />
       <FormField
-        label="Serving description (optional)"
+        label="Serving label (optional display text)"
         value={form.servingLabel}
         onChangeText={(servingLabel) => change({ servingLabel })}
         placeholder="Example: 2/3 cup (55 g)"
       />
-      <Text style={styles.sectionLabel}>Serving conversions</Text>
+      <Text style={styles.sectionLabel}>Logging conversions (optional)</Text>
       <Text style={styles.help}>
-        Use weight for foods sold by mass and volume for liquids. Leave the
-        other blank unless the package explicitly states both.
+        These fields power amount choices. Use item count for servings such as 1
+        bottle, 1 package, or 12 pieces. Use weight for foods sold by mass and
+        volume for liquids; leave fields blank when the package does not provide
+        that conversion.
       </Text>
       <View style={styles.formRow}>
         <FormField
           compact
-          label="Count per serving"
+          label="Items per serving"
           value={form.householdAmount}
           onChangeText={(householdAmount) => change({ householdAmount })}
           placeholder="Example: 12"
@@ -801,7 +1060,7 @@ function LabelEditor({
         />
         <FormField
           compact
-          label="Count unit"
+          label="Item unit"
           value={form.householdUnit}
           onChangeText={(householdUnit) => change({ householdUnit })}
           placeholder="piece, package, bar"
@@ -823,9 +1082,7 @@ function LabelEditor({
         <UnitSelector
           values={["g", "oz", "lb"]}
           selected={form.weightUnit}
-          onSelect={(weightUnit) =>
-            change({ weightUnit: weightUnit as WeightUnit })
-          }
+          onSelect={(weightUnit) => selectWeightUnit(weightUnit as WeightUnit)}
         />
       </View>
       <View style={styles.formRow}>
@@ -844,9 +1101,7 @@ function LabelEditor({
         <UnitSelector
           values={["ml", "fl_oz", "cup", "tbsp", "tsp"]}
           selected={form.volumeUnit}
-          onSelect={(volumeUnit) =>
-            change({ volumeUnit: volumeUnit as VolumeUnit })
-          }
+          onSelect={(volumeUnit) => selectVolumeUnit(volumeUnit as VolumeUnit)}
         />
       </View>
       <Text style={styles.sectionLabel}>Nutrition per serving</Text>
@@ -904,7 +1159,11 @@ function LabelEditor({
         onChangeText={(sodium) => change({ sodium })}
         keyboard
       />
-      <PrimaryButton label="Continue to amount" onPress={onContinue} />
+      <PrimaryButton
+        disabled={disabled}
+        label={actionLabel}
+        onPress={onContinue}
+      />
     </>
   );
 }
@@ -916,6 +1175,8 @@ function FoodSearch({
   searching,
   choose,
   createLabel,
+  edit,
+  requestDelete,
 }: {
   query: string;
   setQuery: (value: string) => void;
@@ -923,6 +1184,8 @@ function FoodSearch({
   searching: boolean;
   choose: (item: FoodSuggestion) => void;
   createLabel: () => void;
+  edit: (item: FoodSuggestion) => void;
+  requestDelete: (item: FoodSuggestion) => void;
 }) {
   const recent = suggestions.filter((item) => item.kind === "recent");
   const profiles = suggestions.filter((item) => item.kind === "profile");
@@ -946,8 +1209,20 @@ function FoodSearch({
         not exist, create a reusable label with its name already filled in.
       </Text>
       {searching ? <Text style={styles.searchState}>Searching...</Text> : null}
-      <SuggestionSection label="Recent" items={recent} choose={choose} />
-      <SuggestionSection label="My foods" items={profiles} choose={choose} />
+      <SuggestionSection
+        label="Recent"
+        items={recent}
+        choose={choose}
+        edit={edit}
+        requestDelete={requestDelete}
+      />
+      <SuggestionSection
+        label="My foods"
+        items={profiles}
+        choose={choose}
+        edit={edit}
+        requestDelete={requestDelete}
+      />
       {!searching && hasQuery && !hasExactSavedName ? (
         <View style={styles.empty}>
           <Text style={styles.emptyTitle}>No exact saved food</Text>
@@ -968,39 +1243,115 @@ function FoodSearch({
   );
 }
 
+function DeleteLabelConfirmation({
+  deleting,
+  foodName,
+  onCancel,
+  onConfirm,
+}: {
+  deleting: boolean;
+  foodName: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <View style={styles.profileDeleteOverlay}>
+      <View accessibilityViewIsModal style={styles.profileDeleteDialog}>
+        <Text style={styles.profileDeleteTitle}>
+          Delete {foodName} from My Foods?
+        </Text>
+        <Text style={styles.profileDeleteCopy}>
+          Past food history will not change.
+        </Text>
+        <View style={styles.profileDeleteActions}>
+          <Pressable
+            accessibilityRole="button"
+            disabled={deleting}
+            onPress={onCancel}
+            style={styles.profileDeleteCancel}
+          >
+            <Text style={styles.profileDeleteCancelText}>Cancel</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            disabled={deleting}
+            onPress={onConfirm}
+            style={[
+              styles.profileDeleteConfirm,
+              deleting && styles.profileDeleteDisabled,
+            ]}
+          >
+            <Text style={styles.profileDeleteConfirmText}>
+              {deleting ? "Deleting..." : "Delete label"}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 function SuggestionSection({
   label,
   items,
   choose,
+  edit,
+  requestDelete,
 }: {
   label: string;
   items: FoodSuggestion[];
   choose: (item: FoodSuggestion) => void;
+  edit: (item: FoodSuggestion) => void;
+  requestDelete: (item: FoodSuggestion) => void;
 }) {
   if (!items.length) return null;
   return (
     <View style={styles.suggestionSection}>
       <Text style={styles.sectionLabel}>{label}</Text>
       {items.map((item) => (
-        <Pressable
-          key={item.key}
-          onPress={() => choose(item)}
-          style={styles.suggestionCard}
-        >
-          <View style={styles.suggestionMain}>
-            <Text style={styles.suggestionName}>{item.basis.name}</Text>
-            {item.basis.brand ? (
-              <Text style={styles.suggestionBrand}>{item.basis.brand}</Text>
-            ) : null}
-            <Text style={styles.suggestionMeta}>
-              {Math.round(item.basis.nutrientsPerServing.calories)} cal ·{" "}
-              {Math.round(item.basis.nutrientsPerServing.proteinGrams * 10) /
-                10}
-              g protein per serving
+        <View key={item.key} style={styles.suggestionCard}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => choose(item)}
+            style={styles.suggestionSelect}
+          >
+            <View style={styles.suggestionMain}>
+              <Text style={styles.suggestionName}>{item.basis.name}</Text>
+              {item.basis.brand ? (
+                <Text style={styles.suggestionBrand}>{item.basis.brand}</Text>
+              ) : null}
+              <Text style={styles.suggestionMeta}>
+                {Math.round(item.basis.nutrientsPerServing.calories)} cal ·{" "}
+                {Math.round(item.basis.nutrientsPerServing.proteinGrams * 10) /
+                  10}
+                g protein per serving
+              </Text>
+            </View>
+            <Text style={styles.badge}>
+              {sourceBadge(item.basis, item.kind)}
             </Text>
-          </View>
-          <Text style={styles.badge}>{sourceBadge(item.basis, item.kind)}</Text>
-        </Pressable>
+          </Pressable>
+          {item.basis.profileId ? (
+            <View style={styles.profileActions}>
+              <Pressable
+                accessibilityLabel={`Edit ${item.basis.name} food label`}
+                accessibilityRole="button"
+                onPress={() => edit(item)}
+                style={styles.profileActionButton}
+              >
+                <Text style={styles.profileEditText}>Edit label</Text>
+              </Pressable>
+              <Pressable
+                accessibilityLabel={`Delete ${item.basis.name} food label`}
+                accessibilityRole="button"
+                onPress={() => requestDelete(item)}
+                style={[styles.profileActionButton, styles.profileDeleteAction]}
+              >
+                <Text style={styles.profileDeleteText}>Delete label</Text>
+              </Pressable>
+            </View>
+          ) : null}
+        </View>
       ))}
     </View>
   );
@@ -1404,13 +1755,16 @@ const styles = StyleSheet.create({
   searchState: { color: "#627D98", marginVertical: 10 },
   suggestionSection: { marginTop: 10 },
   suggestionCard: {
-    alignItems: "flex-start",
     backgroundColor: "#fff",
     borderColor: "#D9E2EC",
     borderRadius: 13,
     borderWidth: 1,
-    flexDirection: "row",
     marginBottom: 8,
+    overflow: "hidden",
+  },
+  suggestionSelect: {
+    alignItems: "flex-start",
+    flexDirection: "row",
     padding: 12,
   },
   suggestionMain: { flex: 1 },
@@ -1433,6 +1787,70 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 5,
   },
+  profileActions: {
+    borderTopColor: "#E6EEF3",
+    borderTopWidth: 1,
+    flexDirection: "row",
+  },
+  profileActionButton: {
+    alignItems: "center",
+    flex: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+  },
+  profileDeleteAction: {
+    borderLeftColor: "#E6EEF3",
+    borderLeftWidth: 1,
+  },
+  profileEditText: { color: "#16776A", fontSize: 12, fontWeight: "800" },
+  profileDeleteText: { color: "#B42318", fontSize: 12, fontWeight: "800" },
+  profileDeleteOverlay: {
+    alignItems: "center",
+    backgroundColor: "rgba(16, 42, 67, 0.52)",
+    bottom: 0,
+    justifyContent: "center",
+    left: 0,
+    padding: 24,
+    position: "absolute",
+    right: 0,
+    top: 0,
+    zIndex: 10,
+  },
+  profileDeleteDialog: {
+    backgroundColor: "#fff",
+    borderRadius: 18,
+    maxWidth: 420,
+    padding: 20,
+    width: "100%",
+  },
+  profileDeleteTitle: { color: "#102A43", fontSize: 19, fontWeight: "800" },
+  profileDeleteCopy: { color: "#486581", lineHeight: 20, marginTop: 8 },
+  profileDeleteActions: {
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "flex-end",
+    marginTop: 20,
+  },
+  profileDeleteCancel: {
+    alignItems: "center",
+    borderColor: "#D9E2EC",
+    borderRadius: 10,
+    borderWidth: 1,
+    justifyContent: "center",
+    minHeight: 42,
+    paddingHorizontal: 15,
+  },
+  profileDeleteCancelText: { color: "#486581", fontWeight: "800" },
+  profileDeleteConfirm: {
+    alignItems: "center",
+    backgroundColor: "#B42318",
+    borderRadius: 10,
+    justifyContent: "center",
+    minHeight: 42,
+    paddingHorizontal: 16,
+  },
+  profileDeleteDisabled: { opacity: 0.6 },
+  profileDeleteConfirmText: { color: "#fff", fontWeight: "800" },
   empty: {
     backgroundColor: "#fff",
     borderColor: "#D9E2EC",

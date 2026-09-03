@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusEffect, useRouter } from "expo-router";
 import {
   ActivityIndicator,
@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, { Path } from "react-native-svg";
 
 import {
   deduplicateVitalSamples,
@@ -29,7 +30,11 @@ import {
   importHealthKitData,
   loadHealthKitSyncState,
 } from "../../src/features/healthkit/sync";
-import type { DailyCalorieTotal } from "../../src/features/nutrition/calendar";
+import {
+  shiftCalendarMonth,
+  startOfCalendarMonth,
+  type DailyCalorieTotal,
+} from "../../src/features/nutrition/calendar";
 import { CalorieCalendar } from "../../src/features/nutrition/calorie-calendar";
 import { getCurrentMonthCalorieTotals } from "../../src/features/nutrition/repository";
 import {
@@ -37,6 +42,7 @@ import {
   type TodaySummary,
 } from "../../src/features/training/repository";
 import { NutritionProgressCard } from "../../src/features/training/nutrition-progress-card";
+import { classifyBloodPressure } from "../../src/features/vitals/blood-pressure";
 import {
   BloodPressureTrendCard,
   TrendCard,
@@ -68,6 +74,7 @@ export default function SummaryScreen() {
   const [status, setStatus] = useState("");
   const [lastSyncedAt, setLastSyncedAt] = useState<string>();
   const [range, setRange] = useState<TrendRange>("W");
+  const [chartSwipeActive, setChartSwipeActive] = useState(false);
   const [summary, setSummary] = useState<TodaySummary>({
     calories: 0,
     protein: 0,
@@ -76,6 +83,9 @@ export default function SummaryScreen() {
   const [monthCalories, setMonthCalories] = useState<
     Record<string, DailyCalorieTotal>
   >({});
+  const [calendarMonth, setCalendarMonth] = useState(() =>
+    startOfCalendarMonth(new Date()),
+  );
   const [goals, setGoals] = useState<DailyGoals>({
     systolicGoal: 120,
     diastolicGoal: 80,
@@ -83,6 +93,26 @@ export default function SummaryScreen() {
   const syncInFlight = useRef<Promise<UnifiedSyncResult> | undefined>(
     undefined,
   );
+  const calendarMonthRef = useRef(calendarMonth);
+  const monthRequestId = useRef(0);
+  calendarMonthRef.current = calendarMonth;
+  const loadMonthCalories = useCallback(
+    async (userId: string, reference: Date) => {
+      const requestId = monthRequestId.current + 1;
+      monthRequestId.current = requestId;
+      const totals = await getCurrentMonthCalorieTotals(userId, reference);
+      if (monthRequestId.current === requestId) setMonthCalories(totals);
+    },
+    [],
+  );
+  const moveCalendarMonth = useCallback((offset: -1 | 1) => {
+    const next = shiftCalendarMonth(calendarMonthRef.current, offset);
+    if (next > startOfCalendarMonth(new Date())) return;
+    calendarMonthRef.current = next;
+    monthRequestId.current += 1;
+    setMonthCalories({});
+    setCalendarMonth(next);
+  }, []);
   const synchronize = useCallback(
     async (userId: string): Promise<UnifiedSyncResult> => {
       if (!configured) {
@@ -101,7 +131,7 @@ export default function SummaryScreen() {
               lastSyncedAt: imported.lastImportedAt,
               message: importedCount
                 ? `Sync complete. Imported ${importedCount} Apple Health reading${importedCount === 1 ? "" : "s"}.`
-                : "Sync complete. Apple Health is up to date.",
+                : "",
             };
           } catch (error) {
             const vitalResult = await syncVitals(userId);
@@ -151,17 +181,15 @@ export default function SummaryScreen() {
         setSamples(await loadCachedVitals(session.user.id));
       }
       try {
-        const [today, savedGoals, todayWater, monthlyCalories] =
-          await Promise.all([
-            getTodaySummary(session.user.id),
-            getDailyGoals(session.user.id),
-            getTodayHydrationMl(session.user.id),
-            getCurrentMonthCalorieTotals(session.user.id),
-          ]);
+        const [today, savedGoals, todayWater] = await Promise.all([
+          getTodaySummary(session.user.id),
+          getDailyGoals(session.user.id),
+          getTodayHydrationMl(session.user.id),
+          loadMonthCalories(session.user.id, calendarMonthRef.current),
+        ]);
         setSummary(today);
         setGoals(savedGoals);
         setWaterMl(todayWater);
-        setMonthCalories(monthlyCalories);
       } catch (error) {
         setStatus(
           error instanceof Error ? error.message : "Could not load summary.",
@@ -169,8 +197,18 @@ export default function SummaryScreen() {
       }
       setLoading(false);
     },
-    [session, synchronize],
+    [loadMonthCalories, session, synchronize],
   );
+  useEffect(() => {
+    if (!session) return;
+    void loadMonthCalories(session.user.id, calendarMonth).catch((error) =>
+      setStatus(
+        error instanceof Error
+          ? error.message
+          : "Could not load calorie calendar.",
+      ),
+    );
+  }, [calendarMonth, loadMonthCalories, session]);
   useFocusEffect(
     useCallback(() => {
       void load(true);
@@ -180,6 +218,10 @@ export default function SummaryScreen() {
   const weight = latestSample(combinedSamples, "weight");
   const systolic = latestSample(combinedSamples, "systolic_bp");
   const diastolic = latestSample(combinedSamples, "diastolic_bp");
+  const bloodPressureCategory =
+    systolic && diastolic
+      ? classifyBloodPressure(systolic.value, diastolic.value)
+      : undefined;
   const weightPounds = weight
     ? weight.unit === "kg"
       ? weight.value * 2.20462
@@ -188,22 +230,69 @@ export default function SummaryScreen() {
   const automaticProteinGoal =
     weightPounds === undefined ? undefined : Math.round(weightPounds * 0.7);
   const proteinGoal = goals.proteinGoal ?? automaticProteinGoal;
+  const rawFirstName = session?.user.user_metadata?.first_name;
+  const rawDisplayName = session?.user.user_metadata?.display_name;
+  const firstName =
+    (typeof rawFirstName === "string" && rawFirstName.trim()) ||
+    (typeof rawDisplayName === "string" &&
+      rawDisplayName.trim().split(/\s+/)[0]) ||
+    "there";
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="never"
       contentContainerStyle={[styles.page, { paddingTop: insets.top + 20 }]}
+      directionalLockEnabled
       refreshControl={
         <RefreshControl
           refreshing={loading}
           onRefresh={() => void load(true)}
         />
       }
+      scrollEnabled={!chartSwipeActive}
     >
-      <Text style={styles.eyebrow}>YOUR DAILY SNAPSHOT</Text>
-      <Text style={styles.title}>Summary</Text>
-      <Text style={styles.copy}>
-        {status || "Your measurements stay on this device until they can sync."}
-      </Text>
+      <View style={styles.summaryHeader}>
+        <View>
+          <Text style={styles.title}>Hi {firstName},</Text>
+          <Text style={styles.snapshot}>Your daily snapshot</Text>
+        </View>
+        <View style={styles.syncArea}>
+          <Pressable
+            accessibilityLabel="Sync now"
+            accessibilityRole="button"
+            accessibilityState={{ busy: loading, disabled: loading }}
+            disabled={loading}
+            onPress={() => void load(true)}
+            style={({ pressed }) => [
+              styles.sync,
+              pressed && styles.syncPressed,
+              loading && styles.syncDisabled,
+            ]}
+          >
+            <Svg
+              accessibilityElementsHidden
+              height="16"
+              viewBox="0 0 24 24"
+              width="16"
+            >
+              <Path
+                d="M20 12a8 8 0 1 1-2.34-5.66M20 3v6h-6"
+                fill="none"
+                stroke="#16776A"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+              />
+            </Svg>
+            <Text style={styles.syncText}>Sync</Text>
+          </Pressable>
+          <Text style={styles.syncTime}>
+            {lastSyncedAt
+              ? `Last synced ${formatDateTime(lastSyncedAt)}`
+              : "Not synced yet"}
+          </Text>
+        </View>
+      </View>
+      {status ? <Text style={styles.copy}>{status}</Text> : null}
       <View style={styles.metrics}>
         <Metric
           label="Weight"
@@ -216,8 +305,10 @@ export default function SummaryScreen() {
           value={weight ? `${weight.value} ${weight.unit}` : "--"}
           detail={
             weight
-              ? `Measured ${formatDateTime(weight.occurredAt)}${goals.weightGoalLb ? ` goal ${goals.weightGoalLb} lb` : ""}`
-              : "No measurement"
+              ? `Measured ${formatDateTime(weight.occurredAt)}${goals.weightGoalLb ? ` · Goal: ${goals.weightGoalLb} lb` : ""}`
+              : goals.weightGoalLb
+                ? `Goal: ${goals.weightGoalLb} lb`
+                : "No measurement"
           }
         />
         <Metric
@@ -233,10 +324,11 @@ export default function SummaryScreen() {
               ? `${systolic.value}/${diastolic.value}`
               : "--"
           }
+          valueColor={bloodPressureCategory?.color}
           detail={
             systolic
-              ? `Measured ${formatDateTime(systolic.occurredAt)} goal ${goals.systolicGoal ?? 120}/${goals.diastolicGoal ?? 80}`
-              : `Goal ${goals.systolicGoal ?? 120}/${goals.diastolicGoal ?? 80}`
+              ? `Measured ${formatDateTime(systolic.occurredAt)} · Goal: ${goals.systolicGoal ?? 120}/${goals.diastolicGoal ?? 80}`
+              : `Goal: ${goals.systolicGoal ?? 120}/${goals.diastolicGoal ?? 80}`
           }
         />
       </View>
@@ -281,20 +373,17 @@ export default function SummaryScreen() {
           value={mlToFluidOunces(waterMl)}
         />
       </View>
-      <CalorieCalendar goal={goals.calorieGoal} totals={monthCalories} />
-      <View style={styles.controls}>
-        <Text style={styles.sectionTitle}>Trends</Text>
-        <View>
-          <Pressable onPress={() => void load(true)} style={styles.sync}>
-            <Text style={styles.syncText}>Sync now</Text>
-          </Pressable>
-          <Text style={styles.syncTime}>
-            {lastSyncedAt
-              ? `Last synced ${formatDateTime(lastSyncedAt)}`
-              : "Not synced yet"}
-          </Text>
-        </View>
-      </View>
+      <CalorieCalendar
+        canGoNext={
+          calendarMonth.getTime() < startOfCalendarMonth(new Date()).getTime()
+        }
+        goal={goals.calorieGoal}
+        onNext={() => moveCalendarMonth(1)}
+        onPrevious={() => moveCalendarMonth(-1)}
+        reference={calendarMonth}
+        totals={monthCalories}
+      />
+      <Text style={styles.sectionTitle}>Trends</Text>
       <View style={styles.filters}>
         {trendRanges.map((item) => (
           <RangeChip
@@ -314,8 +403,13 @@ export default function SummaryScreen() {
             kind="weight"
             samples={combinedSamples}
             range={range}
+            onHorizontalGestureChange={setChartSwipeActive}
           />
-          <BloodPressureTrendCard samples={combinedSamples} range={range} />
+          <BloodPressureTrendCard
+            onHorizontalGestureChange={setChartSwipeActive}
+            samples={combinedSamples}
+            range={range}
+          />
         </>
       )}
     </ScrollView>
@@ -326,11 +420,13 @@ function Metric({
   value,
   detail,
   onPress,
+  valueColor,
 }: {
   label: string;
   value: string;
   detail?: string;
   onPress?: () => void;
+  valueColor?: string;
 }) {
   return (
     <Pressable
@@ -343,7 +439,14 @@ function Metric({
       style={styles.metric}
     >
       <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={styles.metricValue}>{value}</Text>
+      <Text
+        style={[
+          styles.metricValue,
+          valueColor ? { color: valueColor } : undefined,
+        ]}
+      >
+        {value}
+      </Text>
       {detail ? <Text style={styles.metricDetail}>{detail}</Text> : null}
     </Pressable>
   );
@@ -372,15 +475,15 @@ function RangeChip({
 }
 const styles = StyleSheet.create({
   page: { backgroundColor: "#F7FAFC", flexGrow: 1, padding: 20 },
-  eyebrow: {
-    color: "#16776A",
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 1.4,
-    marginTop: 6,
-  },
   title: { color: "#102A43", fontSize: 32, fontWeight: "800", marginTop: 3 },
-  copy: { color: "#627D98", marginBottom: 18, marginTop: 6 },
+  snapshot: { color: "#627D98", fontSize: 15, marginTop: 3 },
+  summaryHeader: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 18,
+  },
+  copy: { color: "#627D98", marginBottom: 18, marginTop: -8 },
   metrics: { flexDirection: "row", gap: 12, marginBottom: 12 },
   nutritionMetrics: { flexDirection: "row", gap: 12, marginBottom: 12 },
   waterMetric: { flexDirection: "row", marginBottom: 12 },
@@ -398,16 +501,28 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   metricDetail: { color: "#627D98", fontSize: 11, marginTop: 5 },
-  controls: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
+  sectionTitle: {
+    color: "#243B53",
+    fontSize: 20,
+    fontWeight: "800",
     marginBottom: 10,
   },
-  sectionTitle: { color: "#243B53", fontSize: 20, fontWeight: "800" },
-  sync: { alignItems: "flex-end", padding: 5 },
+  syncArea: { alignItems: "flex-end" },
+  sync: {
+    alignItems: "center",
+    backgroundColor: "#E6F7F3",
+    borderColor: "#B8E4DA",
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  syncPressed: { backgroundColor: "#D4F0E9" },
+  syncDisabled: { opacity: 0.55 },
   syncText: { color: "#16776A", fontWeight: "700" },
-  syncTime: { color: "#7B8794", fontSize: 10, marginTop: 1 },
+  syncTime: { color: "#7B8794", fontSize: 10, marginTop: 3 },
   filters: { flexDirection: "row", gap: 8, marginBottom: 12 },
   rangeChip: {
     alignItems: "center",

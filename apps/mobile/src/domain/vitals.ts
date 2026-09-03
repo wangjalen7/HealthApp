@@ -76,6 +76,11 @@ export type TrendPoint = { date: string; value: number };
 export const trendRanges = ["D", "W", "M", "6M", "Y"] as const;
 export type TrendRange = (typeof trendRanges)[number];
 export type TimestampPoint = { at: string; value: number };
+export type BloodPressurePoint = {
+  at: string;
+  systolic: number;
+  diastolic: number;
+};
 
 export function samplesForWindow(
   samples: VitalSample[],
@@ -133,24 +138,95 @@ export function trendRangeBounds(
   now = new Date(),
 ): { start: Date; end: Date } {
   const end = new Date(now);
-  end.setHours(0, 0, 0, 0);
-  end.setDate(end.getDate() + 1);
-  const start = new Date(end);
-  if (range === "D") {
-    start.setDate(start.getDate() - 1);
-    return { start, end };
-  }
-  if (range === "W") start.setDate(start.getDate() - 7);
-  if (range === "M") start.setDate(start.getDate() - 30);
-  if (range === "6M") start.setMonth(start.getMonth() - 6);
-  if (range === "Y") start.setFullYear(start.getFullYear() - 1);
+  const start = new Date(end.getTime() - trendRangeDurationMs(range));
   return { start, end };
 }
 
-function localDateKey(value: string): string {
-  const date = new Date(value);
-  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+export function trendRangeDurationMs(range: TrendRange): number {
+  const day = 86_400_000;
+  if (range === "D") return day;
+  if (range === "W") return day * 7;
+  if (range === "M") return day * 30;
+  if (range === "6M") return day * 183;
+  return day * 365;
 }
+
+export function shiftTrendReference(
+  range: TrendRange,
+  reference: Date,
+  direction: -1 | 1,
+  latest = new Date(),
+): Date {
+  const shifted = new Date(
+    reference.getTime() + direction * trendRangeDurationMs(range),
+  );
+  return shifted > latest ? new Date(latest) : shifted;
+}
+
+export function shiftTrendReferenceByFraction(
+  range: TrendRange,
+  reference: Date,
+  direction: -1 | 1,
+  fraction: number,
+  latest = new Date(),
+): Date {
+  const distance = Math.max(0, fraction) * trendRangeDurationMs(range);
+  const shifted = new Date(reference.getTime() + direction * distance);
+  return shifted > latest ? new Date(latest) : shifted;
+}
+
+export function trendFractionDistance(
+  range: TrendRange,
+  earlier: Date,
+  later: Date,
+): number {
+  if (later <= earlier) return 0;
+  return (later.getTime() - earlier.getTime()) / trendRangeDurationMs(range);
+}
+
+function rangeBucketStart(value: string, range: TrendRange): Date {
+  const date = new Date(value);
+  if (range === "D") {
+    date.setMinutes(0, 0, 0);
+    return date;
+  }
+  date.setHours(0, 0, 0, 0);
+  if (range === "6M") date.setDate(date.getDate() - date.getDay());
+  if (range === "Y") date.setDate(1);
+  return date;
+}
+
+function rangeBucketKey(value: string, range: TrendRange): string {
+  return String(rangeBucketStart(value, range).getTime());
+}
+
+function averageSamples(
+  samples: VitalSample[],
+  range: TrendRange,
+): TimestampPoint {
+  const valueTotal = samples.reduce((sum, sample) => sum + sample.value, 0);
+  return {
+    at: rangeBucketStart(samples[0].occurredAt, range).toISOString(),
+    value: valueTotal / samples.length,
+  };
+}
+
+function pointsFromSamples(
+  samples: VitalSample[],
+  kind: VitalKind,
+  range: TrendRange,
+): TimestampPoint[] {
+  const buckets = new Map<string, VitalSample[]>();
+  for (const sample of samples) {
+    if (sample.kind !== kind || sample.deletedAt) continue;
+    const key = rangeBucketKey(sample.occurredAt, range);
+    buckets.set(key, [...(buckets.get(key) ?? []), sample]);
+  }
+  return [...buckets.values()]
+    .map((bucket) => averageSamples(bucket, range))
+    .sort((left, right) => left.at.localeCompare(right.at));
+}
+
 export function pointsForRange(
   samples: VitalSample[],
   kind: VitalKind,
@@ -158,27 +234,138 @@ export function pointsForRange(
   now = new Date(),
 ): TimestampPoint[] {
   const { start, end } = trendRangeBounds(range, now);
-  const windowed = samples
-    .filter(
+  return pointsFromSamples(
+    samples.filter(
       (sample) =>
-        sample.kind === kind &&
-        !sample.deletedAt &&
         new Date(sample.occurredAt) >= start &&
         new Date(sample.occurredAt) < end,
-    )
+    ),
+    kind,
+    range,
+  );
+}
+
+export function connectedPointsForRange(
+  samples: VitalSample[],
+  kind: VitalKind,
+  range: TrendRange,
+  now = new Date(),
+): TimestampPoint[] {
+  const visible = pointsForRange(samples, kind, range, now);
+  if (!visible.length) return visible;
+
+  const { start, end } = trendRangeBounds(range, now);
+  const active = samples
+    .filter((sample) => sample.kind === kind && !sample.deletedAt)
     .sort((left, right) => left.occurredAt.localeCompare(right.occurredAt));
-  if (range === "D")
-    return windowed.map((sample) => ({
-      at: sample.occurredAt,
-      value: sample.value,
-    }));
-  const newestByDay = new Map<string, VitalSample>();
-  for (const sample of windowed)
-    newestByDay.set(localDateKey(sample.occurredAt), sample);
-  return [...newestByDay.values()].map((sample) => ({
-    at: sample.occurredAt,
-    value: sample.value,
-  }));
+  const before = active.filter(
+    (sample) => new Date(sample.occurredAt) < start,
+  );
+  const after = active.filter(
+    (sample) => new Date(sample.occurredAt) >= end,
+  );
+  const previousPoints = pointsFromSamples(before, kind, range).filter(
+    (point) => point.at !== visible[0].at,
+  );
+  const nextPoints = pointsFromSamples(after, kind, range).filter(
+    (point) => point.at !== visible[visible.length - 1].at,
+  );
+  const previousPoint = previousPoints[previousPoints.length - 1];
+  const nextPoint = nextPoints[0];
+  return [
+    ...(previousPoint ? [previousPoint] : []),
+    ...visible,
+    ...(nextPoint ? [nextPoint] : []),
+  ];
+}
+
+function bloodPressurePointsFromSamples(
+  samples: VitalSample[],
+  range: TrendRange,
+): BloodPressurePoint[] {
+  const buckets = new Map<
+    string,
+    {
+      at: string;
+      systolicCount: number;
+      systolicTotal: number;
+      diastolicCount: number;
+      diastolicTotal: number;
+    }
+  >();
+  for (const sample of samples) {
+    if (
+      sample.deletedAt ||
+      (sample.kind !== "systolic_bp" && sample.kind !== "diastolic_bp")
+    ) {
+      continue;
+    }
+    const key = rangeBucketKey(sample.occurredAt, range);
+    const current = buckets.get(key) ?? {
+      at: rangeBucketStart(sample.occurredAt, range).toISOString(),
+      systolicCount: 0,
+      systolicTotal: 0,
+      diastolicCount: 0,
+      diastolicTotal: 0,
+    };
+    if (sample.kind === "systolic_bp") {
+      current.systolicCount += 1;
+      current.systolicTotal += sample.value;
+    } else {
+      current.diastolicCount += 1;
+      current.diastolicTotal += sample.value;
+    }
+    buckets.set(key, current);
+  }
+  return [...buckets.values()]
+    .filter(
+      (bucket) => bucket.systolicCount > 0 && bucket.diastolicCount > 0,
+    )
+    .map((bucket) => ({
+      at: bucket.at,
+      systolic: bucket.systolicTotal / bucket.systolicCount,
+      diastolic: bucket.diastolicTotal / bucket.diastolicCount,
+    }))
+    .sort((left, right) => left.at.localeCompare(right.at));
+}
+
+export function bloodPressurePointsForRange(
+  samples: VitalSample[],
+  range: TrendRange,
+  now = new Date(),
+): BloodPressurePoint[] {
+  const { start, end } = trendRangeBounds(range, now);
+  return bloodPressurePointsFromSamples(
+    samples.filter(
+      (sample) =>
+        new Date(sample.occurredAt) >= start &&
+        new Date(sample.occurredAt) < end,
+    ),
+    range,
+  );
+}
+
+export function connectedBloodPressurePointsForRange(
+  samples: VitalSample[],
+  range: TrendRange,
+  now = new Date(),
+): BloodPressurePoint[] {
+  const visible = bloodPressurePointsForRange(samples, range, now);
+  if (!visible.length) return visible;
+  const { start, end } = trendRangeBounds(range, now);
+  const previous = bloodPressurePointsFromSamples(
+    samples.filter((sample) => new Date(sample.occurredAt) < start),
+    range,
+  ).filter((point) => point.at !== visible[0].at);
+  const next = bloodPressurePointsFromSamples(
+    samples.filter((sample) => new Date(sample.occurredAt) >= end),
+    range,
+  ).filter((point) => point.at !== visible[visible.length - 1].at);
+  return [
+    ...(previous.length ? [previous[previous.length - 1]] : []),
+    ...visible,
+    ...(next.length ? [next[0]] : []),
+  ];
 }
 
 export function unitFor(kind: VitalKind): string {

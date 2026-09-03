@@ -21,7 +21,7 @@ import {
 } from "../../src/features/hydration/repository";
 
 const units: HydrationUnit[] = ["fl_oz", "ml", "cup"];
-const quickOunces = [8, 12, 16, 20, 24];
+const quickOunces = [8, 12, 16, 20, 24, 40];
 
 export default function WaterScreen() {
   const { session } = useAuth();

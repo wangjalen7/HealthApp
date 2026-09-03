@@ -18,6 +18,7 @@ import {
   type WorkoutSetInput,
 } from "../../../src/features/training/repository";
 import {
+  muscleGroupLabel,
   muscleGroups,
   moveWorkoutEntry,
   type MuscleGroup,
@@ -218,7 +219,10 @@ export default function EditWorkoutScreen() {
         notes,
         sets,
       });
-      router.back();
+      router.replace({
+        pathname: "/(app)/history",
+        params: { view: "exercise" },
+      });
     } catch (error) {
       setFeedback(
         error instanceof Error ? error.message : "Could not save changes.",
@@ -261,7 +265,7 @@ export default function EditWorkoutScreen() {
                   : styles.chipText
               }
             >
-              {group}
+              {muscleGroupLabel(group)}
             </Text>
           </Pressable>
         ))}
@@ -280,28 +284,37 @@ export default function EditWorkoutScreen() {
           <View style={styles.cardHead}>
             <Text style={styles.entryLabel}>EXERCISE {index + 1}</Text>
             <View style={styles.cardActions}>
-              <Pressable
-                accessibilityLabel={`Move exercise ${index + 1} up`}
-                disabled={index === 0}
-                onPress={() => moveEntry(entry.id, -1)}
-                style={[
-                  styles.orderButton,
-                  index === 0 && styles.orderDisabled,
-                ]}
-              >
-                <Text style={styles.orderText}>↑</Text>
-              </Pressable>
-              <Pressable
-                accessibilityLabel={`Move exercise ${index + 1} down`}
-                disabled={index === entries.length - 1}
-                onPress={() => moveEntry(entry.id, 1)}
-                style={[
-                  styles.orderButton,
-                  index === entries.length - 1 && styles.orderDisabled,
-                ]}
-              >
-                <Text style={styles.orderText}>↓</Text>
-              </Pressable>
+              <View style={styles.reorderActions}>
+                <Pressable
+                  accessibilityLabel={`Move ${entry.name || `exercise ${index + 1}`} up`}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: index === 0 }}
+                  disabled={index === 0}
+                  hitSlop={5}
+                  onPress={() => moveEntry(entry.id, -1)}
+                  style={[
+                    styles.reorderButton,
+                    index === 0 && styles.reorderButtonDisabled,
+                  ]}
+                >
+                  <Text style={styles.reorderButtonText}>↑</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityLabel={`Move ${entry.name || `exercise ${index + 1}`} down`}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: index === entries.length - 1 }}
+                  disabled={index === entries.length - 1}
+                  hitSlop={5}
+                  onPress={() => moveEntry(entry.id, 1)}
+                  style={[
+                    styles.reorderButton,
+                    index === entries.length - 1 &&
+                      styles.reorderButtonDisabled,
+                  ]}
+                >
+                  <Text style={styles.reorderButtonText}>↓</Text>
+                </Pressable>
+              </View>
               <Pressable
                 onPress={() =>
                   setEntries((current) =>
@@ -347,7 +360,7 @@ export default function EditWorkoutScreen() {
                           : styles.exerciseGroupText
                       }
                     >
-                      {group}
+                      {muscleGroupLabel(group)}
                     </Text>
                   </Pressable>
                 ))}
@@ -456,16 +469,22 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   cardActions: { alignItems: "center", flexDirection: "row", gap: 7 },
-  orderButton: {
+  reorderActions: { flexDirection: "row", gap: 5 },
+  reorderButton: {
     alignItems: "center",
     backgroundColor: "#E6F7F3",
-    borderRadius: 9,
+    borderRadius: 8,
     height: 32,
     justifyContent: "center",
-    width: 34,
+    width: 32,
   },
-  orderDisabled: { opacity: 0.3 },
-  orderText: { color: "#16776A", fontSize: 18, fontWeight: "800" },
+  reorderButtonDisabled: { opacity: 0.3 },
+  reorderButtonText: {
+    color: "#16776A",
+    fontSize: 18,
+    fontWeight: "800",
+    lineHeight: 20,
+  },
   entryLabel: {
     color: "#7B8794",
     fontSize: 11,

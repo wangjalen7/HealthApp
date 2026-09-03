@@ -8,7 +8,7 @@ export default function RootLayout() {
     <AuthProvider>
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(app)" />
+        <Stack.Screen name="(app)" options={{ gestureEnabled: false }} />
         <Stack.Screen
           name="create"
           options={{

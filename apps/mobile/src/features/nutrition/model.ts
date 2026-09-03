@@ -13,6 +13,8 @@ export const foodUnitSchema = z.enum([
   "tsp",
 ]);
 export type FoodUnit = z.infer<typeof foodUnitSchema>;
+export type WeightUnit = "g" | "oz" | "lb";
+export type VolumeUnit = "ml" | "fl_oz" | "cup" | "tbsp" | "tsp";
 
 export const nutrientValuesSchema = z.object({
   calories: z.number().min(0).max(20000),
@@ -42,6 +44,12 @@ export const foodBasisSchema = z.object({
 });
 export type FoodBasis = z.infer<typeof foodBasisSchema>;
 
+export function shouldPreferSavedFoodProfile(
+  basis: FoodBasis | undefined,
+): basis is FoodBasis {
+  return Boolean(basis && (basis.isUserCorrected || basis.source === "manual"));
+}
+
 export const mealDraftEntrySchema = foodBasisSchema.extend({
   id: z.string().uuid(),
   amount: z.number().positive().max(100000),
@@ -54,6 +62,21 @@ export const mealDraftEntrySchema = foodBasisSchema.extend({
   entryMethod: z.enum(["basic", "history", "profile", "label", "barcode"]),
 });
 export type MealDraftEntry = z.infer<typeof mealDraftEntrySchema>;
+
+export type FoodHistorySnapshot = {
+  name: string;
+  brand?: string;
+  source: "manual" | "open_food_facts" | "import";
+  servingLabel?: string;
+  householdQuantityPerServing?: number;
+  householdUnit?: string;
+  amount: number;
+  unit: FoodUnit;
+  servingCount: number;
+  consumedWeightGrams?: number;
+  consumedVolumeMl?: number;
+  totalNutrients: NutrientValues;
+};
 
 export const nutritionDraftSchema = z.object({
   mealType: z.enum(["breakfast", "lunch", "dinner", "snack"]).optional(),
@@ -90,15 +113,81 @@ const VOLUME_TO_ML: Partial<Record<FoodUnit, number>> = {
   tsp: 4.92892159375,
 };
 
-export function weightAmountToGrams(amount: number, unit: "g" | "oz" | "lb") {
+export function weightAmountToGrams(amount: number, unit: WeightUnit) {
   return amount * WEIGHT_TO_GRAMS[unit]!;
 }
 
-export function volumeAmountToMl(
-  amount: number,
-  unit: "ml" | "fl_oz" | "cup" | "tbsp" | "tsp",
-) {
+export function volumeAmountToMl(amount: number, unit: VolumeUnit) {
   return amount * VOLUME_TO_ML[unit]!;
+}
+
+export function convertWeightAmount(
+  amount: number,
+  from: WeightUnit,
+  to: WeightUnit,
+) {
+  return weightAmountToGrams(amount, from) / WEIGHT_TO_GRAMS[to]!;
+}
+
+export function convertVolumeAmount(
+  amount: number,
+  from: VolumeUnit,
+  to: VolumeUnit,
+) {
+  return volumeAmountToMl(amount, from) / VOLUME_TO_ML[to]!;
+}
+
+export function formatFoodMeasurementAmount(amount: number) {
+  const magnitude = Math.abs(amount);
+  const digits = magnitude < 0.1 ? 4 : magnitude < 1 ? 3 : 2;
+  const multiplier = 10 ** digits;
+  return String(Math.round(amount * multiplier) / multiplier);
+}
+
+export function foodBasisFromHistorySnapshot(
+  snapshot: FoodHistorySnapshot,
+): FoodBasis {
+  const servingCount =
+    Number.isFinite(snapshot.servingCount) && snapshot.servingCount > 0
+      ? snapshot.servingCount
+      : 1;
+  const consumedWeightGrams =
+    snapshot.consumedWeightGrams ??
+    (snapshot.unit === "g" || snapshot.unit === "oz" || snapshot.unit === "lb"
+      ? weightAmountToGrams(snapshot.amount, snapshot.unit)
+      : undefined);
+  const consumedVolumeMl =
+    snapshot.consumedVolumeMl ??
+    (snapshot.unit === "ml" ||
+    snapshot.unit === "fl_oz" ||
+    snapshot.unit === "cup" ||
+    snapshot.unit === "tbsp" ||
+    snapshot.unit === "tsp"
+      ? volumeAmountToMl(snapshot.amount, snapshot.unit)
+      : undefined);
+  const perServing = (value: number | undefined) =>
+    value === undefined ? undefined : value / servingCount;
+  return foodBasisSchema.parse({
+    name: snapshot.name,
+    brand: snapshot.brand,
+    source:
+      snapshot.source === "open_food_facts" ? "open_food_facts" : "manual",
+    isUserCorrected: false,
+    servingLabel: snapshot.servingLabel,
+    servingWeightGrams: perServing(consumedWeightGrams),
+    servingVolumeMl: perServing(consumedVolumeMl),
+    householdQuantityPerServing: snapshot.householdQuantityPerServing,
+    householdUnit: snapshot.householdUnit,
+    nutrientsPerServing: {
+      calories: snapshot.totalNutrients.calories / servingCount,
+      proteinGrams: snapshot.totalNutrients.proteinGrams / servingCount,
+      carbohydrateGrams: perServing(snapshot.totalNutrients.carbohydrateGrams),
+      fatGrams: perServing(snapshot.totalNutrients.fatGrams),
+      fiberGrams: perServing(snapshot.totalNutrients.fiberGrams),
+      sugarGrams: perServing(snapshot.totalNutrients.sugarGrams),
+      sodiumMg: perServing(snapshot.totalNutrients.sodiumMg),
+    },
+  });
 }
 
 export const foodUnitLabel: Record<FoodUnit, string> = {

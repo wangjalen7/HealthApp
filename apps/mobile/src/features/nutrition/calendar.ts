@@ -15,6 +15,14 @@ export function localDateKey(value: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+export function startOfCalendarMonth(value: Date): Date {
+  return new Date(value.getFullYear(), value.getMonth(), 1);
+}
+
+export function shiftCalendarMonth(value: Date, offset: number): Date {
+  return new Date(value.getFullYear(), value.getMonth() + offset, 1);
+}
+
 export function calorieTotalsByLocalDay(
   entries: { occurredAt: string; calories: number }[],
 ): Record<string, DailyCalorieTotal> {

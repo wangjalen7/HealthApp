@@ -4,13 +4,37 @@ import test from "node:test";
 import {
   availableFoodUnits,
   calculateFoodAmount,
+  convertVolumeAmount,
+  convertWeightAmount,
+  foodBasisFromHistorySnapshot,
   canonicalFoodBarcode,
   foodAmountDescription,
   foodAmountUnitLabel,
   foodNameMatchesQuery,
+  formatFoodMeasurementAmount,
+  shouldPreferSavedFoodProfile,
   normalizeHouseholdUnit,
   type FoodBasis,
 } from "./model";
+
+test("reconstructs a per-serving basis for editing historical amounts", () => {
+  const basis = foodBasisFromHistorySnapshot({
+    name: "Protein shake",
+    source: "open_food_facts",
+    servingLabel: "1 bottle (414 mL)",
+    householdQuantityPerServing: 1,
+    householdUnit: "bottle",
+    amount: 1,
+    unit: "household",
+    servingCount: 1,
+    consumedVolumeMl: 414,
+    totalNutrients: { calories: 170, proteinGrams: 26 },
+  });
+  const halfBottle = calculateFoodAmount(basis, 0.5, "household");
+  assert.equal(halfBottle.totalNutrients.calories, 85);
+  assert.equal(halfBottle.totalNutrients.proteinGrams, 13);
+  assert.equal(halfBottle.consumedVolumeMl, 207);
+});
 
 test("canonicalizes equivalent UPC and EAN profile barcodes", () => {
   assert.equal(canonicalFoodBarcode("034000470693"), "00034000470693");
@@ -56,6 +80,25 @@ test("converts exact weight units before scaling nutrition", () => {
   assert.equal(oneOunce.totalNutrients.calories, 100);
   assert.equal(onePound.servingCount, 16);
   assert.equal(onePound.totalNutrients.proteinGrams, 160);
+});
+
+test("converts and formats serving measurements when their unit changes", () => {
+  assert.equal(
+    formatFoodMeasurementAmount(convertWeightAmount(113.4, "g", "oz")),
+    "4",
+  );
+  assert.equal(
+    formatFoodMeasurementAmount(convertWeightAmount(4, "oz", "g")),
+    "113.4",
+  );
+  assert.equal(
+    formatFoodMeasurementAmount(convertVolumeAmount(414, "ml", "fl_oz")),
+    "14",
+  );
+  assert.equal(
+    formatFoodMeasurementAmount(convertVolumeAmount(1, "cup", "ml")),
+    "236.59",
+  );
 });
 
 test("converts US volume units without guessing density", () => {
@@ -114,4 +157,22 @@ test("scales a package or piece amount through its household serving", () => {
   assert.equal(foodAmountUnitLabel("household", 1, "piece"), "piece");
   assert.equal(foodAmountUnitLabel("household", 6, "piece"), "pieces");
   assert.equal(normalizeHouseholdUnit(" Pieces "), "piece");
+});
+
+test("prefers private or corrected profiles over a shared scan result", () => {
+  const providerBasis: FoodBasis = {
+    name: "Provider food",
+    source: "open_food_facts",
+    isUserCorrected: false,
+    nutrientsPerServing: { calories: 100, proteinGrams: 2 },
+  };
+  assert.equal(shouldPreferSavedFoodProfile(providerBasis), false);
+  assert.equal(
+    shouldPreferSavedFoodProfile({ ...providerBasis, isUserCorrected: true }),
+    true,
+  );
+  assert.equal(
+    shouldPreferSavedFoodProfile({ ...providerBasis, source: "manual" }),
+    true,
+  );
 });

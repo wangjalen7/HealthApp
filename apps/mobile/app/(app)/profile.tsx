@@ -29,12 +29,21 @@ import {
   hydrationAmountToMl,
   mlToFluidOunces,
 } from "../../src/features/hydration/model";
+import {
+  getProfileName,
+  saveProfileName,
+} from "../../src/features/profile/repository";
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { session, signOut } = useAuth();
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [loadingName, setLoadingName] = useState(true);
+  const [savingName, setSavingName] = useState(false);
+  const [nameFeedback, setNameFeedback] = useState("");
   const [loadingGoals, setLoadingGoals] = useState(true);
   const [calorieGoal, setCalorieGoal] = useState("");
   const [proteinGoal, setProteinGoal] = useState("");
@@ -52,6 +61,29 @@ export default function ProfileScreen() {
   });
   const [healthKitBusy, setHealthKitBusy] = useState(false);
   const [healthKitFeedback, setHealthKitFeedback] = useState("");
+  const loadName = useCallback(async () => {
+    if (!session) return;
+    setLoadingName(true);
+    setNameFeedback("");
+    try {
+      const saved = await getProfileName(session.user.id);
+      const metadata = session.user.user_metadata;
+      setFirstName(
+        saved.firstName ??
+          (typeof metadata.first_name === "string" ? metadata.first_name : ""),
+      );
+      setLastName(
+        saved.lastName ??
+          (typeof metadata.last_name === "string" ? metadata.last_name : ""),
+      );
+    } catch (error) {
+      setNameFeedback(
+        error instanceof Error ? error.message : "Could not load your name.",
+      );
+    } finally {
+      setLoadingName(false);
+    }
+  }, [session]);
   const loadGoals = useCallback(async () => {
     if (!session) return;
     setLoadingGoals(true);
@@ -90,10 +122,35 @@ export default function ProfileScreen() {
   }, [session]);
   useFocusEffect(
     useCallback(() => {
+      void loadName();
       void loadGoals();
       void loadAppleHealth();
-    }, [loadAppleHealth, loadGoals]),
+    }, [loadAppleHealth, loadGoals, loadName]),
   );
+  async function updateName() {
+    if (!session) return;
+    if (!firstName.trim() || !lastName.trim()) {
+      setNameFeedback("Enter your first and last name.");
+      return;
+    }
+    setSavingName(true);
+    setNameFeedback("");
+    try {
+      const saved = await saveProfileName(session.user.id, {
+        firstName,
+        lastName,
+      });
+      setFirstName(saved.firstName);
+      setLastName(saved.lastName);
+      setNameFeedback("Name saved.");
+    } catch (error) {
+      setNameFeedback(
+        error instanceof Error ? error.message : "Could not save your name.",
+      );
+    } finally {
+      setSavingName(false);
+    }
+  }
   async function connectAppleHealth() {
     if (!session)
       return setHealthKitFeedback(
@@ -159,17 +216,59 @@ export default function ProfileScreen() {
     >
       <Text style={styles.title}>Profile</Text>
       <View style={styles.card}>
+        <Text style={styles.cardTitle}>Account</Text>
         <Text style={styles.label}>Signed in as</Text>
         <Text selectable style={styles.email}>
           {session?.user.email}
         </Text>
+        {loadingName ? (
+          <ActivityIndicator color="#16776A" style={styles.nameLoading} />
+        ) : (
+          <>
+            <View style={styles.nameRow}>
+              <NameField
+                autoComplete="given-name"
+                label="First name"
+                onChangeText={setFirstName}
+                textContentType="givenName"
+                value={firstName}
+              />
+              <NameField
+                autoComplete="family-name"
+                label="Last name"
+                onChangeText={setLastName}
+                textContentType="familyName"
+                value={lastName}
+              />
+            </View>
+            {nameFeedback ? (
+              <Text
+                accessibilityLiveRegion="polite"
+                style={
+                  nameFeedback === "Name saved." ? styles.success : styles.error
+                }
+              >
+                {nameFeedback}
+              </Text>
+            ) : null}
+            <Pressable
+              accessibilityRole="button"
+              disabled={savingName}
+              onPress={() => void updateName()}
+              style={styles.saveButton}
+            >
+              <Text style={styles.saveText}>
+                {savingName ? "Saving..." : "Save name"}
+              </Text>
+            </Pressable>
+          </>
+        )}
       </View>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Goals</Text>
         <Text style={styles.copy}>
           Set your daily nutrition, hydration, weight, and blood-pressure
-          targets here. Leave protein blank to use 0.7 g per lb of your latest
-          logged weight.
+          targets here.
         </Text>
         {loadingGoals ? (
           <ActivityIndicator color="#16776A" />
@@ -183,7 +282,7 @@ export default function ProfileScreen() {
               />
               <GoalField
                 label="Protein / day (g)"
-                placeholder="Auto: 0.7 g/lb"
+                placeholder="Default: 0.7 g/lb"
                 value={proteinGoal}
                 onChangeText={setProteinGoal}
               />
@@ -205,18 +304,17 @@ export default function ProfileScreen() {
             <View style={styles.row}>
               <GoalField
                 label="BP systolic"
+                placeholder="Default: 120"
                 value={systolicGoal}
                 onChangeText={setSystolicGoal}
               />
               <GoalField
                 label="BP diastolic"
+                placeholder="Default: 80"
                 value={diastolicGoal}
                 onChangeText={setDiastolicGoal}
               />
             </View>
-            <Text style={styles.defaultHint}>
-              Healthy BP default: 120/80 mmHg.
-            </Text>
             <Pressable
               disabled={savingGoals}
               onPress={() => void saveGoals()}
@@ -232,9 +330,8 @@ export default function ProfileScreen() {
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Apple Health</Text>
         <Text style={styles.copy}>
-          Connect once to let Summary automatically import your weight and
-          blood-pressure readings. Summary Sync now remains available whenever
-          you want to force a sync.
+          Connect once to let automatically import your weight and
+          blood-pressure readings.
         </Text>
         <Text style={styles.healthKitStatus}>
           {healthKitState.connected
@@ -348,6 +445,36 @@ function GoalField({
     </View>
   );
 }
+function NameField({
+  autoComplete,
+  label,
+  onChangeText,
+  textContentType,
+  value,
+}: {
+  autoComplete: "family-name" | "given-name";
+  label: string;
+  onChangeText: (value: string) => void;
+  textContentType: "familyName" | "givenName";
+  value: string;
+}) {
+  return (
+    <View style={styles.goalField}>
+      <Text style={styles.goalLabel}>{label}</Text>
+      <TextInput
+        autoCapitalize="words"
+        autoComplete={autoComplete}
+        maxLength={80}
+        onChangeText={onChangeText}
+        placeholder={label}
+        placeholderTextColor="#9FB3C8"
+        style={styles.input}
+        textContentType={textContentType}
+        value={value}
+      />
+    </View>
+  );
+}
 const styles = StyleSheet.create({
   page: { backgroundColor: "#F7FAFC", flexGrow: 1, padding: 20 },
   title: {
@@ -364,11 +491,13 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     padding: 16,
   },
-  label: { color: "#627D98", fontSize: 13 },
+  label: { color: "#627D98", fontSize: 13, marginTop: 10 },
   email: { color: "#102A43", fontSize: 16, fontWeight: "700", marginTop: 5 },
   cardTitle: { color: "#243B53", fontSize: 16, fontWeight: "800" },
   copy: { color: "#627D98", lineHeight: 21, marginBottom: 13, marginTop: 7 },
   row: { flexDirection: "row", gap: 10 },
+  nameRow: { flexDirection: "row", gap: 10, marginTop: 16 },
+  nameLoading: { marginTop: 16 },
   fullGoal: { marginBottom: 0 },
   goalField: { flex: 1 },
   goalLabel: {

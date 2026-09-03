@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Text as SvgText } from "react-native-svg";
 
 import {
@@ -87,10 +87,16 @@ export function CalorieCalendar({
   totals,
   goal,
   reference = new Date(),
+  canGoNext = true,
+  onNext,
+  onPrevious,
 }: {
   totals: Record<string, DailyCalorieTotal>;
   goal: number | undefined;
   reference?: Date;
+  canGoNext?: boolean;
+  onNext?: () => void;
+  onPrevious?: () => void;
 }) {
   const cells = calorieCalendarCells(reference);
   const todayKey = localDateKey(new Date());
@@ -100,11 +106,36 @@ export function CalorieCalendar({
   }).format(reference);
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>{title} calories</Text>
-      <Text style={styles.copy}>
-        Green is at or under your goal; red is over. Numbers below each day are
-        calories.
-      </Text>
+      <View style={styles.header}>
+        <Pressable
+          accessibilityLabel="Show previous month"
+          accessibilityRole="button"
+          hitSlop={8}
+          onPress={onPrevious}
+          style={({ pressed }) => [
+            styles.monthButton,
+            pressed && styles.monthButtonPressed,
+          ]}
+        >
+          <Text style={styles.monthButtonText}>‹</Text>
+        </Pressable>
+        <Text style={styles.title}>{title} Calories</Text>
+        <Pressable
+          accessibilityLabel="Show next month"
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !canGoNext }}
+          disabled={!canGoNext}
+          hitSlop={8}
+          onPress={onNext}
+          style={({ pressed }) => [
+            styles.monthButton,
+            !canGoNext && styles.monthButtonDisabled,
+            pressed && canGoNext && styles.monthButtonPressed,
+          ]}
+        >
+          <Text style={styles.monthButtonText}>›</Text>
+        </Pressable>
+      </View>
       <View style={styles.weekdays}>
         {weekdays.map((day, index) => (
           <Text key={`${day}-${index}`} style={styles.weekday}>
@@ -140,13 +171,35 @@ const styles = StyleSheet.create({
     marginBottom: 18,
     padding: 14,
   },
-  title: { color: "#243B53", fontSize: 18, fontWeight: "800" },
-  copy: {
-    color: "#627D98",
-    fontSize: 11,
-    lineHeight: 16,
-    marginBottom: 10,
-    marginTop: 4,
+  header: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  title: {
+    color: "#243B53",
+    flex: 1,
+    fontSize: 18,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  monthButton: {
+    alignItems: "center",
+    borderColor: "#D9E2EC",
+    borderRadius: 18,
+    borderWidth: 1,
+    height: 36,
+    justifyContent: "center",
+    width: 36,
+  },
+  monthButtonDisabled: { opacity: 0.3 },
+  monthButtonPressed: { backgroundColor: "#E6EEF3" },
+  monthButtonText: {
+    color: "#16776A",
+    fontSize: 26,
+    fontWeight: "700",
+    lineHeight: 29,
   },
   weekdays: { flexDirection: "row", marginBottom: 3 },
   weekday: {

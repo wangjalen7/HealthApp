@@ -220,6 +220,69 @@ export async function saveFoodProfile(
   return rowBasis(data);
 }
 
+export async function updateFoodProfile(
+  userId: string,
+  input: FoodBasis,
+): Promise<FoodBasis> {
+  const basis = foodBasisSchema.parse(input);
+  if (!basis.profileId) throw new Error("This food label cannot be updated.");
+  const { data, error } = await supabase
+    .from("user_food_profiles")
+    .update(profileFields(userId, basis))
+    .eq("user_id", userId)
+    .eq("id", basis.profileId)
+    .select(profileSelect)
+    .single();
+  if (error) throw new Error(error.message);
+  return rowBasis(data);
+}
+
+export async function getFoodProfileByIdentity(
+  userId: string,
+  identity: { barcode?: string; catalogProductId?: string },
+): Promise<FoodBasis | undefined> {
+  let current: Record<string, unknown> | null = null;
+  if (identity.catalogProductId) {
+    const { data, error } = await supabase
+      .from("user_food_profiles")
+      .select(profileSelect)
+      .eq("user_id", userId)
+      .eq("catalog_product_id", identity.catalogProductId)
+      .is("archived_at", null)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    current = data;
+  }
+  const canonicalBarcode = canonicalFoodBarcode(identity.barcode);
+  if (!current && canonicalBarcode) {
+    const { data, error } = await supabase
+      .from("user_food_profiles")
+      .select(profileSelect)
+      .eq("user_id", userId)
+      .eq("barcode", canonicalBarcode)
+      .is("archived_at", null)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    current = data;
+  }
+  return current ? rowBasis(current) : undefined;
+}
+
+export async function archiveFoodProfile(
+  userId: string,
+  profileId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("user_food_profiles")
+    .update({
+      archived_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId)
+    .eq("id", profileId);
+  if (error) throw new Error(error.message);
+}
+
 export type FoodSuggestion = {
   key: string;
   kind: "recent" | "profile";
@@ -296,15 +359,15 @@ export async function getFoodSuggestions(
     const score = searchScore(name, brand, normalized);
     if (!score) continue;
     seen.add(fingerprint);
-    if (profileId) recentProfileIds.add(profileId);
     const savedBasis = profileId ? profileMap.get(profileId) : undefined;
+    if (profileId && savedBasis) recentProfileIds.add(profileId);
     suggestions.push({
       key: `recent:${fingerprint}`,
       kind: "recent",
       basis:
         savedBasis ??
         foodBasisSchema.parse({
-          profileId,
+          profileId: savedBasis ? profileId : undefined,
           name,
           brand,
           barcode: row.barcode ? String(row.barcode) : undefined,
@@ -427,7 +490,11 @@ export type FoodHistoryEntry = {
   sodiumMg?: number;
   amount: number;
   unit: FoodUnit;
+  servingCount: number;
+  consumedWeightGrams?: number;
+  consumedVolumeMl?: number;
   servingLabel?: string;
+  householdQuantityPerServing?: number;
   householdUnit?: string;
   note?: string;
   occurredAt: string;
@@ -436,7 +503,7 @@ export type FoodHistoryEntry = {
 };
 
 const foodHistorySelect =
-  "id, food_name, brand, meal_type, calories, protein_grams, carbohydrate_grams, fat_grams, fiber_grams, sugar_grams, sodium_mg, quantity, quantity_unit, serving_label, household_unit, note, occurred_at, nutrition_source, entry_method" as const;
+  "id, food_name, brand, meal_type, calories, protein_grams, carbohydrate_grams, fat_grams, fiber_grams, sugar_grams, sodium_mg, quantity, quantity_unit, serving_count, consumed_weight_grams, consumed_volume_ml, serving_label, household_quantity_per_serving, household_unit, note, occurred_at, nutrition_source, entry_method" as const;
 
 function foodHistoryEntry(row: Record<string, unknown>): FoodHistoryEntry {
   const unit = foodUnitSchema.safeParse(row.quantity_unit);
@@ -458,7 +525,13 @@ function foodHistoryEntry(row: Record<string, unknown>): FoodHistoryEntry {
     sodiumMg: optionalNumber(row.sodium_mg),
     amount: optionalNumber(row.quantity) ?? 1,
     unit: unit.success ? unit.data : "serving",
+    servingCount: optionalNumber(row.serving_count) ?? 1,
+    consumedWeightGrams: optionalNumber(row.consumed_weight_grams),
+    consumedVolumeMl: optionalNumber(row.consumed_volume_ml),
     servingLabel: row.serving_label ? String(row.serving_label) : undefined,
+    householdQuantityPerServing: optionalNumber(
+      row.household_quantity_per_serving,
+    ),
     householdUnit: row.household_unit ? String(row.household_unit) : undefined,
     note: row.note ? String(row.note) : undefined,
     occurredAt: String(row.occurred_at),
@@ -477,16 +550,13 @@ function foodHistoryEntry(row: Record<string, unknown>): FoodHistoryEntry {
 }
 
 const foodHistoryUpdateSchema = z.object({
-  foodName: z.string().trim().min(1).max(160),
-  brand: z.string().trim().max(160).optional(),
   mealType: z.enum(["breakfast", "lunch", "dinner", "snack", "meal"]),
-  calories: z.number().int().min(0).max(20000),
-  proteinGrams: z.number().min(0).max(1000),
-  carbohydrateGrams: z.number().min(0).optional(),
-  fatGrams: z.number().min(0).optional(),
-  fiberGrams: z.number().min(0).optional(),
-  sugarGrams: z.number().min(0).optional(),
-  sodiumMg: z.number().min(0).optional(),
+  amount: z.number().positive().max(100000),
+  unit: foodUnitSchema,
+  servingCount: z.number().positive().max(100000),
+  consumedWeightGrams: z.number().positive().max(100000).optional(),
+  consumedVolumeMl: z.number().positive().max(100000).optional(),
+  totalNutrients: nutrientValuesSchema,
   note: z.string().max(1000).optional(),
 });
 export type FoodHistoryUpdate = z.infer<typeof foodHistoryUpdateSchema>;
@@ -529,16 +599,19 @@ export async function updateFoodHistoryEntry(
   const { data, error } = await supabase
     .from("nutrition_entries")
     .update({
-      food_name: value.foodName,
-      brand: value.brand || null,
       meal_type: value.mealType,
-      calories: value.calories,
-      protein_grams: value.proteinGrams,
-      carbohydrate_grams: value.carbohydrateGrams ?? null,
-      fat_grams: value.fatGrams ?? null,
-      fiber_grams: value.fiberGrams ?? null,
-      sugar_grams: value.sugarGrams ?? null,
-      sodium_mg: value.sodiumMg ?? null,
+      quantity: value.amount,
+      quantity_unit: value.unit,
+      serving_count: value.servingCount,
+      consumed_weight_grams: value.consumedWeightGrams ?? null,
+      consumed_volume_ml: value.consumedVolumeMl ?? null,
+      calories: value.totalNutrients.calories,
+      protein_grams: value.totalNutrients.proteinGrams,
+      carbohydrate_grams: value.totalNutrients.carbohydrateGrams ?? null,
+      fat_grams: value.totalNutrients.fatGrams ?? null,
+      fiber_grams: value.totalNutrients.fiberGrams ?? null,
+      sugar_grams: value.totalNutrients.sugarGrams ?? null,
+      sodium_mg: value.totalNutrients.sodiumMg ?? null,
       note: value.note?.trim() || null,
     })
     .eq("user_id", userId)

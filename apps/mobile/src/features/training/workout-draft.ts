@@ -30,6 +30,13 @@ export const workoutDraftSchema = z.object({
 export type MuscleGroup = z.infer<typeof muscleGroupSchema>;
 export type WorkoutDraft = z.infer<typeof workoutDraftSchema>;
 
+export function muscleGroupLabel(group: string): string {
+  if (group === "Bi") return "Bicep";
+  if (group === "Tri") return "Tricep";
+  if (group === "Delt") return "Shoulders";
+  return group;
+}
+
 const draftKey = (userId: string): string =>
   `healthapp:workout-draft:${userId}`;
 const writeQueues = new Map<string, Promise<void>>();

@@ -14,6 +14,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { VitalSample } from "../../../src/domain/vitals";
 import { useAuth } from "../../../src/features/auth/auth-provider";
 import {
+  availableFoodUnits,
+  calculateFoodAmount,
+  foodBasisFromHistorySnapshot,
+  foodUnitLabel,
+  type FoodBasis,
+  type FoodUnit,
+} from "../../../src/features/nutrition/model";
+import {
   getFoodById,
   updateFoodHistoryEntry,
   type FoodHistoryEntry,
@@ -32,6 +40,7 @@ import {
 } from "../../../src/features/vitals/sync";
 
 type EditKind = "cardio" | "weight" | "blood_pressure" | "food";
+type HistoryView = "exercise" | "weight" | "blood_pressure" | "food";
 const activities: CardioInput["activityType"][] = [
   "walk",
   "run",
@@ -59,6 +68,13 @@ function parseKind(value: string | undefined): EditKind | undefined {
     value === "food"
     ? value
     : undefined;
+}
+
+function historyViewForKind(kind: EditKind | undefined): HistoryView {
+  if (kind === "cardio") return "exercise";
+  if (kind === "blood_pressure") return "blood_pressure";
+  if (kind === "weight") return "weight";
+  return "food";
 }
 
 function optionalNumber(value: string): number | undefined {
@@ -92,17 +108,11 @@ export default function EditHistoryScreen() {
   const [systolic, setSystolic] = useState("");
   const [diastolic, setDiastolic] = useState("");
   const [pulse, setPulse] = useState("");
-  const [foodName, setFoodName] = useState("");
-  const [brand, setBrand] = useState("");
   const [mealType, setMealType] =
     useState<FoodHistoryEntry["mealType"]>("meal");
-  const [calories, setCalories] = useState("");
-  const [protein, setProtein] = useState("");
-  const [carbs, setCarbs] = useState("");
-  const [fat, setFat] = useState("");
-  const [fiber, setFiber] = useState("");
-  const [sugar, setSugar] = useState("");
-  const [sodium, setSodium] = useState("");
+  const [foodBasis, setFoodBasis] = useState<FoodBasis>();
+  const [foodAmount, setFoodAmount] = useState("1");
+  const [foodUnit, setFoodUnit] = useState<FoodUnit>("serving");
 
   const load = useCallback(async () => {
     if (!session || !id || !kind) {
@@ -132,24 +142,33 @@ export default function EditHistoryScreen() {
         if (entry.source === "import")
           throw new Error("Imported food is read-only.");
         setFood(entry);
-        setFoodName(entry.foodName);
-        setBrand(entry.brand ?? "");
         setMealType(entry.mealType);
-        setCalories(String(entry.calories));
-        setProtein(String(entry.proteinGrams));
-        setCarbs(
-          entry.carbohydrateGrams === undefined
-            ? ""
-            : String(entry.carbohydrateGrams),
+        setFoodAmount(String(entry.amount));
+        setFoodUnit(entry.unit);
+        setFoodBasis(
+          foodBasisFromHistorySnapshot({
+            name: entry.foodName,
+            brand: entry.brand,
+            source: entry.source,
+            servingLabel: entry.servingLabel,
+            householdQuantityPerServing: entry.householdQuantityPerServing,
+            householdUnit: entry.householdUnit,
+            amount: entry.amount,
+            unit: entry.unit,
+            servingCount: entry.servingCount,
+            consumedWeightGrams: entry.consumedWeightGrams,
+            consumedVolumeMl: entry.consumedVolumeMl,
+            totalNutrients: {
+              calories: entry.calories,
+              proteinGrams: entry.proteinGrams,
+              carbohydrateGrams: entry.carbohydrateGrams,
+              fatGrams: entry.fatGrams,
+              fiberGrams: entry.fiberGrams,
+              sugarGrams: entry.sugarGrams,
+              sodiumMg: entry.sodiumMg,
+            },
+          }),
         );
-        setFat(entry.fatGrams === undefined ? "" : String(entry.fatGrams));
-        setFiber(
-          entry.fiberGrams === undefined ? "" : String(entry.fiberGrams),
-        );
-        setSugar(
-          entry.sugarGrams === undefined ? "" : String(entry.sugarGrams),
-        );
-        setSodium(entry.sodiumMg === undefined ? "" : String(entry.sodiumMg));
         setNotes(entry.note ?? "");
       } else {
         if (configured) await syncVitals(session.user.id);
@@ -232,28 +251,16 @@ export default function EditHistoryScreen() {
           notes,
         });
       } else if (kind === "food") {
-        const calorieValue = Number(calories);
-        const proteinValue = Number(protein);
-        if (!foodName.trim()) throw new Error("Enter a food name.");
-        if (!Number.isInteger(calorieValue) || calorieValue < 0) {
-          throw new Error(
-            "Calories must be a whole number of zero or greater.",
-          );
-        }
-        if (!Number.isFinite(proteinValue) || proteinValue < 0) {
-          throw new Error("Protein must be zero or greater.");
-        }
+        if (!foodBasis) throw new Error("Food serving details are missing.");
+        const amount = Number(foodAmount.replace(",", "."));
+        if (!Number.isFinite(amount) || amount <= 0)
+          throw new Error("Enter an amount greater than zero.");
+        const calculated = calculateFoodAmount(foodBasis, amount, foodUnit);
         await updateFoodHistoryEntry(session.user.id, id, {
-          foodName,
-          brand,
           mealType,
-          calories: calorieValue,
-          proteinGrams: proteinValue,
-          carbohydrateGrams: optionalNumber(carbs),
-          fatGrams: optionalNumber(fat),
-          fiberGrams: optionalNumber(fiber),
-          sugarGrams: optionalNumber(sugar),
-          sodiumMg: optionalNumber(sodium),
+          amount,
+          unit: foodUnit,
+          ...calculated,
           note: notes,
         });
       } else if (kind === "weight") {
@@ -322,7 +329,10 @@ export default function EditHistoryScreen() {
         await queueLocalVitals(updated);
         if (configured) await syncVitals(session.user.id);
       }
-      router.back();
+      router.replace({
+        pathname: "/(app)/history",
+        params: { view: historyViewForKind(kind) },
+      });
     } catch (caught) {
       setError(
         caught instanceof Error ? caught.message : "Could not save changes.",
@@ -347,7 +357,15 @@ export default function EditHistoryScreen() {
       contentInsetAdjustmentBehavior="never"
       keyboardShouldPersistTaps="handled"
     >
-      <Pressable accessibilityRole="button" onPress={() => router.back()}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() =>
+          router.replace({
+            pathname: "/(app)/history",
+            params: { view: historyViewForKind(kind) },
+          })
+        }
+      >
         <Text style={styles.back}>‹ History</Text>
       </Pressable>
       <Text style={styles.title}>{title}</Text>
@@ -414,66 +432,43 @@ export default function EditHistoryScreen() {
       ) : null}
       {!loading && kind === "food" && food ? (
         <>
+          <Text style={styles.foodName}>{food.foodName}</Text>
+          {food.brand ? (
+            <Text style={styles.foodBrand}>{food.brand}</Text>
+          ) : null}
           <Text style={styles.help}>
-            Nutrition values are totals for the amount originally logged.
+            Change the amount consumed or its unit. Nutrition totals will be
+            recalculated from the saved serving.
           </Text>
+          {food.servingLabel ? (
+            <Text style={styles.serving}>Serving: {food.servingLabel}</Text>
+          ) : null}
           <Field
-            label="Food name"
-            value={foodName}
-            onChangeText={setFoodName}
+            label="Amount consumed"
+            value={foodAmount}
+            onChangeText={setFoodAmount}
+            numeric
           />
-          <Field
-            label="Brand (optional)"
-            value={brand}
-            onChangeText={setBrand}
-          />
+          {foodBasis ? (
+            <>
+              <Text style={styles.label}>Unit</Text>
+              <ChoiceRow
+                choices={availableFoodUnits(foodBasis)}
+                selected={foodUnit}
+                onSelect={setFoodUnit}
+                labelForChoice={(choice) =>
+                  choice === "household"
+                    ? (foodBasis.householdUnit ?? "item")
+                    : foodUnitLabel[choice]
+                }
+              />
+            </>
+          ) : null}
           <Text style={styles.label}>Meal</Text>
           <ChoiceRow
             choices={meals}
             selected={mealType}
             onSelect={setMealType}
-          />
-          <Field
-            label="Calories"
-            value={calories}
-            onChangeText={setCalories}
-            numeric
-          />
-          <Field
-            label="Protein (g)"
-            value={protein}
-            onChangeText={setProtein}
-            numeric
-          />
-          <Field
-            label="Carbohydrates (g, optional)"
-            value={carbs}
-            onChangeText={setCarbs}
-            numeric
-          />
-          <Field
-            label="Fat (g, optional)"
-            value={fat}
-            onChangeText={setFat}
-            numeric
-          />
-          <Field
-            label="Fiber (g, optional)"
-            value={fiber}
-            onChangeText={setFiber}
-            numeric
-          />
-          <Field
-            label="Sugar (g, optional)"
-            value={sugar}
-            onChangeText={setSugar}
-            numeric
-          />
-          <Field
-            label="Sodium (mg, optional)"
-            value={sodium}
-            onChangeText={setSodium}
-            numeric
           />
           <Field
             label="Note (optional)"
@@ -504,10 +499,12 @@ function ChoiceRow<T extends string>({
   choices,
   selected,
   onSelect,
+  labelForChoice,
 }: {
   choices: readonly T[];
   selected: T;
   onSelect: (choice: T) => void;
+  labelForChoice?: (choice: T) => string;
 }) {
   return (
     <View style={styles.choices}>
@@ -522,7 +519,7 @@ function ChoiceRow<T extends string>({
               choice === selected ? styles.choiceTextActive : styles.choiceText
             }
           >
-            {choice.replace("_", " ")}
+            {labelForChoice?.(choice) ?? choice.replace("_", " ")}
           </Text>
         </Pressable>
       ))}
@@ -574,6 +571,9 @@ const styles = StyleSheet.create({
   },
   loading: { marginTop: 24 },
   help: { color: "#627D98", lineHeight: 20, marginBottom: 16 },
+  foodName: { color: "#243B53", fontSize: 19, fontWeight: "800" },
+  foodBrand: { color: "#627D98", fontSize: 13, marginTop: 3 },
+  serving: { color: "#16776A", fontWeight: "700", marginBottom: 15 },
   label: { color: "#486581", fontSize: 13, fontWeight: "700", marginBottom: 6 },
   input: {
     backgroundColor: "#fff",

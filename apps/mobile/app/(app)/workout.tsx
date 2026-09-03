@@ -11,6 +11,7 @@ import {
 
 import { useAuth } from "../../src/features/auth/auth-provider";
 import { CardioLog } from "../../src/features/training/cardio-log";
+import { ExerciseDragHandle } from "../../src/features/training/exercise-drag-handle";
 import {
   getExerciseGuidance,
   getExerciseSuggestions,
@@ -21,6 +22,7 @@ import {
 import {
   clearWorkoutDraft,
   loadWorkoutDraft,
+  muscleGroupLabel,
   muscleGroups,
   moveWorkoutEntry,
   saveWorkoutDraft,
@@ -406,7 +408,7 @@ export default function WorkoutScreen() {
                       : styles.groupText
                   }
                 >
-                  {group}
+                  {muscleGroupLabel(group)}
                 </Text>
               </Pressable>
             ))}
@@ -447,31 +449,13 @@ export default function WorkoutScreen() {
                       EXERCISE {index + 1}
                     </Text>
                     <View style={styles.exerciseHeaderActions}>
-                      <Pressable
-                        accessibilityLabel={`Move exercise ${index + 1} up`}
-                        accessibilityRole="button"
-                        disabled={index === 0}
-                        onPress={() => moveExercise(entry.id, -1)}
-                        style={[
-                          styles.orderButton,
-                          index === 0 && styles.orderButtonDisabled,
-                        ]}
-                      >
-                        <Text style={styles.orderText}>↑</Text>
-                      </Pressable>
-                      <Pressable
-                        accessibilityLabel={`Move exercise ${index + 1} down`}
-                        accessibilityRole="button"
-                        disabled={index === entries.length - 1}
-                        onPress={() => moveExercise(entry.id, 1)}
-                        style={[
-                          styles.orderButton,
-                          index === entries.length - 1 &&
-                            styles.orderButtonDisabled,
-                        ]}
-                      >
-                        <Text style={styles.orderText}>↓</Text>
-                      </Pressable>
+                      <ExerciseDragHandle
+                        index={index}
+                        itemCount={entries.length}
+                        onMove={(direction) =>
+                          moveExercise(entry.id, direction)
+                        }
+                      />
                       <Pressable
                         accessibilityRole="button"
                         onPress={() => removeExercise(entry.id)}
@@ -556,7 +540,7 @@ export default function WorkoutScreen() {
                                   : styles.exerciseGroupText
                               }
                             >
-                              {group}
+                              {muscleGroupLabel(group)}
                             </Text>
                           </Pressable>
                         ))}
@@ -793,16 +777,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   exerciseHeaderActions: { alignItems: "center", flexDirection: "row", gap: 7 },
-  orderButton: {
-    alignItems: "center",
-    backgroundColor: "#E6F7F3",
-    borderRadius: 9,
-    height: 32,
-    justifyContent: "center",
-    width: 34,
-  },
-  orderButtonDisabled: { opacity: 0.3 },
-  orderText: { color: "#16776A", fontSize: 18, fontWeight: "800" },
   exerciseNumber: {
     color: "#7B8794",
     fontSize: 11,

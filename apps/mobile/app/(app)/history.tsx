@@ -40,11 +40,13 @@ import {
   type WorkoutHistorySet,
 } from "../../src/features/training/repository";
 import { workoutSetBreakdown } from "../../src/features/training/workout-history";
+import { muscleGroupLabel } from "../../src/features/training/workout-draft";
 import {
   loadCachedVitals,
   markVitalsDeleted,
   syncVitals,
 } from "../../src/features/vitals/sync";
+import { classifyBloodPressure } from "../../src/features/vitals/blood-pressure";
 
 type HistoryView = "exercise" | "blood_pressure" | "weight" | "food";
 type DeletionRequest = {
@@ -88,14 +90,12 @@ function groupSets(
     sets: values,
   }));
 }
-function muscleGroups(session: WorkoutHistorySession): string {
-  return session.muscleGroups.length
-    ? session.muscleGroups.join(", ")
-    : session.title.replace(/\s+lift$/i, "") || "Mixed";
-}
 function muscleGroupSetBreakdown(session: WorkoutHistorySession): string {
   return workoutSetBreakdown(session.sets, session.muscleGroups)
-    .map(({ muscleGroup, setCount }) => `${muscleGroup} ${setCount}`)
+    .map(
+      ({ muscleGroup, setCount }) =>
+        `${setCount} ${muscleGroupLabel(muscleGroup)}`,
+    )
     .join(" · ");
 }
 function cleanSourceName(value: string | undefined): string | undefined {
@@ -307,6 +307,11 @@ export default function HistoryScreen() {
           onPress={() => setView("exercise")}
         />
         <HistoryTab
+          label="Food"
+          active={view === "food"}
+          onPress={() => setView("food")}
+        />
+        <HistoryTab
           label="Blood pressure"
           active={view === "blood_pressure"}
           onPress={() => setView("blood_pressure")}
@@ -315,11 +320,6 @@ export default function HistoryScreen() {
           label="Weight"
           active={view === "weight"}
           onPress={() => setView("weight")}
-        />
-        <HistoryTab
-          label="Food"
-          active={view === "food"}
-          onPress={() => setView("food")}
         />
       </View>
       {loading &&
@@ -512,12 +512,9 @@ function WorkoutHistoryCard({
   return (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
-        <View>
+        <View style={styles.cardHeaderMain}>
           <Text style={styles.date}>{formatDateTime(session.completedAt)}</Text>
           <Text style={styles.group}>
-            Muscle groups: {muscleGroups(session)}
-          </Text>
-          <Text style={styles.groupBreakdown}>
             Sets by muscle: {muscleGroupSetBreakdown(session)}
           </Text>
         </View>
@@ -526,22 +523,22 @@ function WorkoutHistoryCard({
       {groupSets(session.sets).map((exercise) => (
         <View key={exercise.name} style={styles.exercise}>
           <View style={styles.exerciseSummary}>
-            <Text style={styles.exerciseName}>{exercise.name}</Text>
-            <Text style={styles.exerciseSetTotal}>
-              {exercise.sets.length}{" "}
-              {exercise.sets.length === 1 ? "set" : "sets"}
+            <Text style={[styles.exerciseName, styles.workoutExerciseName]}>
+              {exercise.name}
+            </Text>
+            <Text style={styles.exerciseMuscleBadge}>
+              {muscleGroupLabel(
+                exercise.sets[0].muscleGroup ??
+                  (session.muscleGroups.length === 1
+                    ? session.muscleGroups[0]
+                    : "Unassigned"),
+              )}
             </Text>
           </View>
           <Text style={styles.detail}>
-            Reps {exercise.sets.map((set) => set.reps).join(", ")} at{" "}
+            {exercise.sets.length} x{" "}
+            {exercise.sets.map((set) => set.reps).join(", ")} at{" "}
             {exercise.sets[0].weight} {exercise.sets[0].unit}
-          </Text>
-          <Text style={styles.exerciseGroup}>
-            Muscle group:{" "}
-            {exercise.sets[0].muscleGroup ??
-              (session.muscleGroups.length === 1
-                ? session.muscleGroups[0]
-                : "Unassigned")}
           </Text>
         </View>
       ))}
@@ -585,7 +582,7 @@ function CardioHistoryCard({
   return (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
-        <View>
+        <View style={styles.cardHeaderMain}>
           <Text style={styles.date}>{formatDateTime(entry.occurredAt)}</Text>
           <Text style={styles.cardioBadge}>CARDIO</Text>
         </View>
@@ -657,40 +654,63 @@ function BloodPressureHistory({
     );
   return (
     <>
-      {readings.map(({ systolic, diastolic }) => (
-        <View key={systolic.id} style={styles.readingCard}>
-          <Text style={styles.readingValue}>
-            {systolic.value}/{diastolic?.value ?? "--"} mmHg
-          </Text>
-          <Text style={styles.readingTime}>
-            {formatDateTime(systolic.occurredAt)}
-          </Text>
-          <Text style={styles.readingSource}>{vitalSourceName(systolic)}</Text>
-          <View style={styles.cardActions}>
-            {systolic.source === "manual" && diastolic?.source === "manual" ? (
+      {readings.map(({ systolic, diastolic }) => {
+        const category = diastolic
+          ? classifyBloodPressure(systolic.value, diastolic.value)
+          : undefined;
+        return (
+          <View key={systolic.id} style={styles.readingCard}>
+            <View style={styles.readingHeader}>
+              <Text style={styles.readingValue}>
+                {systolic.value}/{diastolic?.value ?? "--"} mmHg
+              </Text>
+              {category ? (
+                <Text
+                  style={[
+                    styles.bpCategory,
+                    {
+                      backgroundColor: category.backgroundColor,
+                      color: category.color,
+                    },
+                  ]}
+                >
+                  {category.label}
+                </Text>
+              ) : null}
+            </View>
+            <Text style={styles.readingTime}>
+              {formatDateTime(systolic.occurredAt)}
+            </Text>
+            <Text style={styles.readingSource}>
+              {vitalSourceName(systolic)}
+            </Text>
+            <View style={styles.cardActions}>
+              {systolic.source === "manual" &&
+              diastolic?.source === "manual" ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(app)/history/edit",
+                      params: { id: systolic.id, kind: "blood_pressure" },
+                    })
+                  }
+                  style={styles.editButton}
+                >
+                  <Text style={styles.editText}>Edit reading</Text>
+                </Pressable>
+              ) : null}
               <Pressable
                 accessibilityRole="button"
-                onPress={() =>
-                  router.push({
-                    pathname: "/(app)/history/edit",
-                    params: { id: systolic.id, kind: "blood_pressure" },
-                  })
-                }
-                style={styles.editButton}
+                onPress={() => onDelete({ systolic, diastolic })}
+                style={[styles.deleteButton, styles.compactDeleteButton]}
               >
-                <Text style={styles.editText}>Edit reading</Text>
+                <Text style={styles.deleteText}>Delete reading</Text>
               </Pressable>
-            ) : null}
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => onDelete({ systolic, diastolic })}
-              style={[styles.deleteButton, styles.compactDeleteButton]}
-            >
-              <Text style={styles.deleteText}>Delete reading</Text>
-            </Pressable>
+            </View>
           </View>
-        </View>
-      ))}
+        );
+      })}
     </>
   );
 }
@@ -835,7 +855,7 @@ function FoodHistory({
                   {totals.calories} cal ·{" "}
                   {Math.round(totals.proteinGrams * 10) / 10}g protein
                 </Text>
-                <Text style={styles.waterTotal}>
+                <Text style={[styles.setTotal, styles.waterTotal]}>
                   {mlToFluidOunces(day.waterMl)} fl oz water
                 </Text>
                 <Pressable
@@ -870,6 +890,12 @@ function FoodHistory({
                               <Text style={styles.foodBrand}>{food.brand}</Text>
                             ) : null}
                           </View>
+                          <Text style={styles.foodTime}>
+                            {new Intl.DateTimeFormat(undefined, {
+                              hour: "numeric",
+                              minute: "2-digit",
+                            }).format(new Date(food.occurredAt))}
+                          </Text>
                         </View>
                         <Text style={styles.detail}>
                           {foodAmountDescription(
@@ -880,11 +906,7 @@ function FoodHistory({
                           )}
                         </Text>
                         <Text style={styles.detail}>
-                          {food.calories} cal · {food.proteinGrams}g protein ·{" "}
-                          {new Intl.DateTimeFormat(undefined, {
-                            hour: "numeric",
-                            minute: "2-digit",
-                          }).format(new Date(food.occurredAt))}
+                          {food.calories} cal · {food.proteinGrams}g protein
                         </Text>
                         {food.carbohydrateGrams !== undefined ? (
                           <Text style={styles.foodFacts}>
@@ -1102,6 +1124,7 @@ const styles = StyleSheet.create({
     marginBottom: 11,
     paddingBottom: 11,
   },
+  cardHeaderMain: { flex: 1, minWidth: 0, paddingRight: 10 },
   date: { color: "#243B53", fontSize: 16, fontWeight: "800" },
   group: { color: "#16776A", fontSize: 13, fontWeight: "700", marginTop: 3 },
   groupBreakdown: { color: "#486581", fontSize: 12, marginTop: 4 },
@@ -1112,12 +1135,16 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     marginTop: 4,
   },
-  setTotal: { color: "#627D98", fontSize: 13, fontWeight: "700" },
+  setTotal: {
+    color: "#627D98",
+    flexShrink: 0,
+    fontSize: 13,
+    fontWeight: "700",
+    minWidth: 52,
+    textAlign: "right",
+  },
   dayTotals: { alignItems: "flex-end", marginLeft: 8 },
   waterTotal: {
-    color: "#126B83",
-    fontSize: 12,
-    fontWeight: "800",
     marginTop: 3,
   },
   dailyTotalsButton: {
@@ -1132,22 +1159,24 @@ const styles = StyleSheet.create({
   },
   exercise: { marginTop: 10 },
   exerciseSummary: {
-    alignItems: "center",
+    alignItems: "flex-start",
     flexDirection: "row",
     justifyContent: "space-between",
   },
   exerciseName: { color: "#243B53", fontWeight: "800" },
-  exerciseSetTotal: {
+  workoutExerciseName: { flex: 1, paddingRight: 8 },
+  exerciseMuscleBadge: {
+    alignSelf: "flex-start",
     backgroundColor: "#E6F7F3",
     borderRadius: 11,
     color: "#16776A",
     fontSize: 11,
     fontWeight: "800",
+    flexShrink: 0,
     overflow: "hidden",
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
-  exerciseGroup: { color: "#7B8794", fontSize: 11, marginTop: 3 },
   cardioTitle: {
     color: "#243B53",
     fontSize: 17,
@@ -1172,8 +1201,10 @@ const styles = StyleSheet.create({
   foodHistoryHeader: {
     alignItems: "flex-start",
     flexDirection: "row",
+    justifyContent: "space-between",
   },
   foodBrand: { color: "#627D98", fontSize: 12, marginTop: 2 },
+  foodTime: { color: "#7B8794", fontSize: 10, marginLeft: 10, marginTop: 1 },
   foodFacts: { color: "#627D98", fontSize: 12, marginTop: 4 },
   foodNote: {
     color: "#7B8794",
@@ -1220,6 +1251,21 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   readingValue: { color: "#102A43", fontSize: 18, fontWeight: "800" },
+  readingHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    justifyContent: "space-between",
+  },
+  bpCategory: {
+    borderRadius: 12,
+    fontSize: 10,
+    fontWeight: "800",
+    overflow: "hidden",
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
   readingTime: { color: "#486581", marginTop: 4 },
   readingSource: {
     color: "#7B8794",
