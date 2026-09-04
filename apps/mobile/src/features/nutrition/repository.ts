@@ -6,6 +6,7 @@ import { calorieTotalsByLocalDay, type DailyCalorieTotal } from "./calendar";
 import {
   canonicalFoodBarcode,
   foodBasisSchema,
+  foodProfileContentKey,
   foodUnitSchema,
   mealDraftEntrySchema,
   nutrientValuesSchema,
@@ -139,7 +140,7 @@ function rowBasis(row: Record<string, unknown>): FoodBasis {
 }
 
 const profileSelect =
-  "id, catalog_product_id, food_name, brand, barcode, source, is_user_corrected, serving_label, serving_weight_grams, serving_volume_ml, household_quantity_per_serving, household_unit, calories_per_serving, protein_grams_per_serving, carbohydrate_grams_per_serving, fat_grams_per_serving, fiber_grams_per_serving, sugar_grams_per_serving, sodium_mg_per_serving, updated_at" as const;
+  "id, catalog_product_id, food_name, brand, barcode, source, is_user_corrected, serving_label, serving_weight_grams, serving_volume_ml, household_quantity_per_serving, household_unit, calories_per_serving, protein_grams_per_serving, carbohydrate_grams_per_serving, fat_grams_per_serving, fiber_grams_per_serving, sugar_grams_per_serving, sodium_mg_per_serving, archived_at, updated_at" as const;
 
 function profileFields(userId: string, basis: FoodBasis) {
   return {
@@ -197,8 +198,35 @@ export async function saveFoodProfile(
     if (currentError) throw new Error(currentError.message);
     current = data;
   }
+  if (!current && !basis.catalogProductId && !canonicalBarcode) {
+    const { data, error: currentError } = await supabase
+      .from("user_food_profiles")
+      .select(profileSelect)
+      .eq("user_id", userId)
+      .eq("food_name", basis.name)
+      .is("archived_at", null)
+      .limit(50);
+    if (currentError) throw new Error(currentError.message);
+    const contentKey = foodProfileContentKey(basis);
+    current =
+      (data ?? []).find(
+        (row) => foodProfileContentKey(rowBasis(row)) === contentKey,
+      ) ?? null;
+  }
   if (current && current.is_user_corrected && !basis.isUserCorrected) {
-    return rowBasis(current);
+    if (!current.archived_at) return rowBasis(current);
+    const { data, error } = await supabase
+      .from("user_food_profiles")
+      .update({
+        archived_at: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", userId)
+      .eq("id", current.id)
+      .select(profileSelect)
+      .single();
+    if (error) throw new Error(error.message);
+    return rowBasis(data);
   }
   if (current) {
     const { data, error } = await supabase
@@ -439,10 +467,19 @@ export async function saveNutritionMeal(
 ) {
   const values = foods.map((food) => mealDraftEntrySchema.parse(food));
   if (!values.length) throw new Error("Add at least one food.");
+  const profiledValues: MealDraftEntry[] = [];
+  for (const food of values) {
+    if (food.profileId) {
+      profiledValues.push(food);
+      continue;
+    }
+    const profile = await saveFoodProfile(userId, food);
+    profiledValues.push(mealDraftEntrySchema.parse({ ...food, ...profile }));
+  }
   const mealLogId = createId();
   const occurredAt = new Date().toISOString();
   const { error } = await supabase.from("nutrition_entries").insert(
-    values.map((food) => ({
+    profiledValues.map((food) => ({
       id: createId(),
       user_id: userId,
       meal_log_id: mealLogId,

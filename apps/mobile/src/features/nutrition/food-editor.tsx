@@ -18,14 +18,19 @@ import {
 import { createId } from "../vitals/storage";
 import {
   availableFoodUnits,
+  buildServingLabel,
   calculateFoodAmount,
   convertVolumeAmount,
   convertWeightAmount,
   foodNameMatchesQuery,
   formatFoodMeasurementAmount,
   foodUnitLabel,
+  hasReproducibleServingBasis,
+  isSpecificHouseholdUnit,
   mealDraftEntrySchema,
   normalizeHouseholdUnit,
+  preferredVolumeUnitFromServingLabel,
+  preferredWeightUnitFromServingLabel,
   shouldPreferSavedFoodProfile,
   volumeAmountToMl,
   weightAmountToGrams,
@@ -47,11 +52,11 @@ import {
   type FoodSuggestion,
 } from "./repository";
 
-type EditorMode = "methods" | "basic" | "label" | "search" | "scan" | "amount";
+type EditorMode = "methods" | "label" | "search" | "scan" | "amount";
 type LabelForm = {
   name: string;
   brand: string;
-  servingLabel: string;
+  fallbackServingLabel: string;
   householdAmount: string;
   householdUnit: string;
   weightAmount: string;
@@ -70,7 +75,7 @@ type LabelForm = {
 const blankLabel = (): LabelForm => ({
   name: "",
   brand: "",
-  servingLabel: "",
+  fallbackServingLabel: "",
   householdAmount: "",
   householdUnit: "",
   weightAmount: "",
@@ -97,17 +102,44 @@ function positiveValueOrBlank(value: number | null | undefined) {
     : "";
 }
 
+function measurementValueOrBlank(value: number | null | undefined) {
+  return value !== null && value !== undefined && value > 0
+    ? formatFoodMeasurementAmount(value)
+    : "";
+}
+
 function productForm(product: BarcodeProduct): LabelForm {
+  const weightUnit = preferredWeightUnitFromServingLabel(
+    product.servingLabel ?? undefined,
+  );
+  const volumeUnit = preferredVolumeUnitFromServingLabel(
+    product.servingLabel ?? undefined,
+  );
+  const hasStructuredServing = Boolean(
+    (product.householdQuantityPerServing && product.householdUnit) ||
+    product.servingWeightGrams ||
+    product.servingVolumeMl,
+  );
   return {
     name: product.name === "Scanned product" ? "" : product.name,
     brand: product.brand ?? "",
-    servingLabel: product.servingLabel ?? "",
+    fallbackServingLabel: hasStructuredServing
+      ? ""
+      : (product.servingLabel ?? ""),
     householdAmount: positiveValueOrBlank(product.householdQuantityPerServing),
     householdUnit: product.householdUnit ?? "",
-    weightAmount: positiveValueOrBlank(product.servingWeightGrams),
-    weightUnit: "g",
-    volumeAmount: positiveValueOrBlank(product.servingVolumeMl),
-    volumeUnit: "ml",
+    weightAmount: measurementValueOrBlank(
+      product.servingWeightGrams
+        ? convertWeightAmount(product.servingWeightGrams, "g", weightUnit)
+        : undefined,
+    ),
+    weightUnit,
+    volumeAmount: measurementValueOrBlank(
+      product.servingVolumeMl
+        ? convertVolumeAmount(product.servingVolumeMl, "ml", volumeUnit)
+        : undefined,
+    ),
+    volumeUnit,
     calories: valueOrBlank(product.nutrientsPerServing.calories),
     protein: valueOrBlank(product.nutrientsPerServing.proteinGrams),
     carbohydrates: valueOrBlank(product.nutrientsPerServing.carbohydrateGrams),
@@ -119,16 +151,33 @@ function productForm(product: BarcodeProduct): LabelForm {
 }
 
 function basisForm(basis: FoodBasis): LabelForm {
+  const weightUnit = preferredWeightUnitFromServingLabel(basis.servingLabel);
+  const volumeUnit = preferredVolumeUnitFromServingLabel(basis.servingLabel);
+  const hasStructuredServing = Boolean(
+    (basis.householdQuantityPerServing && basis.householdUnit) ||
+    basis.servingWeightGrams ||
+    basis.servingVolumeMl,
+  );
   return {
     name: basis.name,
     brand: basis.brand ?? "",
-    servingLabel: basis.servingLabel ?? "",
+    fallbackServingLabel: hasStructuredServing
+      ? ""
+      : (basis.servingLabel ?? ""),
     householdAmount: positiveValueOrBlank(basis.householdQuantityPerServing),
     householdUnit: basis.householdUnit ?? "",
-    weightAmount: positiveValueOrBlank(basis.servingWeightGrams),
-    weightUnit: "g",
-    volumeAmount: positiveValueOrBlank(basis.servingVolumeMl),
-    volumeUnit: "ml",
+    weightAmount: measurementValueOrBlank(
+      basis.servingWeightGrams
+        ? convertWeightAmount(basis.servingWeightGrams, "g", weightUnit)
+        : undefined,
+    ),
+    weightUnit,
+    volumeAmount: measurementValueOrBlank(
+      basis.servingVolumeMl
+        ? convertVolumeAmount(basis.servingVolumeMl, "ml", volumeUnit)
+        : undefined,
+    ),
+    volumeUnit,
     calories: valueOrBlank(basis.nutrientsPerServing.calories),
     protein: valueOrBlank(basis.nutrientsPerServing.proteinGrams),
     carbohydrates: valueOrBlank(basis.nutrientsPerServing.carbohydrateGrams),
@@ -150,37 +199,29 @@ function formSignature(form: LabelForm) {
     ...form,
     name: form.name.trim(),
     brand: form.brand.trim(),
-    servingLabel: form.servingLabel.trim(),
+    fallbackServingLabel: form.fallbackServingLabel.trim(),
   });
-}
-
-function sourceBadge(basis: FoodBasis, kind?: FoodSuggestion["kind"]) {
-  if (kind === "recent") return "Recent";
-  if (basis.isUserCorrected) return "Corrected";
-  if (basis.source === "open_food_facts") return "Open Food Facts";
-  return kind === "profile" ? "My label" : "Manual";
 }
 
 export function FoodEditor({
   userId,
   visible,
   initial,
+  labelManagementOnly = false,
   onClose,
   onSave,
 }: {
   userId: string;
   visible: boolean;
   initial?: MealDraftEntry;
+  labelManagementOnly?: boolean;
   onClose: () => void;
   onSave: (entry: MealDraftEntry) => void;
 }) {
   const [mode, setMode] = useState<EditorMode>("methods");
   const [feedback, setFeedback] = useState("");
   const [saving, setSaving] = useState(false);
-  const [basicName, setBasicName] = useState("");
-  const [basicBrand, setBasicBrand] = useState("");
-  const [basicCalories, setBasicCalories] = useState("");
-  const [basicProtein, setBasicProtein] = useState("");
+  const [managingLabels, setManagingLabels] = useState(false);
   const [label, setLabel] = useState<LabelForm>(blankLabel);
   const [labelSource, setLabelSource] = useState<"manual" | "open_food_facts">(
     "manual",
@@ -222,11 +263,8 @@ export function FoodEditor({
     setLabelAlreadyCorrected(false);
     setPendingProfileDeletion(undefined);
     if (!initial) {
-      setMode("methods");
-      setBasicName("");
-      setBasicBrand("");
-      setBasicCalories("");
-      setBasicProtein("");
+      setMode(labelManagementOnly ? "search" : "methods");
+      setManagingLabels(labelManagementOnly);
       setLabel(blankLabel());
       setBasis(undefined);
       setCatalogProductId(undefined);
@@ -236,14 +274,6 @@ export function FoodEditor({
       return;
     }
     setNote(initial.note ?? "");
-    if (initial.entryMethod === "basic") {
-      setBasicName(initial.name);
-      setBasicBrand(initial.brand ?? "");
-      setBasicCalories(String(initial.totalNutrients.calories));
-      setBasicProtein(String(initial.totalNutrients.proteinGrams));
-      setMode("basic");
-      return;
-    }
     const nextBasis: FoodBasis = {
       profileId: initial.profileId,
       catalogProductId: initial.catalogProductId,
@@ -264,7 +294,7 @@ export function FoodEditor({
     setUnit(initial.unit);
     setEntryMethod(initial.entryMethod);
     setMode("amount");
-  }, [initial, visible]);
+  }, [initial, labelManagementOnly, visible]);
 
   useEffect(() => {
     if (!visible || mode !== "search") return;
@@ -362,6 +392,25 @@ export function FoodEditor({
       setFeedback("Package or piece amount must be greater than zero.");
       return undefined;
     }
+    if (householdUnit && !isSpecificHouseholdUnit(householdUnit)) {
+      setFeedback(
+        'Use a specific item unit such as "bottle", "package", or "piece". Put weights and volumes in their matching fields.',
+      );
+      return undefined;
+    }
+    if (
+      !hasReproducibleServingBasis({
+        householdAmount,
+        householdUnit,
+        weightAmount: weight,
+        volumeAmount: volume,
+      })
+    ) {
+      setFeedback(
+        "Add a serving weight, serving volume, or a specific item amount and unit.",
+      );
+      return undefined;
+    }
     return {
       profileId: editingProfileId ?? labelProfileId,
       catalogProductId,
@@ -374,7 +423,15 @@ export function FoodEditor({
         (labelSource === "open_food_facts" &&
           providerSignature !== undefined &&
           providerSignature !== formSignature(label)),
-      servingLabel: label.servingLabel.trim() || undefined,
+      servingLabel: buildServingLabel({
+        fallback: label.fallbackServingLabel,
+        householdAmount,
+        householdUnit: householdUnit || undefined,
+        weightAmount: weight,
+        weightUnit: label.weightUnit,
+        volumeAmount: volume,
+        volumeUnit: label.volumeUnit,
+      }),
       servingWeightGrams:
         weight === undefined
           ? undefined
@@ -486,12 +543,13 @@ export function FoodEditor({
     setSaving(true);
     setFeedback("");
     try {
-      const shouldPersistLabel = ["label", "barcode"].includes(entryMethod);
-      const finalBasis = shouldPersistLabel
-        ? basis.profileId
-          ? await updateFoodProfile(userId, basis)
-          : await saveFoodProfile(userId, basis)
-        : basis;
+      const shouldUpdateProfile =
+        basis.profileId && ["label", "barcode"].includes(entryMethod);
+      const finalBasis = shouldUpdateProfile
+        ? await updateFoodProfile(userId, basis)
+        : basis.profileId
+          ? basis
+          : await saveFoodProfile(userId, basis);
       const parsedAmount = Number(amount.replace(",", "."));
       const result = calculateFoodAmount(finalBasis, parsedAmount, unit);
       onSave(
@@ -515,37 +573,6 @@ export function FoodEditor({
     }
   }
 
-  function finishBasic() {
-    const calories = numberOrUndefined(basicCalories);
-    const protein = numberOrUndefined(basicProtein);
-    if (!basicName.trim() || calories === undefined || protein === undefined) {
-      return setFeedback("Enter the food name, calories, and protein.");
-    }
-    onSave(
-      mealDraftEntrySchema.parse({
-        id: initial?.id ?? createId(),
-        name: basicName.trim(),
-        brand: basicBrand.trim() || undefined,
-        source: "manual",
-        isUserCorrected: false,
-        nutrientsPerServing: {
-          calories: Math.round(calories),
-          proteinGrams: protein,
-        },
-        amount: 1,
-        unit: "serving",
-        servingCount: 1,
-        totalNutrients: {
-          calories: Math.round(calories),
-          proteinGrams: protein,
-        },
-        note: note.trim() || undefined,
-        entryMethod: "basic",
-      }),
-    );
-    onClose();
-  }
-
   function chooseSuggestion(item: FoodSuggestion) {
     const units = availableFoodUnits(item.basis);
     setBasis(item.basis);
@@ -557,52 +584,84 @@ export function FoodEditor({
     setMode("amount");
   }
 
+  function showSavedBarcodeProfile(
+    savedProfile: FoodBasis,
+    fallbackBarcode: string,
+  ) {
+    const nextForm = basisForm(savedProfile);
+    setLabel(nextForm);
+    setEditingProfileId(undefined);
+    setLabelProfileId(savedProfile.profileId);
+    setLabelAlreadyCorrected(savedProfile.isUserCorrected);
+    setLabelSource(savedProfile.source);
+    setCatalogProductId(savedProfile.catalogProductId);
+    setBarcode(savedProfile.barcode ?? fallbackBarcode);
+    setProviderSignature(
+      savedProfile.source === "open_food_facts"
+        ? formSignature(nextForm)
+        : undefined,
+    );
+    setFeedback(
+      hasReproducibleServingBasis({
+        householdAmount: savedProfile.householdQuantityPerServing,
+        householdUnit: savedProfile.householdUnit,
+        weightAmount: savedProfile.servingWeightGrams,
+        volumeAmount: savedProfile.servingVolumeMl,
+      })
+        ? "Using your saved food label for this barcode. Confirm it against the package before continuing."
+        : "This saved label needs a serving weight, serving volume, or specific item amount and unit before continuing.",
+    );
+    setScanLocked(false);
+    setMode("label");
+  }
+
   async function lookupBarcode(raw: string, type: string) {
     if (scanLocked || !raw.trim()) return;
     setScanLocked(true);
     setFeedback("Looking up this product...");
+    const scannedDigits = raw.replace(/\D/g, "");
     try {
+      const savedByBarcode = await getFoodProfileByIdentity(userId, {
+        barcode: scannedDigits,
+      });
+      if (shouldPreferSavedFoodProfile(savedByBarcode)) {
+        showSavedBarcodeProfile(savedByBarcode, scannedDigits);
+        return;
+      }
       const product = await resolveFoodBarcode(raw, type);
       const savedProfile = await getFoodProfileByIdentity(userId, {
         barcode: product.barcode,
         catalogProductId: product.catalogProductId,
       });
       const useSavedProfile = shouldPreferSavedFoodProfile(savedProfile);
-      const nextForm = useSavedProfile
-        ? basisForm(savedProfile)
-        : productForm(product);
+      if (useSavedProfile) {
+        showSavedBarcodeProfile(savedProfile, product.barcode);
+        return;
+      }
+      const nextForm = productForm(product);
       setLabel(nextForm);
       setEditingProfileId(undefined);
-      setLabelProfileId(useSavedProfile ? savedProfile.profileId : undefined);
-      setLabelAlreadyCorrected(
-        useSavedProfile ? savedProfile.isUserCorrected : false,
-      );
-      setLabelSource(useSavedProfile ? savedProfile.source : "open_food_facts");
-      setCatalogProductId(
-        useSavedProfile
-          ? (savedProfile.catalogProductId ?? product.catalogProductId)
-          : product.catalogProductId,
-      );
-      setBarcode(
-        useSavedProfile
-          ? (savedProfile.barcode ?? product.barcode)
-          : product.barcode,
-      );
-      setProviderSignature(
-        !useSavedProfile || savedProfile.source === "open_food_facts"
-          ? formSignature(nextForm)
-          : undefined,
-      );
+      setLabelProfileId(undefined);
+      setLabelAlreadyCorrected(false);
+      setLabelSource("open_food_facts");
+      setCatalogProductId(product.catalogProductId);
+      setBarcode(product.barcode);
+      setProviderSignature(formSignature(nextForm));
+      const hasServingBasis = hasReproducibleServingBasis({
+        householdAmount: product.householdQuantityPerServing,
+        householdUnit: product.householdUnit,
+        weightAmount: product.servingWeightGrams,
+        volumeAmount: product.servingVolumeMl,
+      });
       setFeedback(
-        useSavedProfile
-          ? "Using your saved corrections for this barcode. Confirm them against the package before continuing."
+        !hasServingBasis
+          ? "Serving size could not be determined. Add a weight, volume, or specific item amount and unit from the package."
           : product.complete
             ? "Confirm the package nutrition before continuing."
             : "Some serving or nutrition details are missing or inconsistent. Confirm them from the package.",
       );
       setMode("label");
     } catch (error) {
-      const scannedDigits = raw.replace(/\D/g, "");
       if (
         error instanceof FoodBarcodeLookupError &&
         error.code === "not_found"
@@ -622,24 +681,7 @@ export function FoodEditor({
           return;
         }
         if (savedProfile) {
-          const nextForm = basisForm(savedProfile);
-          setLabel(nextForm);
-          setEditingProfileId(undefined);
-          setLabelProfileId(savedProfile.profileId);
-          setLabelAlreadyCorrected(savedProfile.isUserCorrected);
-          setLabelSource(savedProfile.source);
-          setCatalogProductId(savedProfile.catalogProductId);
-          setBarcode(savedProfile.barcode ?? scannedDigits);
-          setProviderSignature(
-            savedProfile.source === "open_food_facts"
-              ? formSignature(nextForm)
-              : undefined,
-          );
-          setFeedback(
-            "Open Food Facts does not have this barcode, so the app loaded your saved private label.",
-          );
-          setScanLocked(false);
-          setMode("label");
+          showSavedBarcodeProfile(savedProfile, scannedDigits);
           return;
         }
         setLabel(blankLabel());
@@ -682,13 +724,16 @@ export function FoodEditor({
 
   function back() {
     setFeedback("");
+    if (initial) return onClose();
     if (mode === "methods") return onClose();
     if (mode === "label" && editingProfileId) {
       setEditingProfileId(undefined);
       return setMode("search");
     }
+    if (managingLabels && mode === "search") return onClose();
     if (mode === "amount" && (labelSource === "open_food_facts" || barcode))
       return setMode("label");
+    setManagingLabels(false);
     setMode("methods");
   }
 
@@ -718,13 +763,13 @@ export function FoodEditor({
             style={styles.headerButton}
           >
             <Text style={styles.headerButtonText}>
-              {mode === "methods" ? "Close" : "Back"}
+              {initial || mode === "methods" ? "Close" : "Back"}
             </Text>
           </Pressable>
           <Text style={styles.headerTitle}>
             {editingProfileId
               ? "Edit food label"
-              : modeTitle(mode, Boolean(initial))}
+              : modeTitle(mode, Boolean(initial), managingLabels)}
           </Text>
           <View style={styles.headerSpacer} />
         </View>
@@ -750,6 +795,7 @@ export function FoodEditor({
                 onLabel={openLabel}
                 onSearch={() => {
                   setFeedback("");
+                  setManagingLabels(false);
                   setMode("search");
                 }}
                 onScan={() => {
@@ -757,21 +803,6 @@ export function FoodEditor({
                   setScanLocked(false);
                   setMode("scan");
                 }}
-              />
-            ) : null}
-            {mode === "basic" ? (
-              <BasicForm
-                name={basicName}
-                setName={setBasicName}
-                brand={basicBrand}
-                setBrand={setBasicBrand}
-                calories={basicCalories}
-                setCalories={setBasicCalories}
-                protein={basicProtein}
-                setProtein={setBasicProtein}
-                note={note}
-                setNote={setNote}
-                onSave={finishBasic}
               />
             ) : null}
             {mode === "label" ? (
@@ -804,6 +835,7 @@ export function FoodEditor({
                 choose={chooseSuggestion}
                 createLabel={createLabelFromQuery}
                 edit={editSuggestion}
+                managingLabels={managingLabels}
                 requestDelete={requestProfileDeletion}
               />
             ) : null}
@@ -817,6 +849,7 @@ export function FoodEditor({
                 note={note}
                 setNote={setNote}
                 calculated={calculated}
+                editing={Boolean(initial)}
                 saving={saving}
                 onSave={() => void finishAmount()}
               />
@@ -851,10 +884,14 @@ export function FoodEditor({
   );
 }
 
-function modeTitle(mode: EditorMode, editing: boolean) {
-  if (editing) return "Edit food";
+function modeTitle(
+  mode: EditorMode,
+  editing: boolean,
+  managingLabels: boolean,
+) {
+  if (editing) return "Edit amount";
+  if (managingLabels && mode === "search") return "Manage food labels";
   if (mode === "methods") return "Add food";
-  if (mode === "basic") return "Quick add";
   if (mode === "label") return "Food label";
   if (mode === "search") return "Find or add food";
   if (mode === "scan") return "Scan barcode";
@@ -871,22 +908,13 @@ function MethodPicker({
   onScan: () => void;
 }) {
   const methods = [
-    [
-      "Find or add food",
-      "Search Recent and My Foods, or create a label when there is no match.",
-      onSearch,
-    ],
-    ["Scan barcode", "Use your iPhone camera and Open Food Facts.", onScan],
-    [
-      "Create food label",
-      "Save a brand, serving size, and nutrition facts.",
-      onLabel,
-    ],
+    ["Find or add food", onSearch],
+    ["Scan barcode", onScan],
+    ["Create food label", onLabel],
   ] as const;
   return (
     <>
-      <Text style={styles.lead}>How would you like to add this food?</Text>
-      {methods.map(([title, copy, action]) => (
+      {methods.map(([title, action]) => (
         <Pressable
           accessibilityRole="button"
           key={title}
@@ -895,67 +923,10 @@ function MethodPicker({
         >
           <View style={styles.methodText}>
             <Text style={styles.methodTitle}>{title}</Text>
-            <Text style={styles.methodCopy}>{copy}</Text>
           </View>
           <Text style={styles.arrow}>→</Text>
         </Pressable>
       ))}
-    </>
-  );
-}
-
-function BasicForm(props: {
-  name: string;
-  setName: (value: string) => void;
-  brand: string;
-  setBrand: (value: string) => void;
-  calories: string;
-  setCalories: (value: string) => void;
-  protein: string;
-  setProtein: (value: string) => void;
-  note: string;
-  setNote: (value: string) => void;
-  onSave: () => void;
-}) {
-  return (
-    <>
-      <Text style={styles.lead}>Enter totals for the amount you ate.</Text>
-      <FormField
-        label="Food name"
-        value={props.name}
-        onChangeText={props.setName}
-        placeholder="Example: Chicken thigh"
-      />
-      <FormField
-        label="Brand (optional)"
-        value={props.brand}
-        onChangeText={props.setBrand}
-        placeholder="Example: Kirkland"
-      />
-      <View style={styles.formRow}>
-        <FormField
-          compact
-          label="Calories"
-          value={props.calories}
-          onChangeText={props.setCalories}
-          keyboard
-        />
-        <FormField
-          compact
-          label="Protein (g)"
-          value={props.protein}
-          onChangeText={props.setProtein}
-          keyboard
-        />
-      </View>
-      <FormField
-        label="Note (optional)"
-        value={props.note}
-        onChangeText={props.setNote}
-        placeholder="Preparation, flavor, or package"
-        multiline
-      />
-      <PrimaryButton label="Add to meal" onPress={props.onSave} />
     </>
   );
 }
@@ -1009,23 +980,17 @@ function LabelEditor({
         <View style={styles.sourceNotice}>
           <Text style={styles.sourceNoticeTitle}>Open Food Facts</Text>
           <Text style={styles.sourceNoticeCopy}>
-            Check these values against the package. Your corrections are saved
-            privately.
+            Verify against the package. Corrections stay in My Foods.
           </Text>
         </View>
       ) : attachedBarcode ? (
         <View style={styles.sourceNotice}>
           <Text style={styles.sourceNoticeTitle}>Product not found</Text>
           <Text style={styles.sourceNoticeCopy}>
-            Create your private profile for barcode {attachedBarcode} using the
-            package label. It will be suggested from My Foods next time.
+            Enter the package label for {attachedBarcode}.
           </Text>
         </View>
-      ) : (
-        <Text style={styles.lead}>
-          Nutrition values below apply to one serving.
-        </Text>
-      )}
+      ) : null}
       <FormField
         label="Food name"
         value={form.name}
@@ -1036,18 +1001,11 @@ function LabelEditor({
         value={form.brand}
         onChangeText={(brand) => change({ brand })}
       />
-      <FormField
-        label="Serving label (optional display text)"
-        value={form.servingLabel}
-        onChangeText={(servingLabel) => change({ servingLabel })}
-        placeholder="Example: 2/3 cup (55 g)"
-      />
-      <Text style={styles.sectionLabel}>Logging conversions (optional)</Text>
+      <Text style={styles.sectionLabel}>Serving size</Text>
       <Text style={styles.help}>
-        These fields power amount choices. Use item count for servings such as 1
-        bottle, 1 package, or 12 pieces. Use weight for foods sold by mass and
-        volume for liquids; leave fields blank when the package does not provide
-        that conversion.
+        Required: enter a weight, a volume, or a count with a specific item unit
+        such as 1 bottle, 1 package, or 12 pieces. Do not use a generic
+        &quot;serving&quot; as the item unit.
       </Text>
       <View style={styles.formRow}>
         <FormField
@@ -1176,6 +1134,7 @@ function FoodSearch({
   choose,
   createLabel,
   edit,
+  managingLabels,
   requestDelete,
 }: {
   query: string;
@@ -1185,10 +1144,18 @@ function FoodSearch({
   choose: (item: FoodSuggestion) => void;
   createLabel: () => void;
   edit: (item: FoodSuggestion) => void;
+  managingLabels: boolean;
   requestDelete: (item: FoodSuggestion) => void;
 }) {
   const recent = suggestions.filter((item) => item.kind === "recent");
   const profiles = suggestions.filter((item) => item.kind === "profile");
+  const managedProfiles = Array.from(
+    new Map(
+      suggestions
+        .filter((item) => item.basis.profileId)
+        .map((item) => [item.basis.profileId, item]),
+    ).values(),
+  );
   const hasExactSavedName = suggestions.some((item) =>
     foodNameMatchesQuery(item.basis.name, query),
   );
@@ -1197,7 +1164,9 @@ function FoodSearch({
     <>
       <TextInput
         autoFocus
-        accessibilityLabel="Find or add food"
+        accessibilityLabel={
+          managingLabels ? "Search food labels" : "Find or add food"
+        }
         onChangeText={setQuery}
         placeholder="Enter a food name or brand"
         placeholderTextColor="#9FB3C8"
@@ -1205,25 +1174,50 @@ function FoodSearch({
         value={query}
       />
       <Text style={styles.help}>
-        Select a match from your Recent or My Foods records. If the food does
-        not exist, create a reusable label with its name already filled in.
+        {managingLabels
+          ? "Edit or delete reusable labels saved in My Foods. Past food history will not change."
+          : "Select a match from your Recent or My Foods records. If the food does not exist, create a reusable label with its name already filled in."}
       </Text>
       {searching ? <Text style={styles.searchState}>Searching...</Text> : null}
-      <SuggestionSection
-        label="Recent"
-        items={recent}
-        choose={choose}
-        edit={edit}
-        requestDelete={requestDelete}
-      />
-      <SuggestionSection
-        label="My foods"
-        items={profiles}
-        choose={choose}
-        edit={edit}
-        requestDelete={requestDelete}
-      />
-      {!searching && hasQuery && !hasExactSavedName ? (
+      {managingLabels ? (
+        <SuggestionSection
+          label="My Foods"
+          items={managedProfiles}
+          choose={edit}
+          edit={edit}
+          requestDelete={requestDelete}
+          showActions
+        />
+      ) : (
+        <>
+          <SuggestionSection
+            label="Recent"
+            items={recent}
+            choose={choose}
+            edit={edit}
+            requestDelete={requestDelete}
+          />
+          <SuggestionSection
+            label="My Foods"
+            items={profiles}
+            choose={choose}
+            edit={edit}
+            requestDelete={requestDelete}
+          />
+        </>
+      )}
+      {!searching && managingLabels && !managedProfiles.length ? (
+        <View style={styles.empty}>
+          <Text style={styles.emptyTitle}>
+            {hasQuery ? "No matching food labels" : "No food labels yet"}
+          </Text>
+          <Text style={styles.emptyCopy}>
+            {hasQuery
+              ? "Try another food name or brand."
+              : "Labels are created automatically when you scan or track food."}
+          </Text>
+        </View>
+      ) : !searching && !managingLabels && hasQuery && !hasExactSavedName ? (
         <View style={styles.empty}>
           <Text style={styles.emptyTitle}>No exact saved food</Text>
           <Text style={styles.emptyCopy}>
@@ -1231,7 +1225,7 @@ function FoodSearch({
           </Text>
           <PrimaryButton label="Create food label" onPress={createLabel} />
         </View>
-      ) : !searching && !hasQuery && !suggestions.length ? (
+      ) : !searching && !managingLabels && !hasQuery && !suggestions.length ? (
         <View style={styles.empty}>
           <Text style={styles.emptyTitle}>No saved foods yet</Text>
           <Text style={styles.emptyCopy}>
@@ -1297,12 +1291,14 @@ function SuggestionSection({
   choose,
   edit,
   requestDelete,
+  showActions = false,
 }: {
   label: string;
   items: FoodSuggestion[];
   choose: (item: FoodSuggestion) => void;
   edit: (item: FoodSuggestion) => void;
   requestDelete: (item: FoodSuggestion) => void;
+  showActions?: boolean;
 }) {
   if (!items.length) return null;
   return (
@@ -1327,11 +1323,8 @@ function SuggestionSection({
                 g protein per serving
               </Text>
             </View>
-            <Text style={styles.badge}>
-              {sourceBadge(item.basis, item.kind)}
-            </Text>
           </Pressable>
-          {item.basis.profileId ? (
+          {showActions && item.basis.profileId ? (
             <View style={styles.profileActions}>
               <Pressable
                 accessibilityLabel={`Edit ${item.basis.name} food label`}
@@ -1366,6 +1359,7 @@ function AmountEditor({
   note,
   setNote,
   calculated,
+  editing,
   saving,
   onSave,
 }: {
@@ -1377,24 +1371,22 @@ function AmountEditor({
   note: string;
   setNote: (value: string) => void;
   calculated: ReturnType<typeof calculateFoodAmount> | undefined;
+  editing: boolean;
   saving: boolean;
   onSave: () => void;
 }) {
   return (
     <>
       <View style={styles.foodIdentity}>
-        <View style={styles.suggestionMain}>
-          <Text style={styles.foodIdentityName}>{basis.name}</Text>
-          {basis.brand ? (
-            <Text style={styles.suggestionBrand}>{basis.brand}</Text>
-          ) : null}
-          {basis.servingLabel ? (
-            <Text style={styles.suggestionMeta}>
-              Serving: {basis.servingLabel}
-            </Text>
-          ) : null}
-        </View>
-        <Text style={styles.badge}>{sourceBadge(basis)}</Text>
+        <Text style={styles.foodIdentityName}>{basis.name}</Text>
+        {basis.brand ? (
+          <Text style={styles.suggestionBrand}>{basis.brand}</Text>
+        ) : null}
+        {basis.servingLabel ? (
+          <Text style={styles.suggestionMeta}>
+            Serving: {basis.servingLabel}
+          </Text>
+        ) : null}
       </View>
       <Text style={styles.sectionLabel}>How much did you have?</Text>
       <TextInput
@@ -1442,7 +1434,7 @@ function AmountEditor({
       />
       <PrimaryButton
         disabled={saving}
-        label={saving ? "Adding..." : "Add to meal"}
+        label={saving ? "Saving..." : editing ? "Save amount" : "Add to meal"}
         onPress={onSave}
       />
     </>
@@ -1655,7 +1647,6 @@ const styles = StyleSheet.create({
   },
   headerSpacer: { width: 58 },
   content: { padding: 20, paddingBottom: 42 },
-  lead: { color: "#486581", fontSize: 15, lineHeight: 22, marginBottom: 16 },
   methodCard: {
     alignItems: "center",
     backgroundColor: "#fff",
@@ -1669,7 +1660,6 @@ const styles = StyleSheet.create({
   },
   methodText: { flex: 1 },
   methodTitle: { color: "#102A43", fontSize: 16, fontWeight: "800" },
-  methodCopy: { color: "#627D98", lineHeight: 19, marginTop: 4 },
   arrow: { color: "#16776A", fontSize: 22, marginLeft: 10 },
   field: { marginBottom: 14 },
   compactField: { flex: 1, minWidth: 110 },
@@ -1776,17 +1766,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   suggestionMeta: { color: "#7B8794", fontSize: 12, marginTop: 4 },
-  badge: {
-    backgroundColor: "#E6F7F3",
-    borderRadius: 12,
-    color: "#16776A",
-    fontSize: 10,
-    fontWeight: "800",
-    marginLeft: 8,
-    overflow: "hidden",
-    paddingHorizontal: 7,
-    paddingVertical: 5,
-  },
   profileActions: {
     borderTopColor: "#E6EEF3",
     borderTopWidth: 1,
@@ -1867,7 +1846,6 @@ const styles = StyleSheet.create({
     borderColor: "#D9E2EC",
     borderRadius: 15,
     borderWidth: 1,
-    flexDirection: "row",
     marginBottom: 18,
     padding: 14,
   },

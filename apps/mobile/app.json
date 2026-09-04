@@ -25,14 +25,33 @@
     "scheme": "healthapp",
     "plugins": [
       "expo-router",
-      "expo-secure-store",
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": "Allow HealthApp to use Face ID to protect access to your health information."
+        }
+      ],
       "expo-sqlite",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow HealthApp to use Face ID to protect access to your health information."
+        }
+      ],
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow HealthApp to use the camera while you scan a food barcode.",
+          "cameraPermission": "Allow HealthApp to use the camera for barcode scans and progress photos.",
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": true
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow HealthApp to choose progress photos from your library.",
+          "cameraPermission": "Allow HealthApp to use the camera for progress photos.",
+          "microphonePermission": false
         }
       ],
       [

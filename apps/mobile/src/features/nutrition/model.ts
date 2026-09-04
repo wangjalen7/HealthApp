@@ -47,7 +47,31 @@ export type FoodBasis = z.infer<typeof foodBasisSchema>;
 export function shouldPreferSavedFoodProfile(
   basis: FoodBasis | undefined,
 ): basis is FoodBasis {
-  return Boolean(basis && (basis.isUserCorrected || basis.source === "manual"));
+  return Boolean(basis);
+}
+
+const normalizedProfileText = (value: string | undefined) =>
+  value?.trim().toLocaleLowerCase().replace(/\s+/g, " ") || null;
+
+export function foodProfileContentKey(input: FoodBasis) {
+  const basis = foodBasisSchema.parse(input);
+  return JSON.stringify([
+    normalizedProfileText(basis.name),
+    normalizedProfileText(basis.brand),
+    basis.source,
+    normalizedProfileText(basis.servingLabel),
+    basis.servingWeightGrams ?? null,
+    basis.servingVolumeMl ?? null,
+    basis.householdQuantityPerServing ?? null,
+    normalizedProfileText(basis.householdUnit),
+    basis.nutrientsPerServing.calories,
+    basis.nutrientsPerServing.proteinGrams,
+    basis.nutrientsPerServing.carbohydrateGrams ?? null,
+    basis.nutrientsPerServing.fatGrams ?? null,
+    basis.nutrientsPerServing.fiberGrams ?? null,
+    basis.nutrientsPerServing.sugarGrams ?? null,
+    basis.nutrientsPerServing.sodiumMg ?? null,
+  ]);
 }
 
 export const mealDraftEntrySchema = foodBasisSchema.extend({
@@ -142,6 +166,28 @@ export function formatFoodMeasurementAmount(amount: number) {
   const digits = magnitude < 0.1 ? 4 : magnitude < 1 ? 3 : 2;
   const multiplier = 10 ** digits;
   return String(Math.round(amount * multiplier) / multiplier);
+}
+
+export function preferredWeightUnitFromServingLabel(
+  servingLabel: string | undefined,
+): WeightUnit {
+  const label = (servingLabel ?? "")
+    .toLocaleLowerCase()
+    .replace(/\bfl\s*\.?\s*oz\b/g, "");
+  if (/\blbs?\b|\bpounds?\b/.test(label)) return "lb";
+  if (/\boz\b|\bounces?\b/.test(label)) return "oz";
+  return "g";
+}
+
+export function preferredVolumeUnitFromServingLabel(
+  servingLabel: string | undefined,
+): VolumeUnit {
+  const label = (servingLabel ?? "").toLocaleLowerCase();
+  if (/\bfl\s*\.?\s*oz\b|\bfluid ounces?\b/.test(label)) return "fl_oz";
+  if (/\bcups?\b/.test(label)) return "cup";
+  if (/\btbsp\b|\btablespoons?\b/.test(label)) return "tbsp";
+  if (/\btsp\b|\bteaspoons?\b/.test(label)) return "tsp";
+  return "ml";
 }
 
 export function foodBasisFromHistorySnapshot(
@@ -241,6 +287,68 @@ export function normalizeHouseholdUnit(value: string): string {
   );
 }
 
+const nonSpecificHouseholdUnits = new Set([
+  "serving",
+  "portion",
+  "g",
+  "gram",
+  "grams",
+  "kg",
+  "kilogram",
+  "kilograms",
+  "oz",
+  "ounce",
+  "ounces",
+  "lb",
+  "lbs",
+  "pound",
+  "pounds",
+  "ml",
+  "milliliter",
+  "milliliters",
+  "l",
+  "liter",
+  "liters",
+  "fl oz",
+  "fluid ounce",
+  "fluid ounces",
+  "cup",
+  "cups",
+  "tbsp",
+  "tablespoon",
+  "tablespoons",
+  "tsp",
+  "teaspoon",
+  "teaspoons",
+]);
+
+export function isSpecificHouseholdUnit(
+  value: string | null | undefined,
+): boolean {
+  if (!value?.trim()) return false;
+  return !nonSpecificHouseholdUnits.has(normalizeHouseholdUnit(value));
+}
+
+export function hasReproducibleServingBasis({
+  householdAmount,
+  householdUnit,
+  volumeAmount,
+  weightAmount,
+}: {
+  householdAmount?: number | null;
+  householdUnit?: string | null;
+  volumeAmount?: number | null;
+  weightAmount?: number | null;
+}): boolean {
+  return Boolean(
+    (typeof weightAmount === "number" && weightAmount > 0) ||
+      (typeof volumeAmount === "number" && volumeAmount > 0) ||
+      (typeof householdAmount === "number" &&
+        householdAmount > 0 &&
+        isSpecificHouseholdUnit(householdUnit)),
+  );
+}
+
 export function foodAmountUnitLabel(
   unit: FoodUnit,
   amount: number,
@@ -254,6 +362,48 @@ export function foodAmountUnitLabel(
   }
   if (unit === "serving" && amount !== 1) return "servings";
   return foodUnitLabel[unit];
+}
+
+export function buildServingLabel({
+  fallback,
+  householdAmount,
+  householdUnit,
+  volumeAmount,
+  volumeUnit = "ml",
+  weightAmount,
+  weightUnit = "g",
+}: {
+  fallback?: string;
+  householdAmount?: number;
+  householdUnit?: string;
+  volumeAmount?: number;
+  volumeUnit?: VolumeUnit;
+  weightAmount?: number;
+  weightUnit?: WeightUnit;
+}): string | undefined {
+  const validHousehold =
+    householdAmount !== undefined &&
+    householdAmount > 0 &&
+    Boolean(householdUnit?.trim());
+  const item = validHousehold
+    ? `${formatFoodMeasurementAmount(householdAmount)} ${foodAmountUnitLabel(
+        "household",
+        householdAmount,
+        normalizeHouseholdUnit(householdUnit!),
+      )}`
+    : undefined;
+  const conversions = [
+    weightAmount !== undefined && weightAmount > 0
+      ? `${formatFoodMeasurementAmount(weightAmount)} ${foodUnitLabel[weightUnit]}`
+      : undefined,
+    volumeAmount !== undefined && volumeAmount > 0
+      ? `${formatFoodMeasurementAmount(volumeAmount)} ${foodUnitLabel[volumeUnit]}`
+      : undefined,
+  ].filter((value): value is string => Boolean(value));
+  if (item && conversions.length) return `${item} (${conversions.join(", ")})`;
+  if (item) return item;
+  if (conversions.length) return conversions.join(", ");
+  return fallback?.trim() || undefined;
 }
 
 export function foodAmountDescription(

@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   availableFoodUnits,
+  buildServingLabel,
   calculateFoodAmount,
   convertVolumeAmount,
   convertWeightAmount,
@@ -11,9 +12,14 @@ import {
   foodAmountDescription,
   foodAmountUnitLabel,
   foodNameMatchesQuery,
+  foodProfileContentKey,
   formatFoodMeasurementAmount,
+  hasReproducibleServingBasis,
+  isSpecificHouseholdUnit,
   shouldPreferSavedFoodProfile,
   normalizeHouseholdUnit,
+  preferredVolumeUnitFromServingLabel,
+  preferredWeightUnitFromServingLabel,
   type FoodBasis,
 } from "./model";
 
@@ -47,6 +53,33 @@ test("requires an exact normalized food name before suppressing label creation",
   assert.equal(foodNameMatchesQuery("Chicken  Thigh", " chicken thigh "), true);
   assert.equal(foodNameMatchesQuery("Chicken Thigh", "chicken"), false);
   assert.equal(foodNameMatchesQuery("Chicken Thigh", ""), false);
+});
+
+test("deduplicates only barcode-free labels with the same full content", () => {
+  const first: FoodBasis = {
+    name: "  Greek   Yogurt ",
+    brand: "Example Brand",
+    source: "manual",
+    isUserCorrected: false,
+    servingWeightGrams: 170,
+    nutrientsPerServing: { calories: 100, proteinGrams: 17 },
+  };
+  assert.equal(
+    foodProfileContentKey(first),
+    foodProfileContentKey({
+      ...first,
+      name: "greek yogurt",
+      brand: "example brand",
+      isUserCorrected: true,
+    }),
+  );
+  assert.notEqual(
+    foodProfileContentKey(first),
+    foodProfileContentKey({
+      ...first,
+      nutrientsPerServing: { calories: 120, proteinGrams: 17 },
+    }),
+  );
 });
 
 test("does not repeat a household amount already present in the serving label", () => {
@@ -99,6 +132,72 @@ test("converts and formats serving measurements when their unit changes", () => 
     formatFoodMeasurementAmount(convertVolumeAmount(1, "cup", "ml")),
     "236.59",
   );
+});
+
+test("builds serving display text from structured conversions", () => {
+  assert.equal(
+    buildServingLabel({
+      householdAmount: 1,
+      householdUnit: "package",
+      weightAmount: 49.6,
+      weightUnit: "g",
+    }),
+    "1 package (49.6 g)",
+  );
+  assert.equal(
+    buildServingLabel({
+      householdAmount: 12,
+      householdUnit: "piece",
+      weightAmount: 28,
+    }),
+    "12 pieces (28 g)",
+  );
+  assert.equal(
+    buildServingLabel({
+      householdAmount: 1,
+      householdUnit: "bottle",
+      volumeAmount: 14,
+      volumeUnit: "fl_oz",
+    }),
+    "1 bottle (14 fl oz)",
+  );
+  assert.equal(
+    buildServingLabel({ fallback: "2/3 cup prepared" }),
+    "2/3 cup prepared",
+  );
+});
+
+test("requires a reproducible serving basis", () => {
+  assert.equal(hasReproducibleServingBasis({}), false);
+  assert.equal(
+    hasReproducibleServingBasis({
+      householdAmount: 1,
+      householdUnit: "serving",
+    }),
+    false,
+  );
+  assert.equal(
+    hasReproducibleServingBasis({
+      householdAmount: 1,
+      householdUnit: "bottle",
+    }),
+    true,
+  );
+  assert.equal(hasReproducibleServingBasis({ weightAmount: 28 }), true);
+  assert.equal(hasReproducibleServingBasis({ volumeAmount: 355 }), true);
+  assert.equal(isSpecificHouseholdUnit("portion"), false);
+  assert.equal(isSpecificHouseholdUnit("grams"), false);
+  assert.equal(isSpecificHouseholdUnit("package"), true);
+});
+
+test("retains the measurement unit found in an existing serving label", () => {
+  assert.equal(preferredWeightUnitFromServingLabel("1 package (4 oz)"), "oz");
+  assert.equal(preferredWeightUnitFromServingLabel("1 bottle (14 fl oz)"), "g");
+  assert.equal(
+    preferredVolumeUnitFromServingLabel("1 bottle (14 fl oz)"),
+    "fl_oz",
+  );
+  assert.equal(preferredVolumeUnitFromServingLabel("2/3 cup"), "cup");
 });
 
 test("converts US volume units without guessing density", () => {
@@ -159,14 +258,14 @@ test("scales a package or piece amount through its household serving", () => {
   assert.equal(normalizeHouseholdUnit(" Pieces "), "piece");
 });
 
-test("prefers private or corrected profiles over a shared scan result", () => {
+test("prefers every existing saved profile over a repeated scan result", () => {
   const providerBasis: FoodBasis = {
     name: "Provider food",
     source: "open_food_facts",
     isUserCorrected: false,
     nutrientsPerServing: { calories: 100, proteinGrams: 2 },
   };
-  assert.equal(shouldPreferSavedFoodProfile(providerBasis), false);
+  assert.equal(shouldPreferSavedFoodProfile(providerBasis), true);
   assert.equal(
     shouldPreferSavedFoodProfile({ ...providerBasis, isUserCorrected: true }),
     true,

@@ -244,9 +244,6 @@ export default function EditWorkoutScreen() {
       keyboardShouldPersistTaps="handled"
     >
       <Text style={styles.title}>Edit workout</Text>
-      <Text style={styles.copy}>
-        Changes replace this workout and its sets.
-      </Text>
       <Text style={styles.label}>Muscle groups</Text>
       <View style={styles.groups}>
         {muscleGroups.map((group) => (
@@ -302,7 +299,9 @@ export default function EditWorkoutScreen() {
                 <Pressable
                   accessibilityLabel={`Move ${entry.name || `exercise ${index + 1}`} down`}
                   accessibilityRole="button"
-                  accessibilityState={{ disabled: index === entries.length - 1 }}
+                  accessibilityState={{
+                    disabled: index === entries.length - 1,
+                  }}
                   disabled={index === entries.length - 1}
                   hitSlop={5}
                   onPress={() => moveEntry(entry.id, 1)}
@@ -441,8 +440,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   page: { backgroundColor: "#F7FAFC", flexGrow: 1, padding: 20 },
-  title: { color: "#102A43", fontSize: 30, fontWeight: "800" },
-  copy: { color: "#627D98", marginBottom: 20, marginTop: 7 },
+  title: {
+    color: "#102A43",
+    fontSize: 30,
+    fontWeight: "800",
+    marginBottom: 20,
+  },
   label: { color: "#486581", fontSize: 14, fontWeight: "800", marginBottom: 8 },
   groups: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 20 },
   chip: {

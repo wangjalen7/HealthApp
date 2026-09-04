@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { SymbolView } from "expo-symbols";
 import {
   ActivityIndicator,
   Modal,
@@ -39,6 +40,7 @@ import {
   type WorkoutHistorySession,
   type WorkoutHistorySet,
 } from "../../src/features/training/repository";
+import { ProgressPhotoGallery } from "../../src/features/progress-photos/progress-photo-gallery";
 import { workoutSetBreakdown } from "../../src/features/training/workout-history";
 import { muscleGroupLabel } from "../../src/features/training/workout-draft";
 import {
@@ -94,7 +96,7 @@ function muscleGroupSetBreakdown(session: WorkoutHistorySession): string {
   return workoutSetBreakdown(session.sets, session.muscleGroups)
     .map(
       ({ muscleGroup, setCount }) =>
-        `${setCount} ${muscleGroupLabel(muscleGroup)}`,
+        `${setCount}\u00a0${muscleGroupLabel(muscleGroup)}`,
     )
     .join(" · ");
 }
@@ -160,6 +162,7 @@ export default function HistoryScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [pendingDeletion, setPendingDeletion] = useState<DeletionRequest>();
+  const [photoGalleryWeightId, setPhotoGalleryWeightId] = useState<string>();
   const load = useCallback(async () => {
     if (!session) return;
     setLoading(true);
@@ -297,9 +300,6 @@ export default function HistoryScreen() {
       }
     >
       <Text style={styles.title}>History</Text>
-      <Text style={styles.copy}>
-        Your complete workout and health-record history.
-      </Text>
       <View style={styles.tabs}>
         <HistoryTab
           label="Workout"
@@ -356,6 +356,7 @@ export default function HistoryScreen() {
         <WeightHistory
           readings={weights}
           loading={loading}
+          onOpenPhotos={setPhotoGalleryWeightId}
           onDelete={(reading) =>
             confirmRemoveVitals("Delete weight reading?", [reading])
           }
@@ -378,6 +379,14 @@ export default function HistoryScreen() {
           request?.confirm();
         }}
       />
+      {session ? (
+        <ProgressPhotoGallery
+          anchorWeightSampleId={photoGalleryWeightId}
+          onClose={() => setPhotoGalleryWeightId(undefined)}
+          userId={session.user.id}
+          visible={Boolean(photoGalleryWeightId)}
+        />
+      ) : null}
     </ScrollView>
   );
 }
@@ -717,10 +726,12 @@ function BloodPressureHistory({
 function WeightHistory({
   readings,
   loading,
+  onOpenPhotos,
   onDelete,
 }: {
   readings: VitalSample[];
   loading: boolean;
+  onOpenPhotos: (weightSampleId: string) => void;
   onDelete: (reading: VitalSample) => void;
 }) {
   if (!loading && !readings.length)
@@ -734,13 +745,36 @@ function WeightHistory({
     <>
       {readings.map((reading) => (
         <View key={reading.id} style={styles.readingCard}>
-          <Text style={styles.readingValue}>
-            {reading.value} {reading.unit}
-          </Text>
-          <Text style={styles.readingTime}>
-            {formatDateTime(reading.occurredAt)}
-          </Text>
-          <Text style={styles.readingSource}>{vitalSourceName(reading)}</Text>
+          <View style={styles.weightReadingHeader}>
+            <View style={styles.weightReadingCopy}>
+              <Text style={styles.readingValue}>
+                {reading.value} {reading.unit}
+              </Text>
+              <Text style={styles.readingTime}>
+                {formatDateTime(reading.occurredAt)}
+              </Text>
+              <Text style={styles.readingSource}>
+                {vitalSourceName(reading)}
+              </Text>
+            </View>
+            <Pressable
+              accessibilityLabel={`Open progress photos for ${formatDateTime(reading.occurredAt)}`}
+              accessibilityRole="button"
+              onPress={() => onOpenPhotos(reading.id)}
+              style={({ pressed }) => [
+                styles.progressPhotoButton,
+                pressed && styles.progressPhotoButtonPressed,
+              ]}
+            >
+              <SymbolView
+                fallback={<Text style={styles.progressPhotoFallback}>P</Text>}
+                name="photo.on.rectangle"
+                size={22}
+                tintColor="#16776A"
+                weight="regular"
+              />
+            </Pressable>
+          </View>
           <View style={styles.cardActions}>
             {reading.source === "manual" ? (
               <Pressable
@@ -1091,12 +1125,12 @@ function Empty({ title, copy }: { title: string; copy: string }) {
 const styles = StyleSheet.create({
   page: { backgroundColor: "#F7FAFC", flexGrow: 1, padding: 20 },
   title: { color: "#102A43", fontSize: 30, fontWeight: "800" },
-  copy: { color: "#627D98", marginBottom: 16, marginTop: 7 },
   tabs: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 7,
     marginBottom: 18,
+    marginTop: 16,
   },
   tab: {
     backgroundColor: "#E6EEF3",
@@ -1273,6 +1307,22 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textTransform: "capitalize",
   },
+  weightReadingHeader: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  weightReadingCopy: { flex: 1, minWidth: 0, paddingRight: 12 },
+  progressPhotoButton: {
+    alignItems: "center",
+    backgroundColor: "#E6F7F3",
+    borderRadius: 20,
+    height: 40,
+    justifyContent: "center",
+    width: 40,
+  },
+  progressPhotoButtonPressed: { opacity: 0.55 },
+  progressPhotoFallback: { color: "#16776A", fontWeight: "800" },
   empty: {
     backgroundColor: "#fff",
     borderColor: "#D9E2EC",

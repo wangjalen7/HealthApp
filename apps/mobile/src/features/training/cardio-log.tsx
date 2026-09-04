@@ -19,8 +19,6 @@ const cardioStyles = StyleSheet.create({
     justifyContent: "space-between",
     minHeight: 48,
   },
-  headerCopy: { color: "#627D98", lineHeight: 19, marginTop: 3 },
-  headerText: { flex: 1, paddingRight: 12 },
   toggle: { alignItems: "center", flexDirection: "row", gap: 5 },
   toggleLabel: { color: "#16776A", fontSize: 13, fontWeight: "800" },
   chevron: {
@@ -98,7 +96,12 @@ export function CardioLog({
     <View style={styles.card}>
       <Pressable onPress={toggleCardio} style={cardioStyles.header}>
         <Text style={styles.title}>Cardio</Text>
-        <Text style={styles.copy}>Tap to add a manual cardio session.</Text>
+        <View style={cardioStyles.toggle}>
+          <Text style={cardioStyles.toggleLabel}>
+            {expanded ? "Hide" : "Add"}
+          </Text>
+          <Text style={cardioStyles.chevron}>{expanded ? "−" : "+"}</Text>
+        </View>
       </Pressable>
       {expanded && (
         <View style={cardioStyles.form}>
@@ -199,7 +202,6 @@ const styles = StyleSheet.create({
     padding: 15,
   },
   title: { color: "#243B53", fontSize: 19, fontWeight: "800" },
-  copy: { color: "#627D98", lineHeight: 19, marginBottom: 13, marginTop: 4 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 7, marginBottom: 14 },
   chip: {
     backgroundColor: "#E6EEF3",

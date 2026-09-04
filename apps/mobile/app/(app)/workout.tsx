@@ -364,9 +364,6 @@ export default function WorkoutScreen() {
       keyboardShouldPersistTaps="handled"
     >
       <Text style={styles.title}>Workout</Text>
-      <Text style={styles.copy}>
-        Log lifting and cardio in separate, focused sections.
-      </Text>
       <View style={styles.tabs}>
         <SectionTab
           active={section === "lifting"}
@@ -437,9 +434,6 @@ export default function WorkoutScreen() {
               {entries.length === 0 ? (
                 <View style={styles.empty}>
                   <Text style={styles.emptyTitle}>Build this workout</Text>
-                  <Text style={styles.emptyCopy}>
-                    Tap Add exercise to enter the first one.
-                  </Text>
                 </View>
               ) : null}
               {entries.map((entry, index) => (
@@ -671,9 +665,6 @@ export default function WorkoutScreen() {
           ) : (
             <View style={styles.empty}>
               <Text style={styles.emptyTitle}>Choose muscle groups</Text>
-              <Text style={styles.emptyCopy}>
-                You can select more than one for the same workout.
-              </Text>
             </View>
           )}
         </>
@@ -710,8 +701,12 @@ function SectionTab({
 const styles = StyleSheet.create({
   page: { backgroundColor: "#F7FAFC", flexGrow: 1, padding: 20 },
   title: { color: "#102A43", fontSize: 30, fontWeight: "800" },
-  copy: { color: "#627D98", lineHeight: 21, marginBottom: 20, marginTop: 7 },
-  tabs: { flexDirection: "row", gap: 7, marginBottom: 20 },
+  tabs: {
+    flexDirection: "row",
+    gap: 7,
+    marginBottom: 20,
+    marginTop: 18,
+  },
   tab: {
     backgroundColor: "#E6EEF3",
     borderRadius: 18,
@@ -761,7 +756,6 @@ const styles = StyleSheet.create({
     padding: 18,
   },
   emptyTitle: { color: "#243B53", fontWeight: "800" },
-  emptyCopy: { color: "#627D98", marginTop: 5 },
   exerciseCard: {
     backgroundColor: "#fff",
     borderColor: "#D9E2EC",

@@ -77,9 +77,6 @@ export default function WaterScreen() {
       keyboardShouldPersistTaps="handled"
     >
       <Text style={styles.title}>Water & fluids</Text>
-      <Text style={styles.copy}>
-        Log water and other drinks toward your daily hydration goal.
-      </Text>
       <View style={styles.todayCard}>
         <Text style={styles.todayLabel}>TODAY</Text>
         <Text style={styles.todayValue}>{mlToFluidOunces(todayMl)} fl oz</Text>
@@ -160,11 +157,11 @@ export default function WaterScreen() {
 const styles = StyleSheet.create({
   page: { backgroundColor: "#F7FAFC", flexGrow: 1, padding: 20 },
   title: { color: "#102A43", fontSize: 30, fontWeight: "800" },
-  copy: { color: "#627D98", lineHeight: 21, marginBottom: 18, marginTop: 7 },
   todayCard: {
     backgroundColor: "#DFF4FF",
     borderRadius: 16,
     marginBottom: 20,
+    marginTop: 18,
     padding: 17,
   },
   todayLabel: {

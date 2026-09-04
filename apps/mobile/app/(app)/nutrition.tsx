@@ -41,6 +41,7 @@ export default function NutritionScreen() {
   const [mealType, setMealType] = useState<MealType>();
   const [entries, setEntries] = useState<MealDraftEntry[]>([]);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [editorPurpose, setEditorPurpose] = useState<"add" | "manage">("add");
   const [editing, setEditing] = useState<MealDraftEntry>();
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [feedback, setFeedback] = useState("");
@@ -127,7 +128,7 @@ export default function NutritionScreen() {
       await clearNutritionDraft(userId);
       setEntries([]);
       setMealType(undefined);
-      setFeedback("Meal saved. These foods are now available in Recent.");
+      setFeedback("Meal saved. These foods are now available in My Foods.");
     } catch (error) {
       setFeedback(
         error instanceof Error ? error.message : "Could not save this meal.",
@@ -155,10 +156,6 @@ export default function NutritionScreen() {
         <View style={styles.titleRow}>
           <View style={styles.titleCopy}>
             <Text style={styles.title}>Food</Text>
-            <Text style={styles.copy}>
-              Build one meal with quick entries, saved foods, private labels, or
-              a package barcode.
-            </Text>
           </View>
           {nutritionDraftHasContent(draft) ? (
             <Pressable
@@ -203,25 +200,37 @@ export default function NutritionScreen() {
 
         <View style={styles.foodBar}>
           <Text style={styles.label}>2. Foods</Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              setEditing(undefined);
-              setEditorOpen(true);
-              setFeedback("");
-            }}
-            style={styles.addButton}
-          >
-            <Text style={styles.addButtonText}>+ Add food</Text>
-          </Pressable>
+          <View style={styles.foodActions}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                setEditing(undefined);
+                setEditorPurpose("manage");
+                setEditorOpen(true);
+                setFeedback("");
+              }}
+              style={styles.manageLabelsButton}
+            >
+              <Text style={styles.manageLabelsText}>Manage labels</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                setEditing(undefined);
+                setEditorPurpose("add");
+                setEditorOpen(true);
+                setFeedback("");
+              }}
+              style={styles.addButton}
+            >
+              <Text style={styles.addButtonText}>+ Add food</Text>
+            </Pressable>
+          </View>
         </View>
 
         {!entries.length ? (
           <View style={styles.empty}>
             <Text style={styles.emptyTitle}>Build this meal</Text>
-            <Text style={styles.emptyCopy}>
-              Choose a meal, then add the first food. Nothing is preloaded.
-            </Text>
           </View>
         ) : null}
 
@@ -234,15 +243,6 @@ export default function NutritionScreen() {
                   <Text style={styles.foodBrand}>{entry.brand}</Text>
                 ) : null}
               </View>
-              <Text style={styles.sourceBadge}>
-                {entry.isUserCorrected
-                  ? "Corrected"
-                  : entry.source === "open_food_facts"
-                    ? "Open Food Facts"
-                    : entry.entryMethod === "label"
-                      ? "My label"
-                      : "Manual"}
-              </Text>
             </View>
             <Text style={styles.amountLine}>
               {foodAmountDescription(
@@ -264,11 +264,12 @@ export default function NutritionScreen() {
                 accessibilityRole="button"
                 onPress={() => {
                   setEditing(entry);
+                  setEditorPurpose("add");
                   setEditorOpen(true);
                 }}
                 style={styles.editButton}
               >
-                <Text style={styles.editText}>Edit</Text>
+                <Text style={styles.editText}>Edit amount</Text>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
@@ -321,6 +322,7 @@ export default function NutritionScreen() {
       {userId ? (
         <FoodEditor
           initial={editing}
+          labelManagementOnly={editorPurpose === "manage"}
           onClose={() => {
             setEditorOpen(false);
             setEditing(undefined);
@@ -367,10 +369,14 @@ export default function NutritionScreen() {
 
 const styles = StyleSheet.create({
   page: { backgroundColor: "#F7FAFC", flexGrow: 1, padding: 20 },
-  titleRow: { alignItems: "flex-start", flexDirection: "row", gap: 12 },
+  titleRow: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 15,
+  },
   titleCopy: { flex: 1 },
   title: { color: "#102A43", fontSize: 30, fontWeight: "800" },
-  copy: { color: "#627D98", lineHeight: 21, marginBottom: 15, marginTop: 7 },
   discardButton: {
     borderColor: "#F1AEB5",
     borderRadius: 9,
@@ -421,6 +427,15 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 9,
   },
+  foodActions: { alignItems: "center", flexDirection: "row", gap: 7 },
+  manageLabelsButton: {
+    borderColor: "#B7D9D1",
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  manageLabelsText: { color: "#16776A", fontSize: 12, fontWeight: "800" },
   addButton: {
     backgroundColor: "#D8F3EB",
     borderRadius: 10,
@@ -437,7 +452,6 @@ const styles = StyleSheet.create({
     padding: 18,
   },
   emptyTitle: { color: "#243B53", fontWeight: "800" },
-  emptyCopy: { color: "#627D98", lineHeight: 19, marginTop: 5 },
   foodCard: {
     backgroundColor: "#fff",
     borderColor: "#D9E2EC",
@@ -454,17 +468,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     marginTop: 2,
-  },
-  sourceBadge: {
-    backgroundColor: "#E6F7F3",
-    borderRadius: 12,
-    color: "#16776A",
-    fontSize: 10,
-    fontWeight: "800",
-    marginLeft: 8,
-    overflow: "hidden",
-    paddingHorizontal: 7,
-    paddingVertical: 5,
   },
   amountLine: { color: "#627D98", fontSize: 13, marginTop: 9 },
   nutritionLine: {

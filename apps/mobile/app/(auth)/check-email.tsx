@@ -16,7 +16,7 @@ export default function CheckEmailScreen() {
       </Text>
       <Text style={styles.copy}>
         {isReset
-          ? `If an account exists for ${email ?? "that email address"}, password-reset instructions are on the way. Check spam, and wait at least one minute before requesting another link.`
+          ? `If an account exists for ${email ?? "that email address"}, a reset link was sent. Check spam before trying again.`
           : `We sent a confirmation link to ${email ?? "your email address"}. Open it, then return here and sign in.`}
       </Text>
       <Pressable

@@ -10,11 +10,12 @@ import {
 } from "react-native";
 
 import { useAuth } from "../../src/features/auth/auth-provider";
+import { removeFaceIdLoginCredential } from "../../src/features/auth/biometric-auth";
 import { supabase } from "../../src/lib/supabase";
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
-  const { clearPasswordRecovery, passwordRecovery } = useAuth();
+  const { clearPasswordRecovery, passwordRecovery, session } = useAuth();
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [busy, setBusy] = useState(false);
@@ -32,9 +33,19 @@ export default function ResetPasswordScreen() {
     try {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
+      if (session) {
+        try {
+          await removeFaceIdLoginCredential(session.user.id);
+        } catch {
+          // The old credential will fail safely if the Keychain is unavailable.
+        }
+      }
       await supabase.auth.signOut();
       clearPasswordRecovery();
-      router.replace("/(auth)/sign-in");
+      router.replace({
+        pathname: "/(auth)/sign-in",
+        params: { reset: "success" },
+      });
     } catch (error) {
       setFeedback(
         error instanceof Error ? error.message : "Could not reset password.",

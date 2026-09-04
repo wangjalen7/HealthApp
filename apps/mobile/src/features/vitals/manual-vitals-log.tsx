@@ -1,5 +1,8 @@
 import { useState } from "react";
+import { SymbolView } from "expo-symbols";
 import {
+  ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,13 +13,21 @@ import {
 
 import { type VitalKind, type VitalSample, unitFor } from "../../domain/vitals";
 import { useAuth } from "../auth/auth-provider";
+import {
+  prepareProgressPhoto,
+  selectProgressPhoto,
+  type SelectedProgressPhoto,
+} from "../progress-photos/image";
+import { uploadProgressPhoto } from "../progress-photos/repository";
 import { createId } from "./storage";
 import { queueLocalVitals, syncVitals } from "./sync";
 
 export type ManualVitalsLogMode = "weight" | "blood_pressure";
 
 function isPositiveNumber(value: string): boolean {
-  return value.trim() !== "" && Number.isFinite(Number(value)) && Number(value) > 0;
+  return (
+    value.trim() !== "" && Number.isFinite(Number(value)) && Number(value) > 0
+  );
 }
 
 function sample(
@@ -47,7 +58,24 @@ export function ManualVitalsLog({ mode }: { mode: ManualVitalsLogMode }) {
   const [pulse, setPulse] = useState("");
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [selectedPhoto, setSelectedPhoto] = useState<SelectedProgressPhoto>();
+  const [photoBusy, setPhotoBusy] = useState(false);
   const isWeight = mode === "weight";
+
+  async function choosePhoto(source: "camera" | "library") {
+    setPhotoBusy(true);
+    setFeedback("");
+    try {
+      const photo = await selectProgressPhoto(source);
+      if (photo) setSelectedPhoto(photo);
+    } catch (error) {
+      setFeedback(
+        error instanceof Error ? error.message : "Could not select photo.",
+      );
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
 
   async function save() {
     if (!session) return setFeedback("Please sign in before saving.");
@@ -60,7 +88,9 @@ export function ManualVitalsLog({ mode }: { mode: ManualVitalsLogMode }) {
         !isPositiveNumber(diastolic) ||
         (pulse.trim() !== "" && !isPositiveNumber(pulse)))
     ) {
-      return setFeedback("Enter positive systolic and diastolic readings. Pulse is optional.");
+      return setFeedback(
+        "Enter positive systolic and diastolic readings. Pulse is optional.",
+      );
     }
 
     const occurredAt = new Date().toISOString();
@@ -100,6 +130,19 @@ export function ManualVitalsLog({ mode }: { mode: ManualVitalsLogMode }) {
     try {
       await queueLocalVitals(samples);
       const result = configured ? await syncVitals(session.user.id) : undefined;
+      let photoUploaded = false;
+      let photoError = "";
+      if (isWeight && selectedPhoto && configured) {
+        try {
+          const prepared = await prepareProgressPhoto(selectedPhoto);
+          await uploadProgressPhoto(session.user.id, prepared, samples[0].id);
+          photoUploaded = true;
+          setSelectedPhoto(undefined);
+        } catch (error) {
+          photoError =
+            error instanceof Error ? error.message : "Could not upload photo.";
+        }
+      }
       if (isWeight) setWeight("");
       else {
         setSystolic("");
@@ -107,9 +150,13 @@ export function ManualVitalsLog({ mode }: { mode: ManualVitalsLogMode }) {
         setPulse("");
       }
       setFeedback(
-        result?.error
-          ? `Saved on this device. Sync is waiting: ${result.error}`
-          : "Saved and synced to Supabase.",
+        photoError
+          ? `Weight saved. Photo upload failed: ${photoError}`
+          : result?.error
+            ? `Saved on this device. Sync is waiting: ${result.error}`
+            : photoUploaded
+              ? "Saved with progress photo."
+              : "Saved and synced to Supabase.",
       );
     } catch (error) {
       setFeedback(
@@ -129,39 +176,124 @@ export function ManualVitalsLog({ mode }: { mode: ManualVitalsLogMode }) {
       keyboardShouldPersistTaps="handled"
     >
       <Text style={styles.title}>{isWeight ? "Weight" : "Blood pressure"}</Text>
-      <Text style={styles.copy}>
-        {isWeight
-          ? "Record your current body weight. It remains part of the same private health timeline as your other readings."
-          : "Record systolic and diastolic together. Apple Health connection and permissions are managed in Profile."}
-      </Text>
       {isWeight ? (
-        <Field label="Weight (lb)" value={weight} onChangeText={setWeight} />
+        <>
+          <Field label="Weight (lb)" value={weight} onChangeText={setWeight} />
+          <View style={styles.photoCard}>
+            <Text style={styles.photoTitle}>Progress photo</Text>
+            {selectedPhoto ? (
+              <Image
+                accessibilityLabel="Selected progress photo"
+                resizeMode="cover"
+                source={{ uri: selectedPhoto.uri }}
+                style={styles.photoPreview}
+              />
+            ) : null}
+            <View style={styles.photoActions}>
+              <PhotoButton
+                disabled={saving || photoBusy}
+                label="Camera"
+                name="camera.fill"
+                onPress={() => void choosePhoto("camera")}
+              />
+              <PhotoButton
+                disabled={saving || photoBusy}
+                label="Library"
+                name="photo.on.rectangle"
+                onPress={() => void choosePhoto("library")}
+              />
+              {selectedPhoto ? (
+                <Pressable
+                  accessibilityLabel="Remove selected progress photo"
+                  accessibilityRole="button"
+                  disabled={saving || photoBusy}
+                  onPress={() => setSelectedPhoto(undefined)}
+                  style={styles.removePhotoButton}
+                >
+                  <Text style={styles.removePhotoText}>Remove</Text>
+                </Pressable>
+              ) : null}
+            </View>
+            {photoBusy ? <ActivityIndicator color="#16776A" /> : null}
+          </View>
+        </>
       ) : (
         <>
           <Text style={styles.section}>Blood pressure (mmHg)</Text>
           <View style={styles.row}>
-            <Field compact label="Systolic" value={systolic} onChangeText={setSystolic} />
-            <Field compact label="Diastolic" value={diastolic} onChangeText={setDiastolic} />
+            <Field
+              compact
+              label="Systolic"
+              value={systolic}
+              onChangeText={setSystolic}
+            />
+            <Field
+              compact
+              label="Diastolic"
+              value={diastolic}
+              onChangeText={setDiastolic}
+            />
           </View>
-          <Field label="Pulse (bpm, optional)" value={pulse} onChangeText={setPulse} />
+          <Field
+            label="Pulse (bpm, optional)"
+            value={pulse}
+            onChangeText={setPulse}
+          />
         </>
       )}
       {feedback ? (
-        <Text style={feedback.startsWith("Saved") ? styles.success : styles.error}>
+        <Text
+          style={feedback.startsWith("Saved") ? styles.success : styles.error}
+        >
           {feedback}
         </Text>
       ) : null}
       <Pressable
         accessibilityRole="button"
-        disabled={saving}
+        disabled={saving || photoBusy}
         onPress={() => void save()}
-        style={[styles.button, saving && styles.disabledButton]}
+        style={[styles.button, (saving || photoBusy) && styles.disabledButton]}
       >
         <Text style={styles.buttonText}>
-          {saving ? "Saving..." : isWeight ? "Save weight" : "Save blood pressure"}
+          {saving
+            ? "Saving..."
+            : isWeight
+              ? "Save weight"
+              : "Save blood pressure"}
         </Text>
       </Pressable>
     </ScrollView>
+  );
+}
+
+function PhotoButton({
+  disabled,
+  label,
+  name,
+  onPress,
+}: {
+  disabled: boolean;
+  label: string;
+  name: "camera.fill" | "photo.on.rectangle";
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityLabel={label}
+      accessibilityRole="button"
+      disabled={disabled}
+      onPress={onPress}
+      style={[styles.photoButton, disabled && styles.disabledButton]}
+    >
+      <SymbolView
+        fallback={<Text style={styles.photoFallback}>+</Text>}
+        name={name}
+        size={20}
+        tintColor="#16776A"
+        weight="regular"
+      />
+      <Text style={styles.photoButtonText}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -193,8 +325,12 @@ function Field({
 
 const styles = StyleSheet.create({
   page: { backgroundColor: "#F7FAFC", flexGrow: 1, padding: 20 },
-  title: { color: "#102A43", fontSize: 30, fontWeight: "800" },
-  copy: { color: "#627D98", lineHeight: 21, marginBottom: 18, marginTop: 7 },
+  title: {
+    color: "#102A43",
+    fontSize: 30,
+    fontWeight: "800",
+    marginBottom: 18,
+  },
   section: {
     color: "#243B53",
     fontSize: 17,
@@ -215,6 +351,41 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: "row", gap: 12 },
   compact: { flex: 1 },
+  photoCard: {
+    backgroundColor: "#fff",
+    borderColor: "#D9E2EC",
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 16,
+    padding: 13,
+  },
+  photoTitle: { color: "#243B53", fontSize: 14, fontWeight: "800" },
+  photoPreview: {
+    borderRadius: 10,
+    height: 180,
+    marginTop: 11,
+    width: "100%",
+  },
+  photoActions: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 11,
+  },
+  photoButton: {
+    alignItems: "center",
+    backgroundColor: "#F0F8F6",
+    borderRadius: 9,
+    flexDirection: "row",
+    gap: 6,
+    justifyContent: "center",
+    minHeight: 42,
+    paddingHorizontal: 11,
+  },
+  photoButtonText: { color: "#16776A", fontSize: 13, fontWeight: "800" },
+  photoFallback: { color: "#16776A", fontSize: 18, fontWeight: "800" },
+  removePhotoButton: { marginLeft: "auto", padding: 9 },
+  removePhotoText: { color: "#B42318", fontSize: 13, fontWeight: "800" },
   success: { color: "#16776A", fontWeight: "700", marginBottom: 8 },
   error: { color: "#B42318", lineHeight: 20, marginBottom: 8 },
   button: {
