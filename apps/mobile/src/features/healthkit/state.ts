@@ -9,6 +9,7 @@ const stateSchema = z.object({
     weight: z.string().optional(),
     bloodPressure: z.string().optional(),
   }),
+  pulseBackfillCompleted: z.boolean().optional(),
   lastImportedAt: z.string().datetime().optional(),
 });
 

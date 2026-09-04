@@ -7,7 +7,7 @@ import {
   type ExerciseGuidance,
   type PerformanceSession,
 } from "./progression";
-import { rankSavedNames } from "./catalog";
+import { rankSavedNames, suggestGymLocations } from "./catalog";
 import { muscleGroupSchema, type MuscleGroup } from "./workout-draft";
 
 const workoutSetSchema = z.object({
@@ -159,6 +159,25 @@ export async function getExerciseSuggestions(
   return rankSavedNames(
     (data ?? []).map((set) => set.exercise_name),
     query,
+  );
+}
+
+export async function getGymLocationSuggestions(
+  userId: string,
+): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("workout_sessions")
+    .select("location")
+    .eq("user_id", userId)
+    .not("location", "is", null)
+    .order("completed_at", { ascending: false })
+    .limit(100);
+  if (error) throw new Error(error.message);
+  return suggestGymLocations(
+    (data ?? []).flatMap((session) =>
+      typeof session.location === "string" ? [session.location] : [],
+    ),
+    "",
   );
 }
 

@@ -54,6 +54,7 @@
           "microphonePermission": false
         }
       ],
+      "expo-notifications",
       [
         "@kingstinct/react-native-healthkit",
         {
@@ -61,7 +62,8 @@
           "NSHealthUpdateUsageDescription": false,
           "background": false
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "web": {
       "favicon": "./assets/favicon.png"

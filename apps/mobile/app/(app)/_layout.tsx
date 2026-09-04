@@ -5,12 +5,14 @@ import {
   ActivityIndicator,
   AppState,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 import { useAuth } from "../../src/features/auth/auth-provider";
 
@@ -97,8 +99,8 @@ function FaceIdLockScreen({
     setFeedback("");
     try {
       const result = await unlockWithFaceId();
-      if (!result.success) {
-        setFeedback(result.message ?? "Face ID could not verify you.");
+      if (!result.success && result.message) {
+        setFeedback(result.message);
       }
     } finally {
       setChecking(false);
@@ -130,16 +132,7 @@ function FaceIdLockScreen({
   }
   return (
     <SafeAreaView style={styles.lockPage}>
-      <View style={styles.lockCard}>
-        <SymbolView
-          fallback={<Text style={styles.faceIdIconFallback}>ID</Text>}
-          name="faceid"
-          size={54}
-          style={styles.faceIdLockSymbol}
-          tintColor="#007AFF"
-          weight="regular"
-        />
-        <Text style={styles.lockTitle}>HealthApp is locked</Text>
+      <View style={styles.lockControls}>
         {feedback ? (
           <Text accessibilityLiveRegion="polite" style={styles.lockError}>
             {feedback}
@@ -221,29 +214,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 24,
   },
-  lockCard: {
+  lockControls: {
     alignItems: "center",
-    backgroundColor: "#fff",
-    borderColor: "#E6EEF3",
-    borderRadius: 20,
-    borderWidth: 1,
     maxWidth: 420,
-    padding: 24,
     width: "100%",
   },
-  faceIdIconFallback: {
-    color: "#007AFF",
-    fontSize: 24,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-  faceIdLockSymbol: { marginBottom: 16 },
-  lockTitle: { color: "#102A43", fontSize: 24, fontWeight: "800" },
   lockError: {
     backgroundColor: "#FDECEC",
     borderRadius: 10,
     color: "#B42318",
     marginBottom: 12,
+    marginTop: 16,
     padding: 11,
     width: "100%",
   },
@@ -253,7 +234,6 @@ const styles = StyleSheet.create({
     borderRadius: 29,
     height: 58,
     justifyContent: "center",
-    marginTop: 20,
     width: 58,
   },
   unlockButtonPressed: { backgroundColor: "#E5E5EA", opacity: 0.72 },

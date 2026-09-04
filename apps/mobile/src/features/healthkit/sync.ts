@@ -59,7 +59,9 @@ export async function importHealthKitData(
     );
 
   const state = await loadHealthKitSyncState(userId);
-  const batch = await readHealthKitData(state.anchors);
+  const batch = await readHealthKitData(state.anchors, {
+    backfillBloodPressure: !state.pulseBackfillCompleted,
+  });
   const now = new Date().toISOString();
   const cached = await loadCachedVitals(userId);
   const hiddenIds = new Set(
@@ -111,6 +113,7 @@ export async function importHealthKitData(
   const nextState: HealthKitSyncState = {
     connected: true,
     anchors: batch.anchors,
+    pulseBackfillCompleted: true,
     lastImportedAt: now,
   };
   await saveHealthKitSyncState(userId, nextState);

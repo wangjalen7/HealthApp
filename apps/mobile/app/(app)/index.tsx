@@ -71,6 +71,8 @@ export default function SummaryScreen() {
   const insets = useSafeAreaInsets();
   const [samples, setSamples] = useState<VitalSample[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [status, setStatus] = useState("");
   const [lastSyncedAt, setLastSyncedAt] = useState<string>();
   const [range, setRange] = useState<TrendRange>("W");
@@ -93,6 +95,7 @@ export default function SummaryScreen() {
   const syncInFlight = useRef<Promise<UnifiedSyncResult> | undefined>(
     undefined,
   );
+  const loadedUserId = useRef<string | undefined>(undefined);
   const calendarMonthRef = useRef(calendarMonth);
   const monthRequestId = useRef(0);
   calendarMonthRef.current = calendarMonth;
@@ -168,19 +171,22 @@ export default function SummaryScreen() {
     [configured],
   );
   const load = useCallback(
-    async (sync = false) => {
+    async (sync = false, isPullRefresh = false) => {
       if (!session) return;
-      setLoading(true);
-      const cached = await loadCachedVitals(session.user.id);
-      setSamples(cached);
-      setLastSyncedAt(await loadLastVitalSyncAt(session.user.id));
-      if (sync) {
-        const result = await synchronize(session.user.id);
-        setStatus(result.message);
-        if (result.lastSyncedAt) setLastSyncedAt(result.lastSyncedAt);
-        setSamples(await loadCachedVitals(session.user.id));
-      }
+      const isInitialLoad = loadedUserId.current !== session.user.id;
+      if (isInitialLoad) setLoading(true);
+      if (isPullRefresh) setRefreshing(true);
+      if (sync) setSyncing(true);
       try {
+        const cached = await loadCachedVitals(session.user.id);
+        setSamples(cached);
+        setLastSyncedAt(await loadLastVitalSyncAt(session.user.id));
+        if (sync) {
+          const result = await synchronize(session.user.id);
+          setStatus(result.message);
+          if (result.lastSyncedAt) setLastSyncedAt(result.lastSyncedAt);
+          setSamples(await loadCachedVitals(session.user.id));
+        }
         const [today, savedGoals, todayWater] = await Promise.all([
           getTodaySummary(session.user.id),
           getDailyGoals(session.user.id),
@@ -194,8 +200,12 @@ export default function SummaryScreen() {
         setStatus(
           error instanceof Error ? error.message : "Could not load summary.",
         );
+      } finally {
+        loadedUserId.current = session.user.id;
+        if (isInitialLoad) setLoading(false);
+        if (isPullRefresh) setRefreshing(false);
+        if (sync) setSyncing(false);
       }
-      setLoading(false);
     },
     [loadMonthCalories, session, synchronize],
   );
@@ -244,8 +254,8 @@ export default function SummaryScreen() {
       directionalLockEnabled
       refreshControl={
         <RefreshControl
-          refreshing={loading}
-          onRefresh={() => void load(true)}
+          refreshing={refreshing}
+          onRefresh={() => void load(true, true)}
         />
       }
       scrollEnabled={!chartSwipeActive}
@@ -259,13 +269,13 @@ export default function SummaryScreen() {
           <Pressable
             accessibilityLabel="Sync now"
             accessibilityRole="button"
-            accessibilityState={{ busy: loading, disabled: loading }}
-            disabled={loading}
+            accessibilityState={{ busy: syncing, disabled: syncing }}
+            disabled={syncing}
             onPress={() => void load(true)}
             style={({ pressed }) => [
               styles.sync,
               pressed && styles.syncPressed,
-              loading && styles.syncDisabled,
+              syncing && styles.syncDisabled,
             ]}
           >
             <Svg

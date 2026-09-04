@@ -8,9 +8,46 @@ function searchableName(value: string): string {
 }
 
 export function rankSavedNames(names: string[], query: string): string[] {
-  const normalized = searchableName(query); if (!normalized) return [];
+  const normalized = searchableName(query);
+  if (!normalized) return [];
   const terms = normalized.split(/\s+/).filter(Boolean);
   return [...new Set(names.map((name) => name.trim()).filter(Boolean))]
-    .map((name) => { const candidate = searchableName(name); const compactCandidate = candidate.replace(/\s/g, ""); const compactQuery = normalized.replace(/\s/g, ""); const score = (candidate.includes(normalized) || compactCandidate.includes(compactQuery) ? 100 : 0) + terms.filter((term) => candidate.includes(term)).length * 15 + (candidate.startsWith(normalized) ? 10 : 0); return { name, score }; })
-    .filter((item) => item.score > 0).sort((left, right) => right.score - left.score || left.name.localeCompare(right.name)).slice(0, 5).map((item) => item.name);
+    .map((name) => {
+      const candidate = searchableName(name);
+      const compactCandidate = candidate.replace(/\s/g, "");
+      const compactQuery = normalized.replace(/\s/g, "");
+      const score =
+        (candidate.includes(normalized) ||
+        compactCandidate.includes(compactQuery)
+          ? 100
+          : 0) +
+        terms.filter((term) => candidate.includes(term)).length * 15 +
+        (candidate.startsWith(normalized) ? 10 : 0);
+      return { name, score };
+    })
+    .filter((item) => item.score > 0)
+    .sort(
+      (left, right) =>
+        right.score - left.score || left.name.localeCompare(right.name),
+    )
+    .slice(0, 5)
+    .map((item) => item.name);
+}
+
+/** Most-recent gym locations, filtered as the user types. */
+export function suggestGymLocations(
+  locations: string[],
+  query: string,
+): string[] {
+  const normalizedQuery = searchableName(query);
+  const seen = new Set<string>();
+  return locations
+    .map((location) => location.trim())
+    .filter((location) => {
+      const key = searchableName(location);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return !normalizedQuery || key.includes(normalizedQuery);
+    })
+    .slice(0, 5);
 }

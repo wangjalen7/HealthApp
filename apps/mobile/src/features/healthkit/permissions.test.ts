@@ -11,6 +11,11 @@ test("requests blood-pressure quantities without the crashing correlation combin
   );
   assert.ok(
     healthKitReadAuthorizationTypes.includes(
+      "HKQuantityTypeIdentifierHeartRate",
+    ),
+  );
+  assert.ok(
+    healthKitReadAuthorizationTypes.includes(
       "HKQuantityTypeIdentifierBloodPressureDiastolic",
     ),
   );

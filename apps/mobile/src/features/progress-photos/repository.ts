@@ -5,9 +5,11 @@ import { supabase } from "../../lib/supabase";
 import { createId } from "../vitals/storage";
 import type { PreparedProgressPhoto } from "./image";
 import {
+  isProgressPhotoStorageFullError,
   localPhotoDay,
   nextDailyPhotoSlot,
   progressPhotoMaxBytes,
+  progressPhotoStorageFullMessage,
 } from "./model";
 
 const bucket = "progress-photos";
@@ -37,6 +39,10 @@ export type ProgressPhoto = {
   byteSize: number;
   signedUrl: string;
 };
+
+const weightSampleIdRowSchema = z.object({
+  weight_sample_id: z.string().uuid().nullable(),
+});
 
 function mapRow(
   row: z.infer<typeof rowSchema>,
@@ -90,6 +96,28 @@ export async function getProgressPhotos(
   });
 }
 
+/** Fetches only metadata for the visible Weight History photo indicators. */
+export async function getWeightSampleIdsWithProgressPhotos(
+  userId: string,
+  weightSampleIds: string[],
+): Promise<Set<string>> {
+  const ids = [...new Set(weightSampleIds)];
+  const result = new Set<string>();
+  const batchSize = 100;
+  for (let start = 0; start < ids.length; start += batchSize) {
+    const { data, error } = await supabase
+      .from("progress_photos")
+      .select("weight_sample_id")
+      .eq("user_id", userId)
+      .in("weight_sample_id", ids.slice(start, start + batchSize));
+    if (error) throw new Error(error.message);
+    for (const row of z.array(weightSampleIdRowSchema).parse(data ?? [])) {
+      if (row.weight_sample_id) result.add(row.weight_sample_id);
+    }
+  }
+  return result;
+}
+
 export async function uploadProgressPhoto(
   userId: string,
   photo: PreparedProgressPhoto,
@@ -120,7 +148,12 @@ export async function uploadProgressPhoto(
       contentType: "image/jpeg",
       upsert: false,
     });
-  if (uploadError) throw new Error(uploadError.message);
+  if (uploadError) {
+    if (isProgressPhotoStorageFullError(uploadError)) {
+      throw new Error(progressPhotoStorageFullMessage);
+    }
+    throw new Error(uploadError.message);
+  }
   const { data: url, error: signedUrlError } = await supabase.storage
     .from(bucket)
     .createSignedUrl(objectPath, 60 * 60);

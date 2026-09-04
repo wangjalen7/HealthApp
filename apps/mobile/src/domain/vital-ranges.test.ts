@@ -69,7 +69,8 @@ test("moves each trend by its displayed time window and does not move past today
   assert.equal(shiftTrendReference("D", current, -1, current).getDate(), 1);
   assert.equal(shiftTrendReference("W", current, -1, current).getDate(), 26);
   assert.equal(
-    current.getTime() - shiftTrendReference("6M", current, -1, current).getTime(),
+    current.getTime() -
+      shiftTrendReference("6M", current, -1, current).getTime(),
     trendRangeDurationMs("6M"),
   );
   assert.equal(
@@ -81,7 +82,8 @@ test("moves each trend by its displayed time window and does not move past today
     current.getTime(),
   );
   assert.equal(
-    current.getTime() - shiftTrendReference("M", current, -1, current).getTime(),
+    current.getTime() -
+      shiftTrendReference("M", current, -1, current).getTime(),
     trendRangeDurationMs("M"),
   );
 });
@@ -122,8 +124,14 @@ test("uses daily averages for W/M, weekly for 6M, and monthly for Y", () => {
   assert.equal(pointsForRange(samples, "weight", "Y", now).length, 1);
   assert.equal(pointsForRange(samples, "weight", "W", now)[0].value, 179.5);
   assert.equal(pointsForRange(samples, "weight", "M", now)[0].value, 179.5);
-  assert.equal(new Date(pointsForRange(samples, "weight", "W", now)[0].at).getHours(), 0);
-  assert.equal(new Date(pointsForRange(samples, "weight", "M", now)[0].at).getHours(), 0);
+  assert.equal(
+    new Date(pointsForRange(samples, "weight", "W", now)[0].at).getHours(),
+    0,
+  );
+  assert.equal(
+    new Date(pointsForRange(samples, "weight", "M", now)[0].at).getHours(),
+    0,
+  );
 });
 
 test("keeps separate seven-day averages in 6M but combines them in Y", () => {
@@ -173,4 +181,30 @@ test("pairs blood-pressure averages by bucket instead of synthetic timestamps", 
   assert.equal(points[0].systolic, 137);
   assert.equal(points[0].diastolic, 87);
   assert.equal(new Date(points[0].at).getHours(), 0);
+});
+
+test("keeps a daily blood-pressure average stable while its date moves through W/M", () => {
+  const samples = [
+    bpSample("sys-morning", "systolic_bp", "2026-08-30T08:00:00", 142),
+    bpSample("dia-morning", "diastolic_bp", "2026-08-30T08:01:00", 92),
+    bpSample("sys-evening", "systolic_bp", "2026-08-30T17:00:00", 132),
+    bpSample("dia-evening", "diastolic_bp", "2026-08-30T17:01:00", 82),
+  ];
+  const beforeEvening = bloodPressurePointsForRange(
+    samples,
+    "W",
+    new Date("2026-08-30T12:00:00"),
+  );
+  const afterEvening = bloodPressurePointsForRange(
+    samples,
+    "W",
+    new Date("2026-08-30T20:00:00"),
+  );
+
+  assert.deepEqual(beforeEvening, afterEvening);
+  assert.deepEqual(beforeEvening[0], {
+    at: new Date("2026-08-30T00:00:00").toISOString(),
+    systolic: 137,
+    diastolic: 87,
+  });
 });

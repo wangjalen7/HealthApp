@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import {
@@ -41,6 +41,7 @@ import {
   type WorkoutHistorySet,
 } from "../../src/features/training/repository";
 import { ProgressPhotoGallery } from "../../src/features/progress-photos/progress-photo-gallery";
+import { getWeightSampleIdsWithProgressPhotos } from "../../src/features/progress-photos/repository";
 import { workoutSetBreakdown } from "../../src/features/training/workout-history";
 import { muscleGroupLabel } from "../../src/features/training/workout-draft";
 import {
@@ -49,6 +50,7 @@ import {
   syncVitals,
 } from "../../src/features/vitals/sync";
 import { classifyBloodPressure } from "../../src/features/vitals/blood-pressure";
+import { pulseForBloodPressure } from "../../src/features/vitals/blood-pressure-pulse";
 
 type HistoryView = "exercise" | "blood_pressure" | "weight" | "food";
 type DeletionRequest = {
@@ -119,9 +121,12 @@ function vitalSourceName(sample: VitalSample): string {
   if (!cleanName) return cleanSource;
   return `${cleanSource} \u00b7 ${cleanName}`;
 }
-function bloodPressureReadings(
-  samples: VitalSample[],
-): { systolic: VitalSample; diastolic?: VitalSample }[] {
+type BloodPressureReading = {
+  systolic: VitalSample;
+  diastolic?: VitalSample;
+  pulse?: VitalSample;
+};
+function bloodPressureReadings(samples: VitalSample[]): BloodPressureReading[] {
   const diastolic = samples.filter((sample) => sample.kind === "diastolic_bp");
   return samples
     .filter((sample) => sample.kind === "systolic_bp")
@@ -133,11 +138,12 @@ function bloodPressureReadings(
           ? item.correlationId === systolic.correlationId
           : item.occurredAt === systolic.occurredAt,
       ),
+      pulse: pulseForBloodPressure(systolic, samples),
     }));
 }
 
 function samplesForBloodPressureReading(
-  reading: { systolic: VitalSample; diastolic?: VitalSample },
+  reading: BloodPressureReading,
   samples: VitalSample[],
 ): VitalSample[] {
   const correlationId = reading.systolic.correlationId;
@@ -160,36 +166,75 @@ export default function HistoryScreen() {
   const [hydration, setHydration] = useState<HydrationHistoryEntry[]>([]);
   const [vitals, setVitals] = useState<VitalSample[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [pendingDeletion, setPendingDeletion] = useState<DeletionRequest>();
   const [photoGalleryWeightId, setPhotoGalleryWeightId] = useState<string>();
-  const load = useCallback(async () => {
-    if (!session) return;
-    setLoading(true);
-    try {
-      if (configured) await syncVitals(session.user.id);
-      const [workouts, cardioEntries, foodEntries, hydrationEntries, readings] =
-        await Promise.all([
+  const [weightSampleIdsWithPhotos, setWeightSampleIdsWithPhotos] = useState<
+    Set<string>
+  >(new Set());
+  const loadedUserId = useRef<string | undefined>(undefined);
+  const refreshProgressPhotoIndicators = useCallback(
+    async (readings: VitalSample[]) => {
+      const userId = session?.user.id;
+      if (!configured || !userId) {
+        setWeightSampleIdsWithPhotos(new Set());
+        return;
+      }
+      try {
+        const ids = readings
+          .filter((sample) => sample.kind === "weight" && !sample.deletedAt)
+          .map((sample) => sample.id);
+        setWeightSampleIdsWithPhotos(
+          await getWeightSampleIdsWithProgressPhotos(userId, ids),
+        );
+      } catch {
+        // History stays usable when the optional indicator metadata is offline.
+        setWeightSampleIdsWithPhotos(new Set());
+      }
+    },
+    [configured, session?.user.id],
+  );
+  const load = useCallback(
+    async (isPullRefresh = false) => {
+      if (!session) return;
+      const isInitialLoad = loadedUserId.current !== session.user.id;
+      if (isInitialLoad) setLoading(true);
+      if (isPullRefresh) setRefreshing(true);
+      try {
+        if (configured) await syncVitals(session.user.id);
+        const [
+          workouts,
+          cardioEntries,
+          foodEntries,
+          hydrationEntries,
+          readings,
+        ] = await Promise.all([
           getWorkoutHistory(session.user.id),
           getCardioHistory(session.user.id),
           getFoodHistory(session.user.id),
           getHydrationHistory(session.user.id),
           loadCachedVitals(session.user.id),
         ]);
-      setHistory(workouts);
-      setCardio(cardioEntries);
-      setFood(foodEntries);
-      setHydration(hydrationEntries);
-      setVitals(readings);
-      setError("");
-    } catch (caught) {
-      setError(
-        caught instanceof Error ? caught.message : "Could not load history.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [configured, session]);
+        setHistory(workouts);
+        setCardio(cardioEntries);
+        setFood(foodEntries);
+        setHydration(hydrationEntries);
+        setVitals(readings);
+        void refreshProgressPhotoIndicators(readings);
+        setError("");
+      } catch (caught) {
+        setError(
+          caught instanceof Error ? caught.message : "Could not load history.",
+        );
+      } finally {
+        loadedUserId.current = session.user.id;
+        if (isInitialLoad) setLoading(false);
+        if (isPullRefresh) setRefreshing(false);
+      }
+    },
+    [configured, refreshProgressPhotoIndicators, session],
+  );
   useFocusEffect(
     useCallback(() => {
       void load();
@@ -296,7 +341,10 @@ export default function HistoryScreen() {
       contentInsetAdjustmentBehavior="never"
       contentContainerStyle={[styles.page, { paddingTop: insets.top + 20 }]}
       refreshControl={
-        <RefreshControl refreshing={loading} onRefresh={() => void load()} />
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => void load(true)}
+        />
       }
     >
       <Text style={styles.title}>History</Text>
@@ -312,14 +360,14 @@ export default function HistoryScreen() {
           onPress={() => setView("food")}
         />
         <HistoryTab
-          label="Blood pressure"
-          active={view === "blood_pressure"}
-          onPress={() => setView("blood_pressure")}
-        />
-        <HistoryTab
           label="Weight"
           active={view === "weight"}
           onPress={() => setView("weight")}
+        />
+        <HistoryTab
+          label="Blood pressure"
+          active={view === "blood_pressure"}
+          onPress={() => setView("blood_pressure")}
         />
       </View>
       {loading &&
@@ -354,6 +402,7 @@ export default function HistoryScreen() {
       ) : null}
       {view === "weight" ? (
         <WeightHistory
+          photoWeightSampleIds={weightSampleIdsWithPhotos}
           readings={weights}
           loading={loading}
           onOpenPhotos={setPhotoGalleryWeightId}
@@ -383,6 +432,9 @@ export default function HistoryScreen() {
         <ProgressPhotoGallery
           anchorWeightSampleId={photoGalleryWeightId}
           onClose={() => setPhotoGalleryWeightId(undefined)}
+          onPhotosChanged={() =>
+            void refreshProgressPhotoIndicators(activeVitals)
+          }
           userId={session.user.id}
           visible={Boolean(photoGalleryWeightId)}
         />
@@ -647,12 +699,9 @@ function BloodPressureHistory({
   loading,
   onDelete,
 }: {
-  readings: { systolic: VitalSample; diastolic?: VitalSample }[];
+  readings: BloodPressureReading[];
   loading: boolean;
-  onDelete: (reading: {
-    systolic: VitalSample;
-    diastolic?: VitalSample;
-  }) => void;
+  onDelete: (reading: BloodPressureReading) => void;
 }) {
   if (!loading && !readings.length)
     return (
@@ -663,7 +712,7 @@ function BloodPressureHistory({
     );
   return (
     <>
-      {readings.map(({ systolic, diastolic }) => {
+      {readings.map(({ systolic, diastolic, pulse }) => {
         const category = diastolic
           ? classifyBloodPressure(systolic.value, diastolic.value)
           : undefined;
@@ -690,6 +739,11 @@ function BloodPressureHistory({
             <Text style={styles.readingTime}>
               {formatDateTime(systolic.occurredAt)}
             </Text>
+            {pulse ? (
+              <Text style={styles.readingPulse}>
+                Pulse {Math.round(pulse.value)} bpm
+              </Text>
+            ) : null}
             <Text style={styles.readingSource}>
               {vitalSourceName(systolic)}
             </Text>
@@ -724,11 +778,13 @@ function BloodPressureHistory({
   );
 }
 function WeightHistory({
+  photoWeightSampleIds,
   readings,
   loading,
   onOpenPhotos,
   onDelete,
 }: {
+  photoWeightSampleIds: ReadonlySet<string>;
   readings: VitalSample[];
   loading: boolean;
   onOpenPhotos: (weightSampleId: string) => void;
@@ -758,21 +814,30 @@ function WeightHistory({
               </Text>
             </View>
             <Pressable
-              accessibilityLabel={`Open progress photos for ${formatDateTime(reading.occurredAt)}`}
+              accessibilityLabel={`${photoWeightSampleIds.has(reading.id) ? "Open uploaded" : "Add or view"} progress photos for ${formatDateTime(reading.occurredAt)}`}
               accessibilityRole="button"
               onPress={() => onOpenPhotos(reading.id)}
               style={({ pressed }) => [
                 styles.progressPhotoButton,
+                photoWeightSampleIds.has(reading.id) &&
+                  styles.progressPhotoButtonFilled,
                 pressed && styles.progressPhotoButtonPressed,
               ]}
             >
               <SymbolView
                 fallback={<Text style={styles.progressPhotoFallback}>P</Text>}
-                name="photo.on.rectangle"
+                name={
+                  photoWeightSampleIds.has(reading.id)
+                    ? "photo.fill.on.rectangle.fill"
+                    : "photo.on.rectangle"
+                }
                 size={22}
                 tintColor="#16776A"
                 weight="regular"
               />
+              {photoWeightSampleIds.has(reading.id) ? (
+                <View pointerEvents="none" style={styles.progressPhotoMarker} />
+              ) : null}
             </Pressable>
           </View>
           <View style={styles.cardActions}>
@@ -1301,6 +1366,12 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   readingTime: { color: "#486581", marginTop: 4 },
+  readingPulse: {
+    color: "#243B53",
+    fontSize: 13,
+    fontWeight: "700",
+    marginTop: 4,
+  },
   readingSource: {
     color: "#7B8794",
     fontSize: 12,
@@ -1321,8 +1392,20 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: 40,
   },
+  progressPhotoButtonFilled: { backgroundColor: "#C6F2E8" },
   progressPhotoButtonPressed: { opacity: 0.55 },
   progressPhotoFallback: { color: "#16776A", fontWeight: "800" },
+  progressPhotoMarker: {
+    backgroundColor: "#16776A",
+    borderColor: "#fff",
+    borderRadius: 5,
+    borderWidth: 1.5,
+    height: 10,
+    position: "absolute",
+    right: 5,
+    top: 5,
+    width: 10,
+  },
   empty: {
     backgroundColor: "#fff",
     borderColor: "#D9E2EC",

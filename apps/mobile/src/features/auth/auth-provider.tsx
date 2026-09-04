@@ -244,7 +244,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const unlockWithFaceId = useCallback(async () => {
     if (authenticatingRef.current) {
-      return { success: false, message: "Face ID is already checking." };
+      return { success: false };
     }
     authenticatingRef.current = true;
     try {

@@ -6,6 +6,7 @@ import {
   inclusiveAxisInstants,
   paddedValueDomain,
   stableValueDomain,
+  timelineX,
   timeAxisTicks,
   toggleSelectedPoint,
 } from "./chart";
@@ -63,6 +64,11 @@ test("toggles an inspected chart point closed when it is tapped again", () => {
   assert.equal(toggleSelectedPoint(undefined, "point-a"), "point-a");
   assert.equal(toggleSelectedPoint("point-a", "point-a"), undefined);
   assert.equal(toggleSelectedPoint("point-a", "point-b"), "point-b");
+});
+
+test("preserves an off-screen point's timeline position for a clipped line", () => {
+  assert.equal(timelineX(0, 10, 110, 33, 358, false), 0.5);
+  assert.equal(timelineX(0, 10, 110, 33, 358), 33);
 });
 
 test("uses range-specific time-axis divisions", () => {

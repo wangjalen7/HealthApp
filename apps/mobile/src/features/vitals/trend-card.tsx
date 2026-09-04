@@ -31,6 +31,7 @@ import {
   compactTooltipWidth,
   inclusiveAxisInstants,
   stableValueDomain,
+  timelineX,
   timeAxisTicks,
   toggleSelectedPoint,
   type ValueDomain,
@@ -69,17 +70,18 @@ function coordinates(
   domain: ValueDomain,
   start: Date,
   end: Date,
+  clampToWindow = true,
 ): PositionedPoint[] {
-  const elapsed = Math.max(end.getTime() - start.getTime(), 1);
   return points.map((point) => ({
     ...point,
-    x:
-      plot.left +
-      Math.max(
-        0,
-        Math.min(1, (new Date(point.at).getTime() - start.getTime()) / elapsed),
-      ) *
-        (plot.right - plot.left),
+    x: timelineX(
+      new Date(point.at).getTime(),
+      start.getTime(),
+      end.getTime(),
+      plot.left,
+      plot.right,
+      clampToWindow,
+    ),
     y:
       plot.bottom -
       ((point.value - domain.min) / (domain.max - domain.min)) *
@@ -106,6 +108,7 @@ function LinePlot({
     domain,
     start,
     end,
+    false,
   );
   const path = linePoints.map((point) => `${point.x},${point.y}`).join(" ");
   return (

@@ -13,7 +13,10 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 import { prepareProgressPhoto, selectProgressPhoto } from "./image";
 import { localPhotoDay, progressPhotoDailyLimit } from "./model";
@@ -40,6 +43,7 @@ export function ProgressPhotoGallery({
   visible: boolean;
 }) {
   const { height, width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const scroller = useRef<FlatList<ProgressPhoto>>(null);
   const [photos, setPhotos] = useState<ProgressPhoto[]>([]);
   const [index, setIndex] = useState(0);
@@ -199,13 +203,14 @@ export function ProgressPhotoGallery({
       presentationStyle="fullScreen"
       visible={visible}
     >
-      <SafeAreaView style={styles.page}>
-        <View style={styles.header}>
+      <SafeAreaView edges={["bottom"]} style={styles.page}>
+        <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
           <Text style={styles.title}>Progress photos</Text>
           <Pressable
             accessibilityLabel="Close progress photos"
             accessibilityRole="button"
             disabled={busy}
+            hitSlop={10}
             onPress={onClose}
             style={styles.iconButton}
           >
@@ -388,7 +393,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     paddingHorizontal: 18,
-    paddingVertical: 12,
+    paddingBottom: 12,
   },
   title: { color: "#102A43", fontSize: 21, fontWeight: "800" },
   iconButton: {

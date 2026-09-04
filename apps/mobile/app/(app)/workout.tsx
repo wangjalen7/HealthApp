@@ -12,9 +12,11 @@ import {
 import { useAuth } from "../../src/features/auth/auth-provider";
 import { CardioLog } from "../../src/features/training/cardio-log";
 import { ExerciseDragHandle } from "../../src/features/training/exercise-drag-handle";
+import { suggestGymLocations } from "../../src/features/training/catalog";
 import {
   getExerciseGuidance,
   getExerciseSuggestions,
+  getGymLocationSuggestions,
   saveWorkout,
   type ExerciseGuidance,
   type WorkoutSetInput,
@@ -70,6 +72,8 @@ export default function WorkoutScreen() {
   const [entries, setEntries] = useState<ExerciseEntry[]>([]);
   const [activeEntry, setActiveEntry] = useState<string>();
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [locationSuggestions, setLocationSuggestions] = useState<string[]>([]);
+  const [locationFocused, setLocationFocused] = useState(false);
   const [location, setLocation] = useState("");
   const [notes, setNotes] = useState("");
   const [feedback, setFeedback] = useState("");
@@ -141,6 +145,24 @@ export default function WorkoutScreen() {
       }
       setDraftLoaded(true);
     });
+    return () => {
+      active = false;
+    };
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) {
+      setLocationSuggestions([]);
+      return;
+    }
+    let active = true;
+    void getGymLocationSuggestions(userId)
+      .then((locations) => {
+        if (active) setLocationSuggestions(locations);
+      })
+      .catch(() => {
+        if (active) setLocationSuggestions([]);
+      });
     return () => {
       active = false;
     };
@@ -247,6 +269,11 @@ export default function WorkoutScreen() {
     const value = Number(raw.replace(",", "."));
     updateEntry(id, { weight: Number.isFinite(value) ? value : undefined });
   }
+  const matchingLocations = locationSuggestions.filter((suggestion) =>
+    suggestion
+      .toLocaleLowerCase()
+      .includes(location.trim().toLocaleLowerCase()),
+  );
   async function searchSavedExercises(query: string) {
     if (!session || !query.trim()) {
       setSuggestions([]);
@@ -331,6 +358,7 @@ export default function WorkoutScreen() {
     );
     setSaving(true);
     setFeedback("");
+    const savedLocation = location.trim();
     try {
       await saveWorkout(session.user.id, {
         title: `${selectedGroups.join(", ")} lift`,
@@ -346,6 +374,11 @@ export default function WorkoutScreen() {
       entryNames.current.clear();
       guidanceRequests.current.clear();
       setEntries([]);
+      if (savedLocation) {
+        setLocationSuggestions((current) =>
+          suggestGymLocations([savedLocation, ...current], ""),
+        );
+      }
       setLocation("");
       setNotes("");
       setSelectedGroups([]);
@@ -419,8 +452,32 @@ export default function WorkoutScreen() {
                 placeholderTextColor="#9FB3C8"
                 style={[styles.exerciseInput, styles.locationInput]}
                 value={location}
-                onChangeText={setLocation}
+                onBlur={() => setTimeout(() => setLocationFocused(false), 150)}
+                onFocus={() => setLocationFocused(true)}
+                onChangeText={(value) => {
+                  setLocation(value);
+                  setLocationFocused(true);
+                }}
               />
+              {locationFocused && matchingLocations.length ? (
+                <View style={styles.locationSuggestions}>
+                  {matchingLocations.map((suggestion) => (
+                    <Pressable
+                      key={suggestion}
+                      accessibilityRole="button"
+                      onPress={() => {
+                        setLocation(suggestion);
+                        setLocationFocused(false);
+                      }}
+                      style={styles.locationSuggestion}
+                    >
+                      <Text style={styles.locationSuggestionText}>
+                        {suggestion}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
               <View style={styles.exerciseBar}>
                 <Text style={styles.label}>3. Lifting exercises</Text>
                 <Pressable
@@ -813,7 +870,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
   },
-  locationInput: { marginBottom: 20 },
+  locationInput: { marginBottom: 8 },
+  locationSuggestions: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#D9E2EC",
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 20,
+    overflow: "hidden",
+  },
+  locationSuggestion: { paddingHorizontal: 13, paddingVertical: 11 },
+  locationSuggestionText: { color: "#243B53", fontSize: 14, fontWeight: "700" },
   bottomAddButton: {
     alignItems: "center",
     borderColor: "#16776A",

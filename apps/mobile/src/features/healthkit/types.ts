@@ -30,6 +30,7 @@ export type HealthKitAvailability = {
 export type HealthKitSyncState = {
   connected: boolean;
   anchors: HealthKitAnchors;
+  pulseBackfillCompleted?: boolean;
   lastImportedAt?: string;
 };
 

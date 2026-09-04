@@ -64,7 +64,10 @@ export function timeAxisTicks(
   return result;
 }
 
-export function inclusiveAxisInstants(start: Date, exclusiveEnd: Date): [Date, Date, Date] {
+export function inclusiveAxisInstants(
+  start: Date,
+  exclusiveEnd: Date,
+): [Date, Date, Date] {
   const end = new Date(Math.max(start.getTime(), exclusiveEnd.getTime() - 1));
   const middle = new Date((start.getTime() + end.getTime()) / 2);
   return [start, middle, end];
@@ -75,7 +78,8 @@ export function paddedValueDomain(values: number[]): ValueDomain {
   const rawMin = Math.min(...values);
   const rawMax = Math.max(...values);
   const span = rawMax - rawMin;
-  const padding = span === 0 ? Math.max(Math.abs(rawMax) * 0.02, 1) : span * 0.12;
+  const padding =
+    span === 0 ? Math.max(Math.abs(rawMax) * 0.02, 1) : span * 0.12;
   const min = rawMin - padding;
   const max = rawMax + padding;
   return { min, max, ticks: [max, (min + max) / 2, min] };
@@ -86,6 +90,21 @@ export function stableValueDomain(
   visibleValues: number[],
 ): ValueDomain {
   return paddedValueDomain(allValues.length ? allValues : visibleValues);
+}
+
+export function timelineX(
+  timestamp: number,
+  start: number,
+  end: number,
+  left: number,
+  right: number,
+  clampToWindow = true,
+): number {
+  const fraction = (timestamp - start) / Math.max(end - start, 1);
+  const visibleFraction = clampToWindow
+    ? Math.max(0, Math.min(1, fraction))
+    : fraction;
+  return left + visibleFraction * (right - left);
 }
 
 export function toggleSelectedPoint(

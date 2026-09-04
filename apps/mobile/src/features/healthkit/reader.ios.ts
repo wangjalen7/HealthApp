@@ -47,6 +47,42 @@ function isQuantitySample(value: unknown): value is QuantitySample {
   );
 }
 
+async function pulseNearBloodPressure(
+  healthKit: HealthKitModule,
+  correlation: {
+    startDate: Date;
+    sourceRevision?: { source?: { name?: unknown } };
+  },
+): Promise<QuantitySample | undefined> {
+  const readingTime = correlation.startDate.getTime();
+  const startDate = new Date(readingTime - 2 * 60 * 1000);
+  const endDate = new Date(readingTime + 2 * 60 * 1000);
+  const pulseSamples = await healthKit.queryQuantitySamples(
+    "HKQuantityTypeIdentifierHeartRate",
+    {
+      filter: { date: { startDate, endDate } },
+      limit: 12,
+      ascending: true,
+      unit: "count/min",
+    },
+  );
+  const correlationSource = sourceName(correlation)?.toLocaleLowerCase();
+  const validSamples = pulseSamples.filter(
+    (sample) => Number.isFinite(sample.quantity) && sample.quantity > 0,
+  );
+  const sameSource = correlationSource
+    ? validSamples.filter(
+        (sample) =>
+          sourceName(sample)?.toLocaleLowerCase() === correlationSource,
+      )
+    : [];
+  return (sameSource.length ? sameSource : validSamples).sort(
+    (left, right) =>
+      Math.abs(left.startDate.getTime() - readingTime) -
+      Math.abs(right.startDate.getTime() - readingTime),
+  )[0];
+}
+
 export async function healthKitAvailability(): Promise<HealthKitAvailability> {
   if (!hasNitroModules()) {
     return { available: false, reason: missingNativeModuleMessage };
@@ -80,6 +116,7 @@ export async function requestHealthKitAuthorization(): Promise<void> {
 
 export async function readHealthKitData(
   anchors: HealthKitAnchors,
+  options?: { backfillBloodPressure?: boolean },
 ): Promise<HealthKitReadBatch> {
   const healthKit = await loadHealthKit();
   if (!(await healthKit.isHealthDataAvailableAsync())) {
@@ -100,7 +137,9 @@ export async function readHealthKitData(
   const bloodPressure = await healthKit.queryCorrelationSamplesWithAnchor(
     "HKCorrelationTypeIdentifierBloodPressure",
     {
-      anchor: anchors.bloodPressure,
+      anchor: options?.backfillBloodPressure
+        ? undefined
+        : anchors.bloodPressure,
       filter: dateFilter,
       limit: 0,
     },
@@ -115,6 +154,7 @@ export async function readHealthKitData(
       occurredAt: sample.startDate.toISOString(),
       sourceName: sourceName(sample),
     }));
+  const importedPulseIds = new Set<string>();
   for (const correlation of bloodPressure.correlations) {
     const quantities = correlation.objects.filter(isQuantitySample);
     const systolic = quantities.find(
@@ -150,6 +190,18 @@ export async function readHealthKitData(
         100,
       unit: "mmHg",
     });
+    const pulse = await pulseNearBloodPressure(healthKit, correlation);
+    if (pulse && !importedPulseIds.has(pulse.uuid)) {
+      importedPulseIds.add(pulse.uuid);
+      vitals.push({
+        externalId: pulse.uuid,
+        kind: "pulse",
+        value: Math.round(pulse.quantity),
+        unit: "bpm",
+        occurredAt: pulse.startDate.toISOString(),
+        sourceName: sourceName(pulse),
+      });
+    }
   }
   return {
     anchors: {

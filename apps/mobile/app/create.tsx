@@ -15,12 +15,12 @@ const actions = [
   },
   {
     title: "Blood pressure",
-    copy: "Pressure and optional pulse",
+    copy: "Blood pressure and pulse",
     href: "/(app)/track",
   },
   {
     title: "Weight",
-    copy: "Body-weight reading",
+    copy: "Bodyweight reading",
     href: "/(app)/weight",
   },
   {
@@ -30,7 +30,7 @@ const actions = [
   },
   {
     title: "Reminders",
-    copy: "Medication, supplements, and BP prompts",
+    copy: "Medication, supplements, and more",
     href: "/(app)/reminders",
   },
 ] as const;

@@ -227,6 +227,17 @@ function pointsFromSamples(
     .sort((left, right) => left.at.localeCompare(right.at));
 }
 
+function pointsWithinWindow<T extends { at: string }>(
+  points: T[],
+  start: Date,
+  end: Date,
+): T[] {
+  return points.filter((point) => {
+    const timestamp = new Date(point.at).getTime();
+    return timestamp >= start.getTime() && timestamp < end.getTime();
+  });
+}
+
 export function pointsForRange(
   samples: VitalSample[],
   kind: VitalKind,
@@ -234,14 +245,10 @@ export function pointsForRange(
   now = new Date(),
 ): TimestampPoint[] {
   const { start, end } = trendRangeBounds(range, now);
-  return pointsFromSamples(
-    samples.filter(
-      (sample) =>
-        new Date(sample.occurredAt) >= start &&
-        new Date(sample.occurredAt) < end,
-    ),
-    kind,
-    range,
+  return pointsWithinWindow(
+    pointsFromSamples(samples, kind, range),
+    start,
+    end,
   );
 }
 
@@ -251,27 +258,15 @@ export function connectedPointsForRange(
   range: TrendRange,
   now = new Date(),
 ): TimestampPoint[] {
-  const visible = pointsForRange(samples, kind, range, now);
+  const { start, end } = trendRangeBounds(range, now);
+  const allPoints = pointsFromSamples(samples, kind, range);
+  const visible = pointsWithinWindow(allPoints, start, end);
   if (!visible.length) return visible;
 
-  const { start, end } = trendRangeBounds(range, now);
-  const active = samples
-    .filter((sample) => sample.kind === kind && !sample.deletedAt)
-    .sort((left, right) => left.occurredAt.localeCompare(right.occurredAt));
-  const before = active.filter(
-    (sample) => new Date(sample.occurredAt) < start,
+  const previousPoint = allPoints.findLast(
+    (point) => new Date(point.at) < start,
   );
-  const after = active.filter(
-    (sample) => new Date(sample.occurredAt) >= end,
-  );
-  const previousPoints = pointsFromSamples(before, kind, range).filter(
-    (point) => point.at !== visible[0].at,
-  );
-  const nextPoints = pointsFromSamples(after, kind, range).filter(
-    (point) => point.at !== visible[visible.length - 1].at,
-  );
-  const previousPoint = previousPoints[previousPoints.length - 1];
-  const nextPoint = nextPoints[0];
+  const nextPoint = allPoints.find((point) => new Date(point.at) >= end);
   return [
     ...(previousPoint ? [previousPoint] : []),
     ...visible,
@@ -318,9 +313,7 @@ function bloodPressurePointsFromSamples(
     buckets.set(key, current);
   }
   return [...buckets.values()]
-    .filter(
-      (bucket) => bucket.systolicCount > 0 && bucket.diastolicCount > 0,
-    )
+    .filter((bucket) => bucket.systolicCount > 0 && bucket.diastolicCount > 0)
     .map((bucket) => ({
       at: bucket.at,
       systolic: bucket.systolicTotal / bucket.systolicCount,
@@ -335,13 +328,10 @@ export function bloodPressurePointsForRange(
   now = new Date(),
 ): BloodPressurePoint[] {
   const { start, end } = trendRangeBounds(range, now);
-  return bloodPressurePointsFromSamples(
-    samples.filter(
-      (sample) =>
-        new Date(sample.occurredAt) >= start &&
-        new Date(sample.occurredAt) < end,
-    ),
-    range,
+  return pointsWithinWindow(
+    bloodPressurePointsFromSamples(samples, range),
+    start,
+    end,
   );
 }
 
@@ -350,22 +340,13 @@ export function connectedBloodPressurePointsForRange(
   range: TrendRange,
   now = new Date(),
 ): BloodPressurePoint[] {
-  const visible = bloodPressurePointsForRange(samples, range, now);
-  if (!visible.length) return visible;
   const { start, end } = trendRangeBounds(range, now);
-  const previous = bloodPressurePointsFromSamples(
-    samples.filter((sample) => new Date(sample.occurredAt) < start),
-    range,
-  ).filter((point) => point.at !== visible[0].at);
-  const next = bloodPressurePointsFromSamples(
-    samples.filter((sample) => new Date(sample.occurredAt) >= end),
-    range,
-  ).filter((point) => point.at !== visible[visible.length - 1].at);
-  return [
-    ...(previous.length ? [previous[previous.length - 1]] : []),
-    ...visible,
-    ...(next.length ? [next[0]] : []),
-  ];
+  const allPoints = bloodPressurePointsFromSamples(samples, range);
+  const visible = pointsWithinWindow(allPoints, start, end);
+  if (!visible.length) return visible;
+  const previous = allPoints.findLast((point) => new Date(point.at) < start);
+  const next = allPoints.find((point) => new Date(point.at) >= end);
+  return [...(previous ? [previous] : []), ...visible, ...(next ? [next] : [])];
 }
 
 export function unitFor(kind: VitalKind): string {

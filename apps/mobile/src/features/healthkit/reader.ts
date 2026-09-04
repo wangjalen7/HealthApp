@@ -17,7 +17,9 @@ export async function requestHealthKitAuthorization(): Promise<void> {
 
 export async function readHealthKitData(
   anchors: HealthKitAnchors,
+  options?: { backfillBloodPressure?: boolean },
 ): Promise<HealthKitReadBatch> {
   void anchors;
+  void options;
   throw new Error("Apple Health is only available in the iPhone app.");
 }
