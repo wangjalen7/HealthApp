@@ -1,13 +1,14 @@
+import { Modal } from "../../ui/modal";
+import { Pressable } from "../../ui/pressable";
+import { colors } from "../../ui/theme";
 import { SymbolView } from "expo-symbols";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
   Image,
-  Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
-  Pressable,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -218,14 +219,14 @@ export function ProgressPhotoGallery({
               fallback={<Text style={styles.fallback}>×</Text>}
               name="xmark"
               size={20}
-              tintColor="#102A43"
+              tintColor={colors.text}
               weight="semibold"
             />
           </Pressable>
         </View>
         <View style={[styles.viewer, { height: Math.min(560, height * 0.58) }]}>
           {loading ? (
-            <ActivityIndicator color="#16776A" />
+            <ActivityIndicator color={colors.blue} />
           ) : photos.length ? (
             <FlatList
               data={photos}
@@ -276,7 +277,7 @@ export function ProgressPhotoGallery({
                 {hasMore ? "+" : ""}
               </Text>
               {loadingMore ? (
-                <ActivityIndicator color="#16776A" size="small" />
+                <ActivityIndicator color={colors.blue} size="small" />
               ) : null}
             </>
           ) : null}
@@ -361,7 +362,7 @@ function PhotoAction({
   name: "camera.fill" | "photo.on.rectangle" | "trash";
   onPress: () => void;
 }) {
-  const tintColor = destructive ? "#B42318" : "#16776A";
+  const tintColor = destructive ? "#B42318" : colors.blue;
   return (
     <Pressable
       accessibilityLabel={label}
@@ -387,7 +388,7 @@ function PhotoAction({
 }
 
 const styles = StyleSheet.create({
-  page: { backgroundColor: "#F7FAFC", flex: 1 },
+  page: { backgroundColor: colors.background, flex: 1 },
   header: {
     alignItems: "center",
     flexDirection: "row",
@@ -395,16 +396,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingBottom: 12,
   },
-  title: { color: "#102A43", fontSize: 21, fontWeight: "800" },
+  title: { color: colors.text, fontSize: 21, fontWeight: "600" },
   iconButton: {
     alignItems: "center",
-    backgroundColor: "#E6EEF3",
+    backgroundColor: colors.fill,
     borderRadius: 18,
     height: 36,
     justifyContent: "center",
     width: 36,
   },
-  fallback: { color: "#102A43", fontSize: 22, fontWeight: "700" },
+  fallback: { color: colors.text, fontSize: 22, fontWeight: "700" },
   viewer: {
     alignItems: "center",
     backgroundColor: "#0B1720",
@@ -412,16 +413,16 @@ const styles = StyleSheet.create({
   },
   slide: { alignItems: "center", height: "100%", justifyContent: "center" },
   image: { height: "100%", width: "100%" },
-  empty: { color: "#D9E2EC", fontSize: 15, fontWeight: "700" },
+  empty: { color: colors.separator, fontSize: 15, fontWeight: "700" },
   details: { alignItems: "center", padding: 18 },
-  date: { color: "#102A43", fontSize: 15, fontWeight: "700" },
-  count: { color: "#7B8794", fontSize: 12, marginTop: 4 },
+  date: { color: colors.text, fontSize: 15, fontWeight: "700" },
+  count: { color: colors.tertiary, fontSize: 12, marginTop: 4 },
   error: { color: "#B42318", marginTop: 10, textAlign: "center" },
   actions: { flexDirection: "row", gap: 12, marginTop: 18 },
   action: {
     alignItems: "center",
     backgroundColor: "#fff",
-    borderColor: "#D9E2EC",
+    borderColor: colors.separator,
     borderRadius: 12,
     borderWidth: 1,
     flex: 1,
@@ -430,10 +431,10 @@ const styles = StyleSheet.create({
     maxWidth: 110,
     minHeight: 62,
   },
-  actionFallback: { fontSize: 15, fontWeight: "800" },
-  actionLabel: { fontSize: 12, fontWeight: "800" },
+  actionFallback: { fontSize: 15, fontWeight: "600" },
+  actionLabel: { fontSize: 12, fontWeight: "600" },
   disabled: { opacity: 0.45 },
-  limit: { color: "#7B8794", fontSize: 12, marginTop: 10 },
+  limit: { color: colors.tertiary, fontSize: 12, marginTop: 10 },
   busyOverlay: {
     alignItems: "center",
     backgroundColor: "rgba(11, 23, 32, 0.55)",
@@ -449,28 +450,29 @@ const styles = StyleSheet.create({
   },
   confirmCard: {
     backgroundColor: "#fff",
-    borderRadius: 16,
+    borderRadius: 22,
+    borderCurve: "continuous",
     maxWidth: 360,
     padding: 18,
     width: "100%",
   },
   confirmTitle: {
-    color: "#102A43",
+    color: colors.text,
     fontSize: 19,
-    fontWeight: "800",
+    fontWeight: "600",
     textAlign: "center",
   },
   confirmActions: { flexDirection: "row", gap: 10, marginTop: 18 },
   cancelButton: {
     alignItems: "center",
-    borderColor: "#D9E2EC",
+    borderColor: colors.separator,
     borderRadius: 10,
     borderWidth: 1,
     flex: 1,
     justifyContent: "center",
     minHeight: 44,
   },
-  cancelText: { color: "#486581", fontWeight: "800" },
+  cancelText: { color: colors.secondary, fontWeight: "600" },
   deleteButton: {
     alignItems: "center",
     backgroundColor: "#B42318",
@@ -479,5 +481,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     minHeight: 44,
   },
-  deleteText: { color: "#fff", fontWeight: "800" },
+  deleteText: { color: "#fff", fontWeight: "600" },
 });

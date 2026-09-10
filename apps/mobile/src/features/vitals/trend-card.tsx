@@ -1,5 +1,6 @@
+import { colors } from "../../ui/theme";
 import { useEffect, useRef, useState } from "react";
-import { PanResponder, StyleSheet, Text, View } from "react-native";
+import { PanResponder, Platform, StyleSheet, Text, View } from "react-native";
 import Svg, {
   Circle,
   ClipPath,
@@ -139,20 +140,41 @@ function LinePlot({
         );
       })}
       {onSelect
-        ? points.map((point, index) => (
-            <Circle
-              key={`touch-${point.at}-${point.value}-${index}`}
-              cx={point.x}
-              cy={point.y}
-              r="13"
-              fill="#FFFFFF"
-              fillOpacity={0.001}
-              onPress={(event) => {
-                onSelect(point.at);
-                return event;
-              }}
-            />
-          ))
+        ? points.map((point, index) =>
+            Platform.OS === "web" ? (
+              <circle
+                key={`touch-${point.at}-${point.value}-${index}`}
+                cx={point.x}
+                cy={point.y}
+                r={13}
+                fill="#FFFFFF"
+                fillOpacity={0.001}
+                role="button"
+                tabIndex={0}
+                aria-label={`${item.label}: ${point.value}, ${new Date(point.at).toLocaleDateString()}`}
+                onClick={() => onSelect(point.at)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onSelect(point.at);
+                  }
+                }}
+              />
+            ) : (
+              <Circle
+                key={`touch-${point.at}-${point.value}-${index}`}
+                cx={point.x}
+                cy={point.y}
+                r="13"
+                fill="#FFFFFF"
+                fillOpacity={0.001}
+                onPress={(event) => {
+                  onSelect(point.at);
+                  return event;
+                }}
+              />
+            ),
+          )
         : null}
     </>
   );
@@ -311,13 +333,13 @@ function ChartPlot({
                 y1={y}
                 x2={plot.right}
                 y2={y}
-                stroke="#E6EEF3"
+                stroke={colors.fill}
                 strokeWidth="1"
               />
               <SvgText
                 x={plot.left - 5}
                 y={y + 3}
-                fill="#7B8794"
+                fill={colors.tertiary}
                 fontSize="9"
                 textAnchor="end"
               >
@@ -342,7 +364,7 @@ function ChartPlot({
                 strokeWidth="1"
               />
               <SvgText
-                fill="#7B8794"
+                fill={colors.tertiary}
                 fontSize="8"
                 textAnchor="middle"
                 x={x}
@@ -378,7 +400,7 @@ function ChartPlot({
               y={tooltipY}
             />
             <SvgText
-              fill="#486581"
+              fill={colors.secondary}
               fontSize="8"
               fontWeight="700"
               textAnchor="middle"
@@ -505,7 +527,7 @@ function Chart({
     selectedAt && selectedReading
       ? {
           at: selectedAt,
-          color: selectedValues[0]?.color ?? "#16776A",
+          color: selectedValues[0]?.color ?? colors.blue,
           label: formatAveragePeriod(selectedAt, range),
           value: selectedReading,
         }
@@ -602,7 +624,7 @@ function vitalChartWindow(
     series: [
       {
         label: title,
-        lineColor: "#16776A",
+        lineColor: colors.blue,
         points: pointsForRange(samples, kind, range, reference),
         linePoints: connectedPointsForRange(samples, kind, range, reference),
       },
@@ -637,7 +659,7 @@ function bloodPressureChartWindow(
     ]),
   );
   const pointColor = (point: TimestampPoint) =>
-    pairColors.get(point.at) ?? "#627D98";
+    pairColors.get(point.at) ?? colors.secondary;
   return {
     start,
     end,
@@ -794,9 +816,10 @@ export function BloodPressureTrendCard({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: "#FFFFFF",
-    borderColor: "#E6EEF3",
-    borderWidth: 1,
-    borderRadius: 16,
+    borderColor: colors.fill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 22,
+    borderCurve: "continuous",
     marginBottom: 14,
     padding: 14,
   },
@@ -805,10 +828,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  title: { color: "#243B53", fontSize: 16, fontWeight: "800" },
-  value: { color: "#16776A", fontSize: 19, fontWeight: "800" },
-  subtitle: { color: "#7B8794", fontSize: 13, marginTop: 4 },
-  averageCategory: { fontSize: 12, fontWeight: "800", marginTop: 3 },
+  title: { color: colors.text, fontSize: 16, fontWeight: "600" },
+  value: { color: colors.blue, fontSize: 19, fontWeight: "600" },
+  subtitle: { color: colors.tertiary, fontSize: 13, marginTop: 4 },
+  averageCategory: { fontSize: 12, fontWeight: "600", marginTop: 3 },
   categoryLegend: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -820,14 +843,14 @@ const styles = StyleSheet.create({
   categoryText: { fontSize: 10, fontWeight: "700" },
   chartViewport: { marginHorizontal: -10 },
   windowLabel: {
-    color: "#486581",
+    color: colors.secondary,
     fontSize: 11,
     fontWeight: "700",
     marginTop: 10,
     textAlign: "center",
   },
   empty: {
-    color: "#7B8794",
+    color: colors.tertiary,
     fontSize: 13,
     marginTop: 8,
     textAlign: "center",

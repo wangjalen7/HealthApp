@@ -43,6 +43,18 @@ export type HydrationHistoryEntry = {
   occurredAt: string;
 };
 
+export async function deleteHydration(
+  userId: string,
+  id: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("hydration_entries")
+    .delete()
+    .eq("user_id", userId)
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
 export async function getHydrationHistory(
   userId: string,
 ): Promise<HydrationHistoryEntry[]> {

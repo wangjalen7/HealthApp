@@ -1,10 +1,11 @@
+import { Pressable } from "../../src/ui/pressable";
+import { colors } from "../../src/ui/theme";
 import { Redirect, router, Tabs } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   AppState,
-  Pressable,
   StyleSheet,
   Text,
   View,
@@ -15,6 +16,9 @@ import {
 } from "react-native-safe-area-context";
 
 import { useAuth } from "../../src/features/auth/auth-provider";
+import { Icon } from "../../src/ui/icon";
+import { useReducedMotion } from "../../src/ui/motion";
+import { PrivacyBoundary } from "../../src/ui/privacy-boundary";
 
 function CreateTabButton() {
   return (
@@ -25,7 +29,7 @@ function CreateTabButton() {
       style={styles.createTabButton}
     >
       <View style={styles.createCircle}>
-        <Text style={styles.createPlus}>+</Text>
+        <Icon name="plus" color="#FFFFFF" size={28} />
       </View>
       <Text style={styles.createLabel}>Track</Text>
     </Pressable>
@@ -35,52 +39,86 @@ function CreateTabButton() {
 export default function AppLayout() {
   const { biometricLocked, session, signOut, unlockWithFaceId } = useAuth();
   const insets = useSafeAreaInsets();
+  const reducedMotion = useReducedMotion();
   if (!session) return <Redirect href="/(auth)/sign-in" />;
-  if (biometricLocked) {
-    return (
-      <FaceIdLockScreen signOut={signOut} unlockWithFaceId={unlockWithFaceId} />
-    );
-  }
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        headerShadowVisible: false,
-        sceneStyle: { backgroundColor: "#F7FAFC" },
-        tabBarActiveTintColor: "#16776A",
-        tabBarHideOnKeyboard: true,
-        tabBarItemStyle: { minWidth: 0, paddingHorizontal: 0 },
-        tabBarLabelStyle: { fontSize: 10, fontWeight: "700", lineHeight: 13 },
-        tabBarStyle: {
-          borderTopColor: "#D9E2EC",
-          height: 58 + insets.bottom,
-          paddingBottom: Math.max(insets.bottom, 7),
-          paddingTop: 6,
-        },
-      }}
+    <PrivacyBoundary
+      locked={biometricLocked}
+      lockScreen={
+        <FaceIdLockScreen
+          signOut={signOut}
+          unlockWithFaceId={unlockWithFaceId}
+        />
+      }
     >
-      <Tabs.Screen name="index" options={{ title: "Summary" }} />
-      <Tabs.Screen name="history" options={{ title: "History" }} />
-      <Tabs.Screen
-        name="track"
-        options={{
-          title: "Create",
-          tabBarButton: () => <CreateTabButton />,
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          headerShadowVisible: false,
+          sceneStyle: { backgroundColor: colors.background },
+          tabBarActiveTintColor: colors.blue,
+          tabBarInactiveTintColor: colors.tertiary,
+          animation: reducedMotion ? "none" : "fade",
+          tabBarHideOnKeyboard: true,
+          tabBarItemStyle: { minWidth: 0, paddingHorizontal: 0 },
+          tabBarLabelStyle: { fontSize: 10, fontWeight: "600", lineHeight: 14 },
+          tabBarStyle: {
+            borderTopColor: colors.separator,
+            backgroundColor: "rgba(255,255,255,0.97)",
+            borderTopWidth: StyleSheet.hairlineWidth,
+            height: 64 + insets.bottom,
+            paddingBottom: Math.max(insets.bottom, 7),
+            paddingTop: 8,
+          },
         }}
-      />
-      <Tabs.Screen name="workout" options={{ href: null }} />
-      <Tabs.Screen
-        name="history/[id]"
-        options={{ href: null, title: "Edit workout" }}
-      />
-      <Tabs.Screen name="history/edit" options={{ href: null }} />
-      <Tabs.Screen name="nutrition" options={{ href: null }} />
-      <Tabs.Screen name="water" options={{ href: null }} />
-      <Tabs.Screen name="weight" options={{ href: null }} />
-      <Tabs.Screen name="reminders" options={{ href: null }} />
-      <Tabs.Screen name="coach" options={{ title: "AI Coach" }} />
-      <Tabs.Screen name="profile" options={{ title: "Profile" }} />
-    </Tabs>
+      >
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: "Summary",
+            tabBarIcon: ({ color }) => <Icon name="heart" color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="history"
+          options={{
+            title: "History",
+            tabBarIcon: ({ color }) => <Icon name="history" color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="track"
+          options={{
+            title: "Create",
+            tabBarButton: () => <CreateTabButton />,
+          }}
+        />
+        <Tabs.Screen name="workout" options={{ href: null }} />
+        <Tabs.Screen
+          name="history/[id]"
+          options={{ href: null, title: "Edit workout" }}
+        />
+        <Tabs.Screen name="history/edit" options={{ href: null }} />
+        <Tabs.Screen name="nutrition" options={{ href: null }} />
+        <Tabs.Screen name="water" options={{ href: null }} />
+        <Tabs.Screen name="weight" options={{ href: null }} />
+        <Tabs.Screen name="reminders" options={{ href: null }} />
+        <Tabs.Screen
+          name="coach"
+          options={{
+            title: "AI Coach",
+            tabBarIcon: ({ color }) => <Icon name="sparkles" color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="profile"
+          options={{
+            title: "Profile",
+            tabBarIcon: ({ color }) => <Icon name="person" color={color} />,
+          }}
+        />
+      </Tabs>
+    </PrivacyBoundary>
   );
 }
 
@@ -179,21 +217,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flex: 1,
     justifyContent: "flex-start",
-    marginTop: -24,
+    marginTop: -15,
   },
   createCircle: {
     alignItems: "center",
-    backgroundColor: "#16776A",
-    borderColor: "#F7FAFC",
+    backgroundColor: colors.blue,
+    borderColor: colors.background,
     borderRadius: 28,
-    borderWidth: 5,
-    height: 58,
+    borderWidth: 4,
+    height: 54,
     justifyContent: "center",
-    shadowColor: "#102A43",
+    shadowColor: colors.text,
     shadowOffset: { height: 5, width: 0 },
-    shadowOpacity: 0.18,
+    shadowOpacity: 0.12,
     shadowRadius: 8,
-    width: 58,
+    width: 54,
   },
   createPlus: {
     color: "#fff",
@@ -202,14 +240,14 @@ const styles = StyleSheet.create({
     lineHeight: 37,
   },
   createLabel: {
-    color: "#16776A",
+    color: colors.blue,
     fontSize: 10,
-    fontWeight: "800",
+    fontWeight: "600",
     marginTop: 1,
   },
   lockPage: {
     alignItems: "center",
-    backgroundColor: "#F7FAFC",
+    backgroundColor: colors.background,
     flex: 1,
     justifyContent: "center",
     padding: 24,

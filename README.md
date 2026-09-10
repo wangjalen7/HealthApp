@@ -6,7 +6,11 @@ An iPhone-first personal wellness tracker for vitals, lifting, cardio, nutrition
 
 1. Copy `apps/mobile/.env.example` to the ignored `apps/mobile/.env` and use the canonical HealthHub Supabase public URL/key.
 2. Run `npm install` and `npm run check`.
-3. Run `npx expo start --dev-client` and open the installed HealthApp development client on the registered iPhone.
+3. From this repository directory (`HealthApp`), run `npm run dev -- --dev-client` and open the installed HealthApp development client on the registered iPhone. For the browser preview, run `npm run web`.
+
+The root startup scripts select the `apps/mobile` workspace and forward Expo flags. For example, `npm run dev -- --dev-client --clear` clears the bundler cache. Run bare `npx expo start` only inside `apps/mobile`; running it at the repository root selects Expo's default `AppEntry.js` and fails to resolve `../../App` because this app uses Expo Router.
+
+If that error is already showing, stop the old Metro server with **Ctrl+C**, then run the workspace command above and reopen the development client using the new QR code.
 
 Expo Go and the browser preview cannot load Apple Health. The camera-enabled development client is now installed on the registered iPhone; UI and TypeScript changes normally update through Metro without a new native build. Docker, WSL2, and a Mac are not required for the current hosted-Supabase/EAS workflow.
 

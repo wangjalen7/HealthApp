@@ -1,13 +1,17 @@
+import { trackingStyles } from "../../src/ui/tracking-styles";
+import { SegmentedControl } from "../../src/ui/segmented-control";
+import DraggableFlatList, {
+  ScaleDecorator,
+} from "react-native-draggable-flatlist";
+import { ReduceMotion } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useReducedMotion } from "../../src/ui/motion";
+import { applyExerciseOrder } from "../../src/features/training/exercise-reorder";
+import { Pressable } from "../../src/ui/pressable";
+import { colors } from "../../src/ui/theme";
+import { Icon } from "../../src/ui/icon";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  AppState,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { AppState, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { useAuth } from "../../src/features/auth/auth-provider";
 import { CardioLog } from "../../src/features/training/cardio-log";
@@ -65,6 +69,8 @@ function persistWorkoutDraft(
 }
 
 export default function WorkoutScreen() {
+  const insets = useSafeAreaInsets();
+  const reducedMotion = useReducedMotion();
   const { session } = useAuth();
   const userId = session?.user.id;
   const [section, setSection] = useState<"lifting" | "cardio">("lifting");
@@ -391,315 +397,70 @@ export default function WorkoutScreen() {
     }
   }
   return (
-    <ScrollView
-      contentInsetAdjustmentBehavior="automatic"
-      contentContainerStyle={styles.page}
+    <DraggableFlatList
+      testID="workout-exercise-list"
+      containerStyle={{ flex: 1 }}
+      data={section === "lifting" && selectedGroups.length ? entries : []}
+      keyExtractor={(entry) => entry.id}
+      onDragEnd={({ data }) =>
+        setEntries((current) =>
+          applyExerciseOrder(
+            current,
+            data.map((entry) => entry.id),
+          ),
+        )
+      }
+      activationDistance={6}
+      autoscrollThreshold={80}
+      autoscrollSpeed={220}
+      animationConfig={{
+        damping: 28,
+        stiffness: 240,
+        mass: 0.6,
+        overshootClamping: true,
+        reduceMotion: reducedMotion ? ReduceMotion.Always : ReduceMotion.System,
+      }}
       keyboardShouldPersistTaps="handled"
-    >
-      <Text style={styles.title}>Workout</Text>
-      <View style={styles.tabs}>
-        <SectionTab
-          active={section === "lifting"}
-          label="Lifting"
-          onPress={() => setSection("lifting")}
-        />
-        <SectionTab
-          active={section === "cardio"}
-          label="Cardio"
-          onPress={() => setSection("cardio")}
-        />
-      </View>
-      {draftLoaded && workoutDraftHasContent(draft) ? (
-        <Text style={styles.draftStatus}>
-          Unfinished workout saved on this device.
-        </Text>
-      ) : null}
-      {section === "lifting" ? (
+      keyboardDismissMode="on-drag"
+      automaticallyAdjustKeyboardInsets
+      contentInsetAdjustmentBehavior="never"
+      showsVerticalScrollIndicator={false}
+      removeClippedSubviews={false}
+      style={{ flex: 1, backgroundColor: colors.background }}
+      contentContainerStyle={[
+        styles.page,
+        {
+          alignSelf: "center",
+          maxWidth: 760,
+          width: "100%",
+          paddingTop: insets.top + 20,
+          paddingBottom: insets.bottom + 32,
+        },
+      ]}
+      ListHeaderComponent={
         <>
-          <Text style={styles.label}>1. Muscle groups</Text>
-          <View style={styles.groups}>
-            {muscleGroups.map((group) => (
-              <Pressable
-                key={group}
-                accessibilityRole="button"
-                accessibilityState={{
-                  selected: selectedGroups.includes(group),
-                }}
-                onPress={() => toggleGroup(group)}
-                style={[
-                  styles.groupChip,
-                  selectedGroups.includes(group) && styles.groupChipActive,
-                ]}
-              >
-                <Text
-                  style={
-                    selectedGroups.includes(group)
-                      ? styles.groupTextActive
-                      : styles.groupText
-                  }
-                >
-                  {muscleGroupLabel(group)}
-                </Text>
-              </Pressable>
-            ))}
+          <Text style={styles.title}>Workout</Text>
+          <View>
+            <SegmentedControl
+              label="Workout type"
+              options={[
+                { value: "lifting", label: "Lifting" },
+                { value: "cardio", label: "Cardio" },
+              ]}
+              value={section}
+              onChange={setSection}
+            />
           </View>
-          {selectedGroups.length ? (
+          {draftLoaded && workoutDraftHasContent(draft) ? (
+            <Text style={styles.draftStatus}>
+              Unfinished workout saved on this device.
+            </Text>
+          ) : null}
+          {section === "lifting" ? (
             <>
-              <Text style={styles.label}>2. Gym location (optional)</Text>
-              <TextInput
-                accessibilityLabel="Gym location"
-                placeholder="Gym, studio, or home"
-                placeholderTextColor="#9FB3C8"
-                style={[styles.exerciseInput, styles.locationInput]}
-                value={location}
-                onBlur={() => setTimeout(() => setLocationFocused(false), 150)}
-                onFocus={() => setLocationFocused(true)}
-                onChangeText={(value) => {
-                  setLocation(value);
-                  setLocationFocused(true);
-                }}
-              />
-              {locationFocused && matchingLocations.length ? (
-                <View style={styles.locationSuggestions}>
-                  {matchingLocations.map((suggestion) => (
-                    <Pressable
-                      key={suggestion}
-                      accessibilityRole="button"
-                      onPress={() => {
-                        setLocation(suggestion);
-                        setLocationFocused(false);
-                      }}
-                      style={styles.locationSuggestion}
-                    >
-                      <Text style={styles.locationSuggestionText}>
-                        {suggestion}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              ) : null}
-              <View style={styles.exerciseBar}>
-                <Text style={styles.label}>3. Lifting exercises</Text>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={addExercise}
-                  style={styles.addButton}
-                >
-                  <Text style={styles.addButtonText}>+ Add exercise</Text>
-                </Pressable>
-              </View>
-              {entries.length === 0 ? (
-                <View style={styles.empty}>
-                  <Text style={styles.emptyTitle}>Build this workout</Text>
-                </View>
-              ) : null}
-              {entries.map((entry, index) => (
-                <View key={entry.id} style={styles.exerciseCard}>
-                  <View style={styles.exerciseHeader}>
-                    <Text style={styles.exerciseNumber}>
-                      EXERCISE {index + 1}
-                    </Text>
-                    <View style={styles.exerciseHeaderActions}>
-                      <ExerciseDragHandle
-                        index={index}
-                        itemCount={entries.length}
-                        onMove={(direction) =>
-                          moveExercise(entry.id, direction)
-                        }
-                      />
-                      <Pressable
-                        accessibilityRole="button"
-                        onPress={() => removeExercise(entry.id)}
-                        hitSlop={8}
-                      >
-                        <Text style={styles.remove}>Remove</Text>
-                      </Pressable>
-                    </View>
-                  </View>
-                  <TextInput
-                    accessibilityLabel="Exercise name"
-                    placeholder="Search your saved exercises or enter a new one"
-                    placeholderTextColor="#9FB3C8"
-                    style={styles.exerciseInput}
-                    value={entry.name}
-                    onFocus={() => {
-                      setActiveEntry(entry.id);
-                      void searchSavedExercises(entry.name);
-                    }}
-                    onBlur={() => {
-                      if (activeEntry === entry.id)
-                        setTimeout(() => {
-                          setActiveEntry(undefined);
-                          setSuggestions([]);
-                          void loadGuidance(
-                            entry.id,
-                            entryNames.current.get(entry.id) ?? entry.name,
-                          );
-                        }, 120);
-                    }}
-                    onChangeText={(name) => {
-                      entryNames.current.set(entry.id, name);
-                      guidanceRequests.current.set(
-                        entry.id,
-                        (guidanceRequests.current.get(entry.id) ?? 0) + 1,
-                      );
-                      updateEntry(entry.id, {
-                        name,
-                        guidance: undefined,
-                        guidanceState: "idle",
-                      });
-                      setActiveEntry(entry.id);
-                      void searchSavedExercises(name);
-                    }}
-                  />
-                  {activeEntry === entry.id &&
-                    suggestions.map((name) => (
-                      <Pressable
-                        key={name}
-                        onPress={() => chooseExercise(entry.id, name)}
-                        style={styles.suggestion}
-                      >
-                        <Text style={styles.suggestionName}>{name}</Text>
-                      </Pressable>
-                    ))}
-                  {selectedGroups.length > 1 ? (
-                    <>
-                      <Text style={styles.exerciseGroupLabel}>
-                        Muscle group
-                      </Text>
-                      <View style={styles.exerciseGroups}>
-                        {selectedGroups.map((group) => (
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityState={{
-                              selected: entry.muscleGroup === group,
-                            }}
-                            key={group}
-                            onPress={() =>
-                              updateEntry(entry.id, { muscleGroup: group })
-                            }
-                            style={[
-                              styles.exerciseGroupChip,
-                              entry.muscleGroup === group &&
-                                styles.exerciseGroupChipActive,
-                            ]}
-                          >
-                            <Text
-                              style={
-                                entry.muscleGroup === group
-                                  ? styles.exerciseGroupTextActive
-                                  : styles.exerciseGroupText
-                              }
-                            >
-                              {muscleGroupLabel(group)}
-                            </Text>
-                          </Pressable>
-                        ))}
-                      </View>
-                    </>
-                  ) : null}
-                  <View style={styles.prescriptionLabel}>
-                    <Text style={styles.subLabel}>Number of sets</Text>
-                    <Text style={styles.subLabel}>Reps per set</Text>
-                    <Text style={styles.subLabel}>Working weight</Text>
-                  </View>
-                  <View style={styles.prescription}>
-                    <TextInput
-                      accessibilityLabel="Number of sets"
-                      keyboardType="number-pad"
-                      placeholder="#"
-                      placeholderTextColor="#9FB3C8"
-                      style={styles.countInput}
-                      value={entry.setCount ? String(entry.setCount) : ""}
-                      onChangeText={(value) => updateSetCount(entry.id, value)}
-                    />
-                    <Text style={styles.times}>x</Text>
-                    <View style={styles.repRow}>
-                      {entry.reps.map((reps, index) => (
-                        <TextInput
-                          key={index}
-                          accessibilityLabel={`Set ${index + 1} reps`}
-                          keyboardType="number-pad"
-                          placeholder="_"
-                          placeholderTextColor="#9FB3C8"
-                          style={styles.repInput}
-                          value={reps ? String(reps) : ""}
-                          onChangeText={(value) =>
-                            updateRep(entry.id, index, value)
-                          }
-                        />
-                      ))}
-                    </View>
-                    <TextInput
-                      accessibilityLabel="Working weight in pounds"
-                      keyboardType="decimal-pad"
-                      placeholder="lb"
-                      placeholderTextColor="#9FB3C8"
-                      style={styles.weightInput}
-                      value={
-                        entry.weight === undefined ? "" : String(entry.weight)
-                      }
-                      onChangeText={(value) => updateWeight(entry.id, value)}
-                    />
-                    <Text style={styles.lb}>lb</Text>
-                  </View>
-                  {entry.guidanceState === "loading" ? (
-                    <Text style={styles.memoryMuted}>
-                      Checking your last 90 days...
-                    </Text>
-                  ) : entry.guidance ? (
-                    <>
-                      <Text style={styles.memory}>
-                        Best in last 90 days:{" "}
-                        {entry.guidance.memory.reps.length} x{" "}
-                        {entry.guidance.memory.reps.join(", ")} at{" "}
-                        {entry.guidance.memory.weight}{" "}
-                        {entry.guidance.memory.unit}
-                      </Text>
-                      <Text
-                        style={
-                          entry.guidance.shouldIncrease
-                            ? styles.progressFlag
-                            : styles.progressHold
-                        }
-                      >
-                        {entry.guidance.recommendation}
-                      </Text>
-                    </>
-                  ) : entry.guidanceState === "loaded" ? (
-                    <Text style={styles.memoryMuted}>
-                      No saved performance in the last 90 days
-                    </Text>
-                  ) : (
-                    <Text style={styles.memoryMuted}>
-                      Select a saved exercise or finish typing to check your
-                      history.
-                    </Text>
-                  )}
-                </View>
-              ))}
-              {entries.length ? (
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={addExercise}
-                  style={styles.bottomAddButton}
-                >
-                  <Text style={styles.bottomAddButtonText}>
-                    + Add another exercise
-                  </Text>
-                </Pressable>
-              ) : null}
-              <Text style={styles.label}>4. Notes (optional)</Text>
-              <TextInput
-                multiline
-                placeholder="Energy, form cues, PR..."
-                placeholderTextColor="#9FB3C8"
-                style={[styles.exerciseInput, styles.notes]}
-                value={notes}
-                onChangeText={setNotes}
-              />
               {feedback ? (
                 <Text
+                  accessibilityLiveRegion="polite"
                   style={
                     feedback.startsWith("Workout saved")
                       ? styles.success
@@ -709,117 +470,327 @@ export default function WorkoutScreen() {
                   {feedback}
                 </Text>
               ) : null}
-              <Pressable
-                disabled={saving}
-                onPress={() => void save()}
-                style={styles.finishButton}
-              >
-                <Text style={styles.finishText}>
-                  {saving ? "Saving..." : "Finish workout"}
-                </Text>
-              </Pressable>
+              <Text style={styles.label}>Muscle groups</Text>
+              <View style={styles.groups}>
+                {muscleGroups.map((group) => (
+                  <Pressable
+                    key={group}
+                    accessibilityRole="button"
+                    accessibilityState={{
+                      selected: selectedGroups.includes(group),
+                    }}
+                    onPress={() => toggleGroup(group)}
+                    style={[
+                      styles.groupChip,
+                      selectedGroups.includes(group) && styles.groupChipActive,
+                    ]}
+                  >
+                    <Text
+                      style={
+                        selectedGroups.includes(group)
+                          ? styles.groupTextActive
+                          : styles.groupText
+                      }
+                    >
+                      {muscleGroupLabel(group)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              {selectedGroups.length ? (
+                <>
+                  <Text style={styles.label}>Gym location (optional)</Text>
+                  <TextInput
+                    accessibilityLabel="Gym location"
+                    placeholder="Gym, studio, or home"
+                    placeholderTextColor={colors.tertiary}
+                    style={[styles.exerciseInput, styles.locationInput]}
+                    value={location}
+                    onBlur={() =>
+                      setTimeout(() => setLocationFocused(false), 150)
+                    }
+                    onFocus={() => setLocationFocused(true)}
+                    onChangeText={(value) => {
+                      setLocation(value);
+                      setLocationFocused(true);
+                    }}
+                  />
+                  {locationFocused && matchingLocations.length ? (
+                    <View style={styles.locationSuggestions}>
+                      {matchingLocations.map((suggestion) => (
+                        <Pressable
+                          key={suggestion}
+                          accessibilityRole="button"
+                          onPress={() => {
+                            setLocation(suggestion);
+                            setLocationFocused(false);
+                          }}
+                          style={styles.locationSuggestion}
+                        >
+                          <Text style={styles.locationSuggestionText}>
+                            {suggestion}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  ) : null}
+                  <Text style={styles.label}>Lifting exercises</Text>
+                </>
+              ) : (
+                <View style={styles.empty}>
+                  <Text style={styles.emptyTitle}>Choose muscle groups</Text>
+                </View>
+              )}
             </>
           ) : (
-            <View style={styles.empty}>
-              <Text style={styles.emptyTitle}>Choose muscle groups</Text>
-            </View>
+            <CardioLog />
           )}
         </>
-      ) : (
-        <CardioLog expandedByDefault />
-      )}
-    </ScrollView>
-  );
-}
-
-function SectionTab({
-  active,
-  label,
-  onPress,
-}: {
-  active: boolean;
-  label: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-      onPress={onPress}
-      style={[styles.tab, active && styles.tabActive]}
-    >
-      <Text style={active ? styles.tabTextActive : styles.tabText}>
-        {label}
-      </Text>
-    </Pressable>
+      }
+      renderItem={({ item: entry, getIndex, drag, isActive }) => {
+        const index = getIndex() ?? 0;
+        return (
+          <ScaleDecorator activeScale={reducedMotion ? 1 : 1.015}>
+            <View
+              testID={`exercise-card-${entry.id}`}
+              style={[styles.exerciseCard, isActive && styles.activeExercise]}
+            >
+              <View style={styles.exerciseHeader}>
+                <Text style={styles.exerciseNumber}>EXERCISE {index + 1}</Text>
+                <View style={styles.exerciseHeaderActions}>
+                  <ExerciseDragHandle
+                    index={index}
+                    dragging={isActive}
+                    onDrag={drag}
+                    itemCount={entries.length}
+                    onMove={(direction) => moveExercise(entry.id, direction)}
+                  />
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => removeExercise(entry.id)}
+                    hitSlop={8}
+                  >
+                    <Text style={styles.remove}>Remove</Text>
+                  </Pressable>
+                </View>
+              </View>
+              <TextInput
+                accessibilityLabel="Exercise name"
+                placeholder="Enter exercise name"
+                placeholderTextColor={colors.tertiary}
+                style={styles.exerciseInput}
+                value={entry.name}
+                onFocus={() => {
+                  setActiveEntry(entry.id);
+                  void searchSavedExercises(entry.name);
+                }}
+                onBlur={() => {
+                  if (activeEntry === entry.id)
+                    setTimeout(() => {
+                      setActiveEntry(undefined);
+                      setSuggestions([]);
+                      void loadGuidance(
+                        entry.id,
+                        entryNames.current.get(entry.id) ?? entry.name,
+                      );
+                    }, 120);
+                }}
+                onChangeText={(name) => {
+                  entryNames.current.set(entry.id, name);
+                  guidanceRequests.current.set(
+                    entry.id,
+                    (guidanceRequests.current.get(entry.id) ?? 0) + 1,
+                  );
+                  updateEntry(entry.id, {
+                    name,
+                    guidance: undefined,
+                    guidanceState: "idle",
+                  });
+                  setActiveEntry(entry.id);
+                  void searchSavedExercises(name);
+                }}
+              />
+              {activeEntry === entry.id &&
+                suggestions.map((name) => (
+                  <Pressable
+                    key={name}
+                    onPress={() => chooseExercise(entry.id, name)}
+                    style={styles.suggestion}
+                  >
+                    <Text style={styles.suggestionName}>{name}</Text>
+                  </Pressable>
+                ))}
+              {selectedGroups.length > 1 ? (
+                <>
+                  <Text style={styles.exerciseGroupLabel}>Muscle group</Text>
+                  <View style={styles.exerciseGroups}>
+                    {selectedGroups.map((group) => (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityState={{
+                          selected: entry.muscleGroup === group,
+                        }}
+                        key={group}
+                        onPress={() =>
+                          updateEntry(entry.id, { muscleGroup: group })
+                        }
+                        style={[
+                          styles.exerciseGroupChip,
+                          entry.muscleGroup === group &&
+                            styles.exerciseGroupChipActive,
+                        ]}
+                      >
+                        <Text
+                          style={
+                            entry.muscleGroup === group
+                              ? styles.exerciseGroupTextActive
+                              : styles.exerciseGroupText
+                          }
+                        >
+                          {muscleGroupLabel(group)}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </>
+              ) : null}
+              <View style={styles.prescriptionLabel}>
+                <Text style={styles.subLabel}>Number of sets</Text>
+                <Text style={styles.subLabel}>Reps per set</Text>
+                <Text style={styles.subLabel}>Working weight</Text>
+              </View>
+              <View style={styles.prescription}>
+                <TextInput
+                  accessibilityLabel="Number of sets"
+                  keyboardType="number-pad"
+                  placeholder="#"
+                  placeholderTextColor={colors.tertiary}
+                  style={styles.countInput}
+                  value={entry.setCount ? String(entry.setCount) : ""}
+                  onChangeText={(value) => updateSetCount(entry.id, value)}
+                />
+                <Text style={styles.times}>x</Text>
+                <View style={styles.repRow}>
+                  {entry.reps.map((reps, index) => (
+                    <TextInput
+                      key={index}
+                      accessibilityLabel={`Set ${index + 1} reps`}
+                      keyboardType="number-pad"
+                      placeholder="_"
+                      placeholderTextColor={colors.tertiary}
+                      style={styles.repInput}
+                      value={reps ? String(reps) : ""}
+                      onChangeText={(value) =>
+                        updateRep(entry.id, index, value)
+                      }
+                    />
+                  ))}
+                </View>
+                <TextInput
+                  accessibilityLabel="Working weight in pounds"
+                  keyboardType="decimal-pad"
+                  placeholder="lb"
+                  placeholderTextColor={colors.tertiary}
+                  style={styles.weightInput}
+                  value={entry.weight === undefined ? "" : String(entry.weight)}
+                  onChangeText={(value) => updateWeight(entry.id, value)}
+                />
+                <Text style={styles.lb}>lb</Text>
+              </View>
+              {entry.guidanceState === "loading" ? (
+                <Text style={styles.memoryMuted}>
+                  Checking your last 90 days...
+                </Text>
+              ) : entry.guidance ? (
+                <>
+                  <Text style={styles.memory}>
+                    Best in last 90 days: {entry.guidance.memory.reps.length} x{" "}
+                    {entry.guidance.memory.reps.join(", ")} at{" "}
+                    {entry.guidance.memory.weight} {entry.guidance.memory.unit}
+                  </Text>
+                  <Text
+                    style={
+                      entry.guidance.shouldIncrease
+                        ? styles.progressFlag
+                        : styles.progressHold
+                    }
+                  >
+                    {entry.guidance.recommendation}
+                  </Text>
+                </>
+              ) : entry.guidanceState === "loaded" ? (
+                <Text style={styles.memoryMuted}>
+                  No saved performance in the last 90 days
+                </Text>
+              ) : null}
+            </View>
+          </ScaleDecorator>
+        );
+      }}
+      ListFooterComponent={
+        section === "lifting" && selectedGroups.length ? (
+          <>
+            <Pressable
+              accessibilityRole="button"
+              onPress={addExercise}
+              style={styles.bottomAddButton}
+            >
+              <Icon name="plus" size={20} color={colors.surface} />
+              <Text style={styles.bottomAddButtonText}>Add exercise</Text>
+            </Pressable>
+            <Text style={styles.label}>Notes (optional)</Text>
+            <TextInput
+              multiline
+              placeholder="Energy, form cues, PR..."
+              placeholderTextColor={colors.tertiary}
+              style={[styles.exerciseInput, styles.notes]}
+              value={notes}
+              onChangeText={setNotes}
+            />
+            <Pressable
+              disabled={saving}
+              onPress={() => void save()}
+              style={styles.finishButton}
+            >
+              <Text style={styles.finishText}>
+                {saving ? "Saving..." : "Finish workout"}
+              </Text>
+            </Pressable>
+          </>
+        ) : null
+      }
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  page: { backgroundColor: "#F7FAFC", flexGrow: 1, padding: 20 },
-  title: { color: "#102A43", fontSize: 30, fontWeight: "800" },
-  tabs: {
-    flexDirection: "row",
-    gap: 7,
-    marginBottom: 20,
-    marginTop: 18,
-  },
-  tab: {
-    backgroundColor: "#E6EEF3",
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-  },
-  tabActive: { backgroundColor: "#102A43" },
-  tabText: { color: "#486581", fontSize: 13, fontWeight: "800" },
-  tabTextActive: { color: "#fff", fontSize: 13, fontWeight: "800" },
-  draftStatus: {
-    color: "#16776A",
-    fontSize: 13,
-    fontWeight: "700",
-    marginBottom: 16,
-    marginTop: -10,
-  },
-  label: { color: "#486581", fontSize: 14, fontWeight: "800", marginBottom: 8 },
+  page: trackingStyles.page,
+  title: trackingStyles.title,
+  draftStatus: { color: colors.secondary, fontSize: 13, marginBottom: 16 },
+  label: trackingStyles.label,
   groups: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 22 },
-  groupChip: {
-    backgroundColor: "#E6EEF3",
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  groupChipActive: { backgroundColor: "#16776A" },
-  groupText: { color: "#486581", fontWeight: "800" },
-  groupTextActive: { color: "#fff", fontWeight: "800" },
-  exerciseBar: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  addButton: {
-    backgroundColor: "#D8F3EB",
-    borderRadius: 10,
-    paddingHorizontal: 11,
-    paddingVertical: 8,
-  },
-  addButtonText: { color: "#16776A", fontSize: 13, fontWeight: "800" },
+  groupChip: trackingStyles.chip,
+  groupChipActive: trackingStyles.chipActive,
+  groupText: trackingStyles.chipText,
+  groupTextActive: trackingStyles.chipTextActive,
+
   empty: {
     backgroundColor: "#fff",
-    borderColor: "#D9E2EC",
+    borderColor: colors.separator,
     borderRadius: 14,
     borderWidth: 1,
     marginBottom: 18,
     padding: 18,
   },
-  emptyTitle: { color: "#243B53", fontWeight: "800" },
-  exerciseCard: {
-    backgroundColor: "#fff",
-    borderColor: "#D9E2EC",
-    borderRadius: 16,
-    borderWidth: 1,
-    marginBottom: 13,
-    padding: 14,
+  emptyTitle: { color: colors.text, fontWeight: "600" },
+  exerciseCard: { ...trackingStyles.card, marginBottom: 12 },
+  activeExercise: {
+    borderColor: colors.blue,
+    shadowColor: colors.text,
+    shadowOpacity: 0.14,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 6,
   },
   exerciseHeader: {
     alignItems: "center",
@@ -829,25 +800,17 @@ const styles = StyleSheet.create({
   },
   exerciseHeaderActions: { alignItems: "center", flexDirection: "row", gap: 7 },
   exerciseNumber: {
-    color: "#7B8794",
+    color: colors.tertiary,
     fontSize: 11,
-    fontWeight: "800",
+    fontWeight: "600",
     letterSpacing: 1,
   },
-  remove: { color: "#B42318", fontSize: 13, fontWeight: "800" },
-  exerciseInput: {
-    backgroundColor: "#F7FAFC",
-    borderColor: "#D9E2EC",
-    borderRadius: 11,
-    borderWidth: 1,
-    color: "#102A43",
-    fontSize: 16,
-    padding: 12,
-  },
+  remove: { color: "#B42318", fontSize: 13, fontWeight: "600" },
+  exerciseInput: trackingStyles.input,
   exerciseGroupLabel: {
-    color: "#486581",
+    color: colors.secondary,
     fontSize: 12,
-    fontWeight: "800",
+    fontWeight: "600",
     marginBottom: 6,
     marginTop: 4,
   },
@@ -858,48 +821,54 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   exerciseGroupChip: {
-    backgroundColor: "#E6EEF3",
-    borderRadius: 16,
+    backgroundColor: colors.fill,
+    borderRadius: 22,
+    borderCurve: "continuous",
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
-  exerciseGroupChipActive: { backgroundColor: "#16776A" },
-  exerciseGroupText: { color: "#486581", fontSize: 12, fontWeight: "700" },
+  exerciseGroupChipActive: { backgroundColor: colors.blue },
+  exerciseGroupText: {
+    color: colors.secondary,
+    fontSize: 12,
+    fontWeight: "700",
+  },
   exerciseGroupTextActive: {
     color: "#fff",
     fontSize: 12,
-    fontWeight: "800",
+    fontWeight: "600",
   },
   locationInput: { marginBottom: 8 },
   locationSuggestions: {
     backgroundColor: "#FFFFFF",
-    borderColor: "#D9E2EC",
+    borderColor: colors.separator,
     borderRadius: 10,
     borderWidth: 1,
     marginBottom: 20,
     overflow: "hidden",
   },
   locationSuggestion: { paddingHorizontal: 13, paddingVertical: 11 },
-  locationSuggestionText: { color: "#243B53", fontSize: 14, fontWeight: "700" },
-  bottomAddButton: {
-    alignItems: "center",
-    borderColor: "#16776A",
-    borderRadius: 12,
-    borderStyle: "dashed",
-    borderWidth: 1,
-    marginBottom: 20,
-    padding: 13,
+  locationSuggestionText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "700",
   },
-  bottomAddButtonText: { color: "#16776A", fontWeight: "800" },
+  bottomAddButton: trackingStyles.listAddButton,
+  bottomAddButtonText: trackingStyles.listAddButtonText,
   suggestion: {
-    borderBottomColor: "#E6EEF3",
+    borderBottomColor: colors.fill,
     borderBottomWidth: 1,
     paddingHorizontal: 8,
     paddingVertical: 11,
   },
-  suggestionName: { color: "#243B53", fontWeight: "700" },
+  suggestionName: { color: colors.text, fontWeight: "700" },
   prescriptionLabel: { flexDirection: "row", marginTop: 15 },
-  subLabel: { color: "#7B8794", flex: 1, fontSize: 11, fontWeight: "700" },
+  subLabel: {
+    color: colors.tertiary,
+    flex: 1,
+    fontSize: 11,
+    fontWeight: "700",
+  },
   prescription: {
     alignItems: "center",
     flexDirection: "row",
@@ -907,46 +876,41 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   countInput: {
-    backgroundColor: "#F7FAFC",
-    borderColor: "#D9E2EC",
-    borderRadius: 9,
-    borderWidth: 1,
-    color: "#102A43",
-    fontSize: 16,
-    padding: 9,
+    ...trackingStyles.input,
+    minHeight: 44,
+    paddingHorizontal: 6,
+    paddingVertical: 8,
     textAlign: "center",
-    width: 42,
+    width: 44,
   },
-  times: { color: "#486581", fontSize: 18, fontWeight: "800" },
+  times: { color: colors.secondary, fontSize: 18, fontWeight: "600" },
   repRow: { flex: 1, flexDirection: "row", flexWrap: "wrap", gap: 5 },
   repInput: {
-    backgroundColor: "#F7FAFC",
-    borderColor: "#D9E2EC",
-    borderRadius: 9,
-    borderWidth: 1,
-    color: "#102A43",
-    fontSize: 16,
-    minWidth: 38,
-    padding: 9,
+    ...trackingStyles.input,
+    minHeight: 44,
+    paddingHorizontal: 6,
+    paddingVertical: 8,
     textAlign: "center",
     width: 45,
   },
   weightInput: {
-    backgroundColor: "#F7FAFC",
-    borderColor: "#D9E2EC",
-    borderRadius: 9,
-    borderWidth: 1,
-    color: "#102A43",
-    fontSize: 16,
-    padding: 9,
+    ...trackingStyles.input,
+    minHeight: 44,
+    paddingHorizontal: 6,
+    paddingVertical: 8,
     textAlign: "center",
     width: 56,
   },
-  lb: { color: "#486581", fontSize: 13, fontWeight: "800" },
-  memory: { color: "#16776A", fontSize: 13, fontWeight: "700", marginTop: 13 },
-  memoryMuted: { color: "#7B8794", fontSize: 13, marginTop: 13 },
+  lb: { color: colors.secondary, fontSize: 13, fontWeight: "600" },
+  memory: {
+    color: colors.blue,
+    fontSize: 13,
+    fontWeight: "700",
+    marginTop: 13,
+  },
+  memoryMuted: { color: colors.tertiary, fontSize: 13, marginTop: 13 },
   progressFlag: {
-    backgroundColor: "#E6F7F3",
+    backgroundColor: colors.blueSoft,
     borderRadius: 9,
     color: "#12685D",
     fontSize: 13,
@@ -958,22 +922,15 @@ const styles = StyleSheet.create({
   progressHold: {
     backgroundColor: "#F1F5F9",
     borderRadius: 9,
-    color: "#486581",
+    color: colors.secondary,
     fontSize: 13,
     lineHeight: 18,
     marginTop: 9,
     padding: 9,
   },
   notes: { marginBottom: 13, minHeight: 82, textAlignVertical: "top" },
-  success: { color: "#16776A", fontWeight: "700", marginBottom: 10 },
-  error: { color: "#B42318", marginBottom: 10 },
-  finishButton: {
-    alignItems: "center",
-    backgroundColor: "#16776A",
-    borderRadius: 13,
-    marginBottom: 20,
-    minHeight: 54,
-    justifyContent: "center",
-  },
-  finishText: { color: "#fff", fontSize: 16, fontWeight: "800" },
+  success: trackingStyles.success,
+  error: trackingStyles.error,
+  finishButton: trackingStyles.button,
+  finishText: trackingStyles.buttonText,
 });

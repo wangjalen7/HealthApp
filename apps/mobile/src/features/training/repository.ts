@@ -71,7 +71,18 @@ export async function saveWorkout(
       };
     }),
   );
-  if (setsError) throw new Error(setsError.message);
+  if (setsError) {
+    const { error: cleanupError } = await supabase
+      .from("workout_sessions")
+      .delete()
+      .eq("user_id", userId)
+      .eq("id", sessionId);
+    throw new Error(
+      cleanupError
+        ? "The sets could not be saved. An incomplete workout remains in History; remove it before retrying. Your draft is still here."
+        : setsError.message,
+    );
+  }
 }
 
 export async function replaceWorkout(

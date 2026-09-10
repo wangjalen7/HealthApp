@@ -1,11 +1,13 @@
+import { Modal } from "../../src/ui/modal";
+import { Icon } from "../../src/ui/icon";
+import { ScreenScrollView } from "../../src/ui/screen-scroll-view";
+import { Pressable } from "../../src/ui/pressable";
+import { colors } from "../../src/ui/theme";
 import { useCallback, useState } from "react";
 import { useFocusEffect, useRouter } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import {
   ActivityIndicator,
-  Modal,
-  Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -279,11 +281,25 @@ export default function ProfileScreen() {
   }
   return (
     <>
-      <ScrollView
+      <ScreenScrollView
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.page}
       >
         <Text style={styles.title}>Profile</Text>
+        <View style={styles.profileHero}>
+          <View style={styles.avatar}>
+            <Icon name="person" size={29} color={colors.blue} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.profileName}>
+              {[firstName, lastName].filter(Boolean).join(" ") ||
+                "Your profile"}
+            </Text>
+            <Text style={styles.profileCaption}>
+              Your goals. Your daily routine.
+            </Text>
+          </View>
+        </View>
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Account</Text>
           <Text style={styles.label}>Signed in as</Text>
@@ -291,7 +307,7 @@ export default function ProfileScreen() {
             {session?.user.email}
           </Text>
           {loadingName ? (
-            <ActivityIndicator color="#16776A" style={styles.nameLoading} />
+            <ActivityIndicator color={colors.blue} style={styles.nameLoading} />
           ) : (
             <>
               <View style={styles.nameRow}>
@@ -434,7 +450,7 @@ export default function ProfileScreen() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Goals</Text>
           {loadingGoals ? (
-            <ActivityIndicator color="#16776A" />
+            <ActivityIndicator color={colors.blue} />
           ) : (
             <View style={styles.goalsBody}>
               <View style={styles.row}>
@@ -551,7 +567,7 @@ export default function ProfileScreen() {
             {busy ? "Signing out..." : "Sign out"}
           </Text>
         </Pressable>
-      </ScrollView>
+      </ScreenScrollView>
       <Modal
         animationType="fade"
         onRequestClose={closeFaceIdPrompt}
@@ -654,6 +670,7 @@ function GoalField({
       <Text style={styles.goalLabel}>{label}</Text>
       <TextInput
         keyboardType="decimal-pad"
+        accessibilityLabel={label}
         placeholder={placeholder ?? "Optional"}
         placeholderTextColor="#9FB3C8"
         style={styles.input}
@@ -681,6 +698,7 @@ function NameField({
       <Text style={styles.goalLabel}>{label}</Text>
       <TextInput
         autoCapitalize="words"
+        accessibilityLabel={label}
         autoComplete={autoComplete}
         maxLength={80}
         onChangeText={onChangeText}
@@ -694,24 +712,47 @@ function NameField({
   );
 }
 const styles = StyleSheet.create({
-  page: { backgroundColor: "#F7FAFC", flexGrow: 1, padding: 20 },
+  profileHero: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 15,
+    marginBottom: 24,
+  },
+  avatar: {
+    height: 64,
+    width: 64,
+    borderRadius: 22,
+    backgroundColor: colors.blueSoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  profileName: {
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: "600",
+    letterSpacing: -0.5,
+  },
+  profileCaption: { color: colors.secondary, fontSize: 13, marginTop: 5 },
+  page: { backgroundColor: colors.background, flexGrow: 1, padding: 20 },
   title: {
-    color: "#102A43",
-    fontSize: 30,
-    fontWeight: "800",
+    color: colors.text,
+    fontSize: 34,
+    fontWeight: "700",
+    letterSpacing: -1,
     marginBottom: 20,
   },
   card: {
     backgroundColor: "#fff",
-    borderColor: "#E6EEF3",
-    borderWidth: 1,
-    borderRadius: 16,
+    borderColor: colors.fill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 22,
+    borderCurve: "continuous",
     marginBottom: 14,
     padding: 16,
   },
-  label: { color: "#627D98", fontSize: 13, marginTop: 10 },
-  email: { color: "#102A43", fontSize: 16, fontWeight: "700", marginTop: 5 },
-  cardTitle: { color: "#243B53", fontSize: 16, fontWeight: "800" },
+  label: { color: colors.secondary, fontSize: 13, marginTop: 10 },
+  email: { color: colors.text, fontSize: 16, fontWeight: "700", marginTop: 5 },
+  cardTitle: { color: colors.text, fontSize: 16, fontWeight: "600" },
   row: { flexDirection: "row", gap: 10 },
   nameRow: { flexDirection: "row", gap: 10, marginTop: 16 },
   nameLoading: { marginTop: 16 },
@@ -726,8 +767,8 @@ const styles = StyleSheet.create({
   nameStatusUnsaved: { backgroundColor: "#FFF3D6" },
   nameStatusRequired: { backgroundColor: "#EEF2F6" },
   nameStatusError: { backgroundColor: "#FDECEC" },
-  nameStatusText: { fontSize: 13, fontWeight: "800" },
-  nameStatusSavedText: { color: "#16776A" },
+  nameStatusText: { fontSize: 13, fontWeight: "600" },
+  nameStatusSavedText: { color: colors.blue },
   nameStatusUnsavedText: { color: "#8A4B00" },
   nameStatusRequiredText: { color: "#52606D" },
   nameStatusErrorText: { color: "#B42318" },
@@ -735,30 +776,30 @@ const styles = StyleSheet.create({
   goalsBody: { marginTop: 14 },
   goalField: { flex: 1 },
   goalLabel: {
-    color: "#486581",
+    color: colors.secondary,
     fontSize: 12,
     fontWeight: "700",
     marginBottom: 5,
   },
   input: {
-    backgroundColor: "#F7FAFC",
-    borderColor: "#D9E2EC",
+    backgroundColor: colors.background,
+    borderColor: colors.separator,
     borderRadius: 9,
     borderWidth: 1,
-    color: "#102A43",
+    color: colors.text,
     marginBottom: 11,
     padding: 10,
   },
   saveButton: {
     alignItems: "center",
-    backgroundColor: "#16776A",
+    backgroundColor: colors.blue,
     borderRadius: 10,
-    minHeight: 43,
+    minHeight: 48,
     justifyContent: "center",
   },
-  saveText: { color: "#fff", fontWeight: "800" },
+  saveText: { color: "#fff", fontWeight: "600" },
   healthKitStatus: {
-    color: "#7B8794",
+    color: colors.tertiary,
     fontSize: 12,
     marginBottom: 12,
     marginTop: 10,
@@ -789,10 +830,10 @@ const styles = StyleSheet.create({
   faceIdActionText: { color: "#007AFF", fontSize: 15, fontWeight: "600" },
   faceIdDisableText: { color: "#FF3B30" },
   disabledButton: { opacity: 0.65 },
-  success: { color: "#16776A", fontWeight: "700", marginBottom: 6 },
+  success: { color: colors.blue, fontWeight: "700", marginBottom: 6 },
   error: { color: "#B42318", marginBottom: 6 },
   inlineSuccess: {
-    color: "#16776A",
+    color: colors.blue,
     fontWeight: "700",
     marginTop: 10,
     textAlign: "center",
@@ -808,37 +849,38 @@ const styles = StyleSheet.create({
   modalCard: {
     alignSelf: "center",
     backgroundColor: "#fff",
-    borderRadius: 16,
+    borderRadius: 22,
+    borderCurve: "continuous",
     maxWidth: 380,
     padding: 18,
     width: "100%",
   },
   modalTitle: {
-    color: "#102A43",
+    color: colors.text,
     fontSize: 19,
-    fontWeight: "800",
+    fontWeight: "600",
     marginBottom: 14,
     textAlign: "center",
   },
   modalInput: {
-    backgroundColor: "#F7FAFC",
-    borderColor: "#D9E2EC",
+    backgroundColor: colors.background,
+    borderColor: colors.separator,
     borderRadius: 10,
     borderWidth: 1,
-    color: "#102A43",
+    color: colors.text,
     padding: 12,
   },
   modalActions: { flexDirection: "row", gap: 10, marginTop: 16 },
   modalCancel: {
     alignItems: "center",
-    borderColor: "#D9E2EC",
+    borderColor: colors.separator,
     borderRadius: 10,
     borderWidth: 1,
     flex: 1,
     justifyContent: "center",
     minHeight: 44,
   },
-  modalCancelText: { color: "#486581", fontWeight: "700" },
+  modalCancelText: { color: colors.secondary, fontWeight: "700" },
   modalEnable: {
     alignItems: "center",
     backgroundColor: "#007AFF",
@@ -847,7 +889,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     minHeight: 44,
   },
-  modalEnableText: { color: "#fff", fontWeight: "800" },
+  modalEnableText: { color: "#fff", fontWeight: "600" },
   button: {
     alignItems: "center",
     borderColor: "#D64545",
@@ -857,5 +899,5 @@ const styles = StyleSheet.create({
     minHeight: 50,
     justifyContent: "center",
   },
-  buttonText: { color: "#B42318", fontWeight: "800" },
+  buttonText: { color: "#B42318", fontWeight: "600" },
 });

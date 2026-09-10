@@ -1,13 +1,19 @@
+import { Icon } from "../../src/ui/icon";
+import { SegmentedControl } from "../../src/ui/segmented-control";
+import { surfaces } from "../../src/ui/theme";
+import { ScreenScrollView } from "../../src/ui/screen-scroll-view";
+import { Pressable } from "../../src/ui/pressable";
+import { colors } from "../../src/ui/theme";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusEffect, useRouter } from "expo-router";
 import {
   ActivityIndicator,
-  Pressable,
+  Platform,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
@@ -67,6 +73,7 @@ type UnifiedSyncResult = {
 };
 export default function SummaryScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
   const { session, configured } = useAuth();
   const insets = useSafeAreaInsets();
   const [samples, setSamples] = useState<VitalSample[]>([]);
@@ -156,7 +163,7 @@ export default function SummaryScreen() {
           ? { message: `Sync waiting: ${vitalResult.error}` }
           : {
               lastSyncedAt: vitalResult.lastSyncedAt,
-              message: "Sync complete",
+              message: "",
             };
       })();
       syncInFlight.current = operation;
@@ -248,7 +255,7 @@ export default function SummaryScreen() {
       rawDisplayName.trim().split(/\s+/)[0]) ||
     "there";
   return (
-    <ScrollView
+    <ScreenScrollView
       contentInsetAdjustmentBehavior="never"
       contentContainerStyle={[styles.page, { paddingTop: insets.top + 20 }]}
       directionalLockEnabled
@@ -260,9 +267,18 @@ export default function SummaryScreen() {
       }
       scrollEnabled={!chartSwipeActive}
     >
+      <Text style={styles.date}>
+        {new Intl.DateTimeFormat(undefined, {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+        }).format(new Date())}
+      </Text>
       <View style={styles.summaryHeader}>
-        <View>
-          <Text style={styles.title}>Hi {firstName},</Text>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={[styles.title, width < 360 && { fontSize: 28 }]}>
+            Hi {firstName},
+          </Text>
           <Text style={styles.snapshot}>Your daily snapshot</Text>
         </View>
         <View style={styles.syncArea}>
@@ -279,7 +295,9 @@ export default function SummaryScreen() {
             ]}
           >
             <Svg
-              accessibilityElementsHidden
+              {...(Platform.OS === "web"
+                ? { "aria-hidden": true }
+                : { accessibilityElementsHidden: true })}
               height="16"
               viewBox="0 0 24 24"
               width="16"
@@ -287,7 +305,7 @@ export default function SummaryScreen() {
               <Path
                 d="M20 12a8 8 0 1 1-2.34-5.66M20 3v6h-6"
                 fill="none"
-                stroke="#16776A"
+                stroke={colors.blue}
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth="2"
@@ -297,12 +315,13 @@ export default function SummaryScreen() {
           </Pressable>
           <Text style={styles.syncTime}>
             {lastSyncedAt
-              ? `Last synced ${formatDateTime(lastSyncedAt)}`
+              ? `Synced ${new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(lastSyncedAt))}`
               : "Not synced yet"}
           </Text>
         </View>
       </View>
       {status ? <Text style={styles.copy}>{status}</Text> : null}
+      <Text style={styles.sectionTitle}>Latest readings</Text>
       <View style={styles.metrics}>
         <Metric
           label="Weight"
@@ -342,6 +361,7 @@ export default function SummaryScreen() {
           }
         />
       </View>
+      <Text style={styles.sectionTitle}>Today's nutrition</Text>
       <View style={styles.nutritionMetrics}>
         <NutritionProgressCard
           accessibilityHint="Opens Food history."
@@ -394,18 +414,14 @@ export default function SummaryScreen() {
         totals={monthCalories}
       />
       <Text style={styles.sectionTitle}>Trends</Text>
-      <View style={styles.filters}>
-        {trendRanges.map((item) => (
-          <RangeChip
-            key={item}
-            label={item}
-            active={range === item}
-            onPress={() => setRange(item)}
-          />
-        ))}
-      </View>
+      <SegmentedControl
+        label="Trend time range"
+        options={trendRanges.map((item) => ({ value: item, label: item }))}
+        value={range}
+        onChange={setRange}
+      />
       {loading && samples.length === 0 ? (
-        <ActivityIndicator color="#16776A" />
+        <ActivityIndicator color={colors.blue} />
       ) : (
         <>
           <TrendCard
@@ -422,7 +438,7 @@ export default function SummaryScreen() {
           />
         </>
       )}
-    </ScrollView>
+    </ScreenScrollView>
   );
 }
 function Metric({
@@ -446,9 +462,17 @@ function Metric({
       accessibilityRole={onPress ? "button" : undefined}
       disabled={!onPress}
       onPress={onPress}
-      style={styles.metric}
+      style={[surfaces.card, styles.metric]}
     >
-      <Text style={styles.metricLabel}>{label}</Text>
+      <View style={styles.metricHeading}>
+        <Icon
+          name={label === "Weight" ? "weight" : "heart"}
+          size={17}
+          color={label === "Weight" ? colors.purple : colors.pink}
+        />
+        <Text style={styles.metricLabel}>{label}</Text>
+        <Icon name="chevron" size={11} color={colors.tertiary} />
+      </View>
       <Text
         style={[
           styles.metricValue,
@@ -461,88 +485,95 @@ function Metric({
     </Pressable>
   );
 }
-function RangeChip({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-      onPress={onPress}
-      style={[styles.rangeChip, active && styles.rangeChipActive]}
-    >
-      <Text style={active ? styles.rangeTextActive : styles.rangeText}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
 const styles = StyleSheet.create({
-  page: { backgroundColor: "#F7FAFC", flexGrow: 1, padding: 20 },
-  title: { color: "#102A43", fontSize: 32, fontWeight: "800", marginTop: 3 },
-  snapshot: { color: "#627D98", fontSize: 15, marginTop: 3 },
+  date: {
+    color: colors.secondary,
+    fontSize: 12,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  metricHeading: { flexDirection: "row", alignItems: "center", gap: 5 },
+  gestureHint: {
+    color: colors.secondary,
+    fontSize: 12,
+    marginTop: -7,
+    marginBottom: 16,
+  },
+  page: { backgroundColor: colors.background, flexGrow: 1, padding: 20 },
+  title: {
+    color: colors.text,
+    fontSize: 34,
+    fontWeight: "700",
+    letterSpacing: -1,
+    marginTop: 3,
+  },
+  snapshot: { color: colors.secondary, fontSize: 15, marginTop: 3 },
   summaryHeader: {
     alignItems: "flex-start",
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 18,
   },
-  copy: { color: "#627D98", marginBottom: 18, marginTop: -8 },
+  copy: { color: colors.secondary, marginBottom: 18, marginTop: -8 },
   metrics: { flexDirection: "row", gap: 12, marginBottom: 12 },
   nutritionMetrics: { flexDirection: "row", gap: 12, marginBottom: 12 },
   waterMetric: { flexDirection: "row", marginBottom: 12 },
   metric: {
-    backgroundColor: "#E6F7F3",
-    borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderRadius: 22,
+    borderCurve: "continuous",
     flex: 1,
     padding: 14,
   },
-  metricLabel: { color: "#486581", fontSize: 13 },
+  metricLabel: {
+    color: colors.secondary,
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "600",
+  },
   metricValue: {
-    color: "#102A43",
-    fontSize: 20,
-    fontWeight: "800",
-    marginTop: 4,
+    color: colors.text,
+    fontSize: 26,
+    fontWeight: "700",
+    fontVariant: ["tabular-nums"],
+    letterSpacing: -0.8,
+    marginTop: 12,
   },
-  metricDetail: { color: "#627D98", fontSize: 11, marginTop: 5 },
+  metricDetail: {
+    color: colors.secondary,
+    fontSize: 11,
+    lineHeight: 17,
+    marginTop: 8,
+  },
   sectionTitle: {
-    color: "#243B53",
-    fontSize: 20,
-    fontWeight: "800",
-    marginBottom: 10,
+    color: colors.text,
+    fontSize: 21,
+    fontWeight: "700",
+    letterSpacing: -0.5,
+    marginTop: 12,
+    marginBottom: 12,
   },
-  syncArea: { alignItems: "flex-end" },
+  syncArea: { alignItems: "flex-end", maxWidth: 100, marginLeft: 10 },
   sync: {
     alignItems: "center",
-    backgroundColor: "#E6F7F3",
-    borderColor: "#B8E4DA",
-    borderRadius: 16,
+    backgroundColor: colors.blueSoft,
+    borderColor: colors.blueSoft,
+    borderRadius: 22,
+    borderCurve: "continuous",
     borderWidth: 1,
     flexDirection: "row",
     gap: 5,
     paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingVertical: 10,
+    minHeight: 44,
   },
-  syncPressed: { backgroundColor: "#D4F0E9" },
+  syncPressed: { backgroundColor: "#DCEBFF" },
   syncDisabled: { opacity: 0.55 },
-  syncText: { color: "#16776A", fontWeight: "700" },
-  syncTime: { color: "#7B8794", fontSize: 10, marginTop: 3 },
-  filters: { flexDirection: "row", gap: 8, marginBottom: 12 },
-  rangeChip: {
-    alignItems: "center",
-    backgroundColor: "#E6EEF3",
-    borderRadius: 18,
-    minWidth: 39,
-    paddingHorizontal: 9,
-    paddingVertical: 7,
+  syncText: { color: colors.blue, fontWeight: "700" },
+  syncTime: {
+    color: colors.tertiary,
+    fontSize: 10,
+    marginTop: 5,
+    textAlign: "right",
   },
-  rangeChipActive: { backgroundColor: "#102A43" },
-  rangeText: { color: "#486581", fontSize: 12, fontWeight: "800" },
-  rangeTextActive: { color: "#fff", fontSize: 12, fontWeight: "800" },
 });

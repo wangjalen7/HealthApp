@@ -1,5 +1,7 @@
+import { Pressable } from "../../src/ui/pressable";
+import { colors } from "../../src/ui/theme";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 export default function CheckEmailScreen() {
   const router = useRouter();
@@ -32,18 +34,24 @@ export default function CheckEmailScreen() {
 
 const styles = StyleSheet.create({
   page: {
-    backgroundColor: "#F7FAFC",
+    backgroundColor: colors.background,
     flex: 1,
     justifyContent: "center",
     padding: 24,
   },
   eyebrow: {
-    color: "#16776A",
+    color: colors.blue,
     fontSize: 12,
-    fontWeight: "800",
+    fontWeight: "600",
     letterSpacing: 1.8,
   },
-  title: { color: "#102A43", fontSize: 30, fontWeight: "800", marginTop: 8 },
+  title: {
+    color: colors.text,
+    fontSize: 34,
+    fontWeight: "700",
+    letterSpacing: -1,
+    marginTop: 8,
+  },
   copy: {
     color: "#52606D",
     fontSize: 16,
@@ -53,10 +61,10 @@ const styles = StyleSheet.create({
   },
   button: {
     alignItems: "center",
-    backgroundColor: "#16776A",
+    backgroundColor: colors.blue,
     borderRadius: 12,
     justifyContent: "center",
     minHeight: 52,
   },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "800" },
+  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
 });

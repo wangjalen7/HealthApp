@@ -1,9 +1,14 @@
+import { ScreenScrollView } from "../../ui/screen-scroll-view";
+import { Icon } from "../../ui/icon";
+import { Pressable } from "../../ui/pressable";
+import { colors } from "../../ui/theme";
 import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Pressable,
+  KeyboardAvoidingView,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -13,6 +18,7 @@ import {
 import { supabaseConfig } from "../../lib/config";
 import { supabase } from "../../lib/supabase";
 import { isDuplicateSignUpResponse } from "./auth-callback";
+import { validateAuthInput } from "./validation";
 import {
   getFaceIdAvailability,
   getFaceIdLoginAccount,
@@ -120,6 +126,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
   }
 
   async function submit() {
+    if (busy || faceIdBusy) return;
     setFeedback("");
     if (!supabaseConfig.isConfigured) {
       setFeedback(
@@ -127,8 +134,9 @@ export function AuthScreen({ mode }: { mode: Mode }) {
       );
       return;
     }
-    if (!email.includes("@") || (mode !== "reset" && password.length < 8)) {
-      setFeedback("Use a valid email and a password of at least 8 characters.");
+    const validationError = validateAuthInput(mode, email, password);
+    if (validationError) {
+      setFeedback(validationError);
       return;
     }
     const cleanFirstName = firstName.trim();
@@ -244,201 +252,238 @@ export function AuthScreen({ mode }: { mode: Mode }) {
   }
 
   return (
-    <View style={styles.page}>
-      <Text style={styles.eyebrow}>HEALTHAPP</Text>
-      <Text style={styles.title}>{title}</Text>
-      {!supabaseConfig.isConfigured && (
-        <Text style={styles.warning}>
-          Supabase is not configured yet. You can still explore the app
-          structure.
-        </Text>
-      )}
-      {mode === "signUp" ? (
-        <View style={styles.nameRow}>
-          <TextInput
-            autoCapitalize="words"
-            autoComplete="given-name"
-            maxLength={80}
-            placeholder="First name"
-            placeholderTextColor="#718096"
-            style={[styles.input, styles.nameInput]}
-            textContentType="givenName"
-            value={firstName}
-            onChangeText={setFirstName}
-          />
-          <TextInput
-            autoCapitalize="words"
-            autoComplete="family-name"
-            maxLength={80}
-            placeholder="Last name"
-            placeholderTextColor="#718096"
-            style={[styles.input, styles.nameInput]}
-            textContentType="familyName"
-            value={lastName}
-            onChangeText={setLastName}
-          />
-        </View>
-      ) : null}
-      <TextInput
-        autoCapitalize="none"
-        autoComplete="email"
-        keyboardType="email-address"
-        placeholder="Email"
-        placeholderTextColor="#718096"
-        style={styles.input}
-        value={email}
-        onChangeText={setEmail}
-      />
-      {mode !== "reset" && (
-        <TextInput
-          autoCapitalize="none"
-          autoComplete={mode === "signUp" ? "new-password" : "current-password"}
-          secureTextEntry
-          placeholder="Password"
-          placeholderTextColor="#718096"
-          style={styles.input}
-          value={password}
-          onChangeText={setPassword}
-        />
-      )}
-      {mode === "signIn" ? (
-        <>
-          <Pressable
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: rememberMe }}
-            onPress={() => setRememberMe((current) => !current)}
-            style={styles.rememberRow}
-          >
-            <View
-              style={[styles.checkbox, rememberMe && styles.checkboxChecked]}
-            >
-              {rememberMe ? (
-                <SymbolView
-                  fallback={<Text style={styles.checkboxFallback}>✓</Text>}
-                  name="checkmark"
-                  size={13}
-                  tintColor="#fff"
-                  weight="bold"
-                />
-              ) : null}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      style={{ flex: 1 }}
+    >
+      <ScreenScrollView
+        automaticallyAdjustKeyboardInsets={false}
+        contentContainerStyle={styles.page}
+      >
+        <View style={styles.form}>
+          <View style={styles.appIcon}>
+            <Icon name="heart" size={38} color={colors.pink} />
+          </View>
+          <Text style={styles.eyebrow}>HEALTHAPP</Text>
+          <Text style={styles.title}>{title}</Text>
+          {!supabaseConfig.isConfigured && (
+            <Text style={styles.warning}>
+              Supabase is not configured yet. You can still explore the app
+              structure.
+            </Text>
+          )}
+          {mode === "signUp" ? (
+            <View style={styles.nameRow}>
+              <TextInput
+                accessibilityLabel="First name"
+                autoCapitalize="words"
+                autoComplete="given-name"
+                maxLength={80}
+                placeholder="First name"
+                placeholderTextColor="#718096"
+                style={[styles.input, styles.nameInput]}
+                textContentType="givenName"
+                value={firstName}
+                onChangeText={setFirstName}
+              />
+              <TextInput
+                accessibilityLabel="Last name"
+                autoCapitalize="words"
+                autoComplete="family-name"
+                maxLength={80}
+                placeholder="Last name"
+                placeholderTextColor="#718096"
+                style={[styles.input, styles.nameInput]}
+                textContentType="familyName"
+                value={lastName}
+                onChangeText={setLastName}
+              />
             </View>
-            <Text style={styles.rememberText}>Remember me</Text>
-          </Pressable>
-          {faceIdAccount && !rememberMe ? (
-            <Text style={styles.rememberHint}>
-              Signing in removes Face ID from this iPhone.
+          ) : null}
+          <TextInput
+            accessibilityLabel="Email"
+            autoCorrect={false}
+            onSubmitEditing={mode === "reset" ? () => void submit() : undefined}
+            autoCapitalize="none"
+            autoComplete="email"
+            keyboardType="email-address"
+            placeholder="Email"
+            placeholderTextColor="#718096"
+            style={styles.input}
+            value={email}
+            onChangeText={setEmail}
+          />
+          {mode !== "reset" && (
+            <TextInput
+              accessibilityLabel="Password"
+              onSubmitEditing={() => void submit()}
+              returnKeyType="go"
+              autoCapitalize="none"
+              autoComplete={
+                mode === "signUp" ? "new-password" : "current-password"
+              }
+              secureTextEntry
+              placeholder="Password"
+              placeholderTextColor="#718096"
+              style={styles.input}
+              value={password}
+              onChangeText={setPassword}
+            />
+          )}
+          {mode === "signIn" ? (
+            <>
+              <Pressable
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: rememberMe }}
+                onPress={() => setRememberMe((current) => !current)}
+                style={styles.rememberRow}
+              >
+                <View
+                  style={[
+                    styles.checkbox,
+                    rememberMe && styles.checkboxChecked,
+                  ]}
+                >
+                  {rememberMe ? (
+                    <SymbolView
+                      fallback={<Text style={styles.checkboxFallback}>✓</Text>}
+                      name="checkmark"
+                      size={13}
+                      tintColor="#fff"
+                      weight="bold"
+                    />
+                  ) : null}
+                </View>
+                <Text style={styles.rememberText}>Remember me</Text>
+              </Pressable>
+              {faceIdAccount && !rememberMe ? (
+                <Text style={styles.rememberHint}>
+                  Signing in removes Face ID from this iPhone.
+                </Text>
+              ) : null}
+            </>
+          ) : null}
+          {feedback ? (
+            <Text accessibilityLiveRegion="polite" style={styles.error}>
+              {feedback}
             </Text>
           ) : null}
-        </>
-      ) : null}
-      {feedback ? (
-        <Text accessibilityLiveRegion="polite" style={styles.error}>
-          {feedback}
-        </Text>
-      ) : null}
-      <Pressable
-        accessibilityRole="button"
-        disabled={busy || faceIdBusy}
-        onPress={submit}
-        style={styles.button}
-      >
-        {busy ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>
-            {mode === "signIn"
-              ? "Sign in"
-              : mode === "signUp"
-                ? "Create account"
-                : "Send reset link"}
-          </Text>
-        )}
-      </Pressable>
-      {mode === "signIn" && faceIdAccount && rememberMe ? (
-        <>
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>OR</Text>
-            <View style={styles.dividerLine} />
-          </View>
           <Pressable
-            accessibilityLabel={`Sign in as ${faceIdAccount.email} with Face ID`}
             accessibilityRole="button"
             disabled={busy || faceIdBusy}
-            onPress={() => void signInWithFaceId()}
-            style={({ pressed }) => [
-              styles.faceIdButton,
-              pressed && styles.faceIdButtonPressed,
-              faceIdBusy && styles.faceIdButtonBusy,
-            ]}
+            onPress={submit}
+            style={styles.button}
           >
-            {faceIdBusy ? (
-              <ActivityIndicator color="#007AFF" />
+            {busy ? (
+              <ActivityIndicator color="#fff" />
             ) : (
-              <>
-                <View style={styles.faceIdSymbolWrap}>
-                  <SymbolView
-                    fallback={<Text style={styles.faceIdFallback}>ID</Text>}
-                    name="faceid"
-                    size={28}
-                    tintColor="#007AFF"
-                    weight="regular"
-                  />
-                </View>
-                <View style={styles.faceIdContent}>
-                  <Text style={styles.faceIdButtonText}>Face ID</Text>
-                  <Text numberOfLines={1} style={styles.faceIdAccount}>
-                    Sign in as {faceIdAccount.email}
-                  </Text>
-                </View>
-                <SymbolView
-                  fallback={<Text style={styles.chevronFallback}>›</Text>}
-                  name="chevron.right"
-                  size={13}
-                  tintColor="#C7C7CC"
-                  weight="semibold"
-                />
-              </>
+              <Text style={styles.buttonText}>
+                {mode === "signIn"
+                  ? "Sign in"
+                  : mode === "signUp"
+                    ? "Create account"
+                    : "Send reset link"}
+              </Text>
             )}
           </Pressable>
-        </>
-      ) : null}
-      {mode === "signIn" && (
-        <>
-          <Link href="/(auth)/forgot-password" style={styles.link}>
-            Forgot password?
-          </Link>
-          <Link href="/(auth)/sign-up" style={styles.link}>
-            New here? Create an account
-          </Link>
-        </>
-      )}
-      {mode !== "signIn" && (
-        <Link href="/(auth)/sign-in" style={styles.link}>
-          Back to sign in
-        </Link>
-      )}
-    </View>
+          {mode === "signIn" && faceIdAccount && rememberMe ? (
+            <>
+              <View style={styles.dividerRow}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>OR</Text>
+                <View style={styles.dividerLine} />
+              </View>
+              <Pressable
+                accessibilityLabel={`Sign in as ${faceIdAccount.email} with Face ID`}
+                accessibilityRole="button"
+                disabled={busy || faceIdBusy}
+                onPress={() => void signInWithFaceId()}
+                style={({ pressed }) => [
+                  styles.faceIdButton,
+                  pressed && styles.faceIdButtonPressed,
+                  faceIdBusy && styles.faceIdButtonBusy,
+                ]}
+              >
+                {faceIdBusy ? (
+                  <ActivityIndicator color="#007AFF" />
+                ) : (
+                  <>
+                    <View style={styles.faceIdSymbolWrap}>
+                      <SymbolView
+                        fallback={<Text style={styles.faceIdFallback}>ID</Text>}
+                        name="faceid"
+                        size={28}
+                        tintColor="#007AFF"
+                        weight="regular"
+                      />
+                    </View>
+                    <View style={styles.faceIdContent}>
+                      <Text style={styles.faceIdButtonText}>Face ID</Text>
+                      <Text numberOfLines={1} style={styles.faceIdAccount}>
+                        Sign in as {faceIdAccount.email}
+                      </Text>
+                    </View>
+                    <SymbolView
+                      fallback={<Text style={styles.chevronFallback}>›</Text>}
+                      name="chevron.right"
+                      size={13}
+                      tintColor="#C7C7CC"
+                      weight="semibold"
+                    />
+                  </>
+                )}
+              </Pressable>
+            </>
+          ) : null}
+          {mode === "signIn" && (
+            <>
+              <Link href="/(auth)/forgot-password" style={styles.link}>
+                Forgot password?
+              </Link>
+              <Link href="/(auth)/sign-up" style={styles.link}>
+                New here? Create an account
+              </Link>
+            </>
+          )}
+          {mode !== "signIn" && (
+            <Link href="/(auth)/sign-in" style={styles.link}>
+              Back to sign in
+            </Link>
+          )}
+        </View>
+      </ScreenScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   page: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: "center",
     padding: 24,
-    backgroundColor: "#F7FAFC",
+    backgroundColor: colors.background,
+  },
+  form: { alignSelf: "center", maxWidth: 440, width: "100%" },
+  appIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 24,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 26,
   },
   eyebrow: {
-    color: "#16776A",
-    fontWeight: "800",
+    color: colors.blue,
+    fontWeight: "600",
     letterSpacing: 2,
     marginBottom: 8,
   },
   title: {
-    color: "#102A43",
-    fontSize: 32,
-    fontWeight: "800",
+    color: colors.text,
+    fontSize: 34,
+    letterSpacing: -1,
+    fontWeight: "600",
     marginBottom: 24,
   },
   warning: {
@@ -450,10 +495,10 @@ const styles = StyleSheet.create({
   },
   input: {
     backgroundColor: "#fff",
-    borderColor: "#D9E2EC",
+    borderColor: colors.separator,
     borderWidth: 1,
-    borderRadius: 12,
-    color: "#102A43",
+    borderRadius: 16,
+    color: colors.text,
     fontSize: 16,
     padding: 15,
     marginBottom: 12,
@@ -469,7 +514,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     alignSelf: "flex-start",
     flexDirection: "row",
-    minHeight: 34,
+    minHeight: 44,
     paddingHorizontal: 2,
   },
   checkbox: {
@@ -484,12 +529,12 @@ const styles = StyleSheet.create({
     width: 21,
   },
   checkboxChecked: { backgroundColor: "#007AFF", borderColor: "#007AFF" },
-  checkboxFallback: { color: "#fff", fontSize: 12, fontWeight: "800" },
+  checkboxFallback: { color: "#fff", fontSize: 12, fontWeight: "600" },
   rememberText: { color: "#1C1C1E", fontSize: 14 },
   rememberHint: { color: "#8E8E93", fontSize: 11, marginBottom: 5 },
   button: {
     alignItems: "center",
-    backgroundColor: "#16776A",
+    backgroundColor: colors.blue,
     borderRadius: 12,
     minHeight: 52,
     justifyContent: "center",
@@ -502,8 +547,8 @@ const styles = StyleSheet.create({
     gap: 10,
     marginVertical: 17,
   },
-  dividerLine: { backgroundColor: "#D9E2EC", flex: 1, height: 1 },
-  dividerText: { color: "#829AB1", fontSize: 11, fontWeight: "800" },
+  dividerLine: { backgroundColor: colors.separator, flex: 1, height: 1 },
+  dividerText: { color: colors.tertiary, fontSize: 11, fontWeight: "600" },
   faceIdButton: {
     alignItems: "center",
     backgroundColor: "#fff",
@@ -528,7 +573,12 @@ const styles = StyleSheet.create({
   faceIdButtonText: { color: "#1C1C1E", fontSize: 15, fontWeight: "600" },
   faceIdAccount: { color: "#8E8E93", fontSize: 12, marginTop: 2 },
   chevronFallback: { color: "#C7C7CC", fontSize: 22, lineHeight: 22 },
-  link: { color: "#16776A", fontSize: 15, marginTop: 18, textAlign: "center" },
+  link: {
+    color: colors.blue,
+    fontSize: 15,
+    marginTop: 18,
+    textAlign: "center",
+  },
   nameRow: { flexDirection: "row", gap: 10 },
   nameInput: { flex: 1 },
 });

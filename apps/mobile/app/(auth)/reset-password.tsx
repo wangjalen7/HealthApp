@@ -1,8 +1,9 @@
+import { Pressable } from "../../src/ui/pressable";
+import { colors } from "../../src/ui/theme";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -61,7 +62,7 @@ export default function ResetPasswordScreen() {
       <Text style={styles.eyebrow}>ACCOUNT RECOVERY</Text>
       <Text style={styles.title}>Choose a new password</Text>
       {passwordRecovery.status === "loading" ? (
-        <ActivityIndicator color="#16776A" style={styles.loading} />
+        <ActivityIndicator color={colors.blue} style={styles.loading} />
       ) : null}
       {passwordRecovery.status === "error" ? (
         <Text accessibilityLiveRegion="polite" style={styles.error}>
@@ -125,12 +126,12 @@ export default function ResetPasswordScreen() {
 const styles = StyleSheet.create({
   button: {
     alignItems: "center",
-    backgroundColor: "#16776A",
+    backgroundColor: colors.blue,
     borderRadius: 12,
     justifyContent: "center",
     minHeight: 52,
   },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "800" },
+  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
   error: {
     backgroundColor: "#FDECEC",
     borderRadius: 10,
@@ -139,34 +140,35 @@ const styles = StyleSheet.create({
     padding: 11,
   },
   eyebrow: {
-    color: "#16776A",
+    color: colors.blue,
     fontSize: 12,
-    fontWeight: "800",
+    fontWeight: "600",
     letterSpacing: 1.8,
   },
   input: {
     backgroundColor: "#fff",
-    borderColor: "#D9E2EC",
+    borderColor: colors.separator,
     borderRadius: 12,
     borderWidth: 1,
-    color: "#102A43",
+    color: colors.text,
     fontSize: 16,
     marginBottom: 12,
     padding: 15,
   },
   loading: { marginVertical: 20 },
   page: {
-    backgroundColor: "#F7FAFC",
+    backgroundColor: colors.background,
     flex: 1,
     justifyContent: "center",
     padding: 24,
   },
   secondaryButton: { alignItems: "center", marginTop: 12, padding: 12 },
-  secondaryText: { color: "#16776A", fontWeight: "800" },
+  secondaryText: { color: colors.blue, fontWeight: "600" },
   title: {
-    color: "#102A43",
-    fontSize: 30,
-    fontWeight: "800",
+    color: colors.text,
+    fontSize: 34,
+    fontWeight: "700",
+    letterSpacing: -1,
     marginBottom: 24,
     marginTop: 8,
   },

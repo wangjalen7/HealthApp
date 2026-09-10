@@ -1,0 +1,74 @@
+diff --git a/node_modules/react-native-draggable-flatlist/lib/module/components/CellRendererComponent.js b/node_modules/react-native-draggable-flatlist/lib/module/components/CellRendererComponent.js
+index 7e32214..5dc979c 100644
+--- a/node_modules/react-native-draggable-flatlist/lib/module/components/CellRendererComponent.js
++++ b/node_modules/react-native-draggable-flatlist/lib/module/components/CellRendererComponent.js
+@@ -66,7 +66,10 @@ function CellRendererComponent(props) {
+   }, [translate, activeKey]);
+   const updateCellMeasurements = useStableCallback(() => {
+     const onSuccess = (x, y, w, h) => {
+-      if (isWeb && horizontal) x += scrollOffset.value;
++      if (isWeb) {
++        if (horizontal) x += scrollOffset.value;
++        else y += scrollOffset.value;
++      }
+       const cellOffset = horizontal ? x : y;
+       const cellSize = horizontal ? w : h;
+       cellDataRef.current.set(key, {
+diff --git a/node_modules/react-native-draggable-flatlist/lib/module/components/DraggableFlatList.js b/node_modules/react-native-draggable-flatlist/lib/module/components/DraggableFlatList.js
+index 80185d0..e2ec921 100644
+--- a/node_modules/react-native-draggable-flatlist/lib/module/components/DraggableFlatList.js
++++ b/node_modules/react-native-draggable-flatlist/lib/module/components/DraggableFlatList.js
+@@ -5,7 +5,7 @@ import { InteractionManager } from "react-native";
+ import { FlatList, Gesture, GestureDetector } from "react-native-gesture-handler";
+ import Animated, { runOnJS, useAnimatedReaction, useAnimatedScrollHandler, useSharedValue, withSpring } from "react-native-reanimated";
+ import CellRendererComponent from "./CellRendererComponent";
+-import { DEFAULT_PROPS } from "../constants";
++import { DEFAULT_PROPS, isWeb } from "../constants";
+ import PlaceholderItem from "./PlaceholderItem";
+ import RowItem from "./RowItem";
+ import PropsProvider from "../context/propsContext";
+@@ -326,6 +326,7 @@ function DraggableFlatListInner(props) {
+     CellRendererComponent: CellRendererComponent,
+     ref: flatlistRef,
+     onContentSizeChange: onListContentSizeChange,
++    enabled: isWeb ? !activeKey : undefined,
+     scrollEnabled: !activeKey && scrollEnabled,
+     renderItem: renderItem,
+     extraData: extraData,
+diff --git a/node_modules/react-native-draggable-flatlist/src/components/CellRendererComponent.tsx b/node_modules/react-native-draggable-flatlist/src/components/CellRendererComponent.tsx
+index e4e861a..fd76645 100644
+--- a/node_modules/react-native-draggable-flatlist/src/components/CellRendererComponent.tsx
++++ b/node_modules/react-native-draggable-flatlist/src/components/CellRendererComponent.tsx
+@@ -71,7 +71,10 @@ function CellRendererComponent<T>(props: Props<T>) {
+ 
+   const updateCellMeasurements = useStableCallback(() => {
+     const onSuccess: MeasureLayoutOnSuccessCallback = (x, y, w, h) => {
+-      if (isWeb && horizontal) x += scrollOffset.value;
++      if (isWeb) {
++        if (horizontal) x += scrollOffset.value;
++        else y += scrollOffset.value;
++      }
+       const cellOffset = horizontal ? x : y;
+       const cellSize = horizontal ? w : h;
+       cellDataRef.current.set(key, {
+diff --git a/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx b/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx
+index 7c88afc..a407099 100644
+--- a/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx
++++ b/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx
+@@ -25,7 +25,7 @@ import Animated, {
+   withSpring,
+ } from "react-native-reanimated";
+ import CellRendererComponent from "./CellRendererComponent";
+-import { DEFAULT_PROPS } from "../constants";
++import { DEFAULT_PROPS, isWeb } from "../constants";
+ import PlaceholderItem from "./PlaceholderItem";
+ import RowItem from "./RowItem";
+ import { DraggableFlatListProps } from "../types";
+@@ -389,6 +389,7 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+             CellRendererComponent={CellRendererComponent}
+             ref={flatlistRef}
+             onContentSizeChange={onListContentSizeChange}
++            enabled={isWeb ? !activeKey : undefined}
+             scrollEnabled={!activeKey && scrollEnabled}
+             renderItem={renderItem}
+             extraData={extraData}

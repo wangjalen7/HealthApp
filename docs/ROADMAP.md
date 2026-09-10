@@ -66,6 +66,11 @@ Status key: `[ ]` planned, `[-]` in progress, `[x]` complete.
 - [x] Combine Basic entry with saved-food search, offer prefilled reusable-label creation only when no exact saved name exists, and deduplicate reusable profiles by catalog product or canonical per-user barcode.
 - [x] Deploy an authenticated, cached Open Food Facts barcode resolver as a TypeScript Supabase Edge Function.
 - [-] Validate the native Face ID, progress-photo, unified nutrition/barcode, and expanded tracking flows on the registered iPhone, including hydration, workout ordering/location, Summary navigation/calendar, and manual-history editing.
+- [x] Complete local app review, usability/save-flow fixes, and repeatable browser regression coverage; document outstanding live-backend and iPhone checks separately.
+- [x] Correct repository-root Expo startup instructions and workspace script forwarding; verify the iOS development bundle uses Expo Router.
+- [x] Match Food History fluid entries to meal formatting within the daily card, retaining daily totals and confirmed deletion.
+- [x] Replace jumping exercise reorder with continuous dragging and edge auto-scroll, increase Add food/exercise contrast, and remove the redundant exercise hint.
+- [x] Preserve navigation/drafts during the Face ID privacy lock, share tracking form styles, keep Cardio expanded and move single Add actions below food/exercise lists; verify lifecycle tests and browser flows.
 - [x] Add drag-reorderable/location-aware exercise logging, arrow-based Workout History reordering, hydration tracking and goals, calorie-calendar summaries, corrected Summary navigation, and editing for all history categories.
 - [x] Rename the user-facing Exercise area to Workout and persist per-exercise muscle groups for per-exercise and per-muscle set totals in Workout History.
 - [x] Include daily water/fluid totals in Food History and restore the unified saved-food search/new-label flow after an accidental UI regression.
@@ -90,6 +95,8 @@ Status key: `[ ]` planned, `[-]` in progress, `[x]` complete.
 - [x] Import read-only HealthKit pulse only when it can be safely associated with a paired Blood Pressure record, and display it in History.
 - [x] Add device-local medication, supplement, custom, blood-pressure, and weight reminders with native scheduled notifications, repeat timing including multiple daily times, and daily completion.
 - [ ] Add Strava import after its platform/API setup.
+
+- [x] Refresh the interface with a shared iOS-inspired design system, responsive touch feedback, swipeable History categories, and accessible navigation.
 
 ## Later releases
 

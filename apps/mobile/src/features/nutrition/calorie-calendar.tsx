@@ -1,4 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable } from "../../ui/pressable";
+import { colors } from "../../ui/theme";
+import { StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Text as SvgText } from "react-native-svg";
 
 import {
@@ -30,7 +32,7 @@ function DayRing({
     hasEntries && hasGoal
       ? total!.calories > goal!
         ? "#C2413A"
-        : "#16776A"
+        : colors.blue
       : "#CBD5E1";
   return (
     <View
@@ -47,7 +49,7 @@ function DayRing({
           cy="19"
           fill="none"
           r={radius}
-          stroke="#E6EEF3"
+          stroke={colors.fill}
           strokeWidth="5"
         />
         {hasEntries ? (
@@ -55,9 +57,8 @@ function DayRing({
             cx="19"
             cy="19"
             fill="none"
-            origin="19, 19"
             r={radius}
-            rotation="-90"
+            transform="rotate(-90 19 19)"
             stroke={accent}
             strokeDasharray={`${circumference} ${circumference}`}
             strokeDashoffset={circumference * (1 - (hasGoal ? fraction : 1))}
@@ -66,7 +67,7 @@ function DayRing({
           />
         ) : null}
         <SvgText
-          fill="#243B53"
+          fill={colors.text}
           fontSize="11"
           fontWeight="800"
           textAnchor="middle"
@@ -165,9 +166,10 @@ export function CalorieCalendar({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: "#fff",
-    borderColor: "#D9E2EC",
-    borderRadius: 16,
-    borderWidth: 1,
+    borderColor: colors.separator,
+    borderRadius: 22,
+    borderCurve: "continuous",
+    borderWidth: StyleSheet.hairlineWidth,
     marginBottom: 18,
     padding: 14,
   },
@@ -178,39 +180,39 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   title: {
-    color: "#243B53",
+    color: colors.text,
     flex: 1,
-    fontSize: 18,
-    fontWeight: "800",
+    fontSize: 16,
+    fontWeight: "600",
     textAlign: "center",
   },
   monthButton: {
     alignItems: "center",
-    borderColor: "#D9E2EC",
-    borderRadius: 18,
+    borderColor: colors.separator,
+    borderRadius: 22,
     borderWidth: 1,
-    height: 36,
+    height: 44,
     justifyContent: "center",
-    width: 36,
+    width: 44,
   },
   monthButtonDisabled: { opacity: 0.3 },
-  monthButtonPressed: { backgroundColor: "#E6EEF3" },
+  monthButtonPressed: { backgroundColor: colors.fill },
   monthButtonText: {
-    color: "#16776A",
+    color: colors.blue,
     fontSize: 26,
     fontWeight: "700",
     lineHeight: 29,
   },
   weekdays: { flexDirection: "row", marginBottom: 3 },
   weekday: {
-    color: "#7B8794",
+    color: colors.tertiary,
     fontSize: 10,
-    fontWeight: "800",
+    fontWeight: "600",
     textAlign: "center",
     width: "14.2857%",
   },
   grid: { flexDirection: "row", flexWrap: "wrap" },
   day: { alignItems: "center", minHeight: 52, width: "14.2857%" },
   future: { opacity: 0.42 },
-  calories: { color: "#7B8794", fontSize: 8, marginTop: -1 },
+  calories: { color: colors.tertiary, fontSize: 8, marginTop: -1 },
 });

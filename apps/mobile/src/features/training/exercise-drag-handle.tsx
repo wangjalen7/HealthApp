@@ -1,103 +1,80 @@
-import { useRef, useState } from "react";
-import { PanResponder, StyleSheet, Text, View } from "react-native";
-
-import { workoutDragOffset } from "./exercise-reorder";
+import { Keyboard, Platform, Pressable, StyleSheet, Text } from "react-native";
+import { colors } from "../../ui/theme";
+import { Icon } from "../../ui/icon";
 
 export function ExerciseDragHandle({
   index,
   itemCount,
+  dragging,
+  onDrag,
   onMove,
 }: {
   index: number;
   itemCount: number;
+  dragging: boolean;
+  onDrag: () => void;
   onMove: (direction: -1 | 1) => void;
 }) {
-  const [dragging, setDragging] = useState(false);
-  const indexRef = useRef(index);
-  const itemCountRef = useRef(itemCount);
-  const onMoveRef = useRef(onMove);
-  const startIndexRef = useRef(index);
-  const appliedOffsetRef = useRef(0);
-  indexRef.current = index;
-  itemCountRef.current = itemCount;
-  onMoveRef.current = onMove;
-
-  function finishDrag() {
-    appliedOffsetRef.current = 0;
-    setDragging(false);
+  function move(direction: -1 | 1) {
+    if (!dragging && index + direction >= 0 && index + direction < itemCount)
+      onMove(direction);
   }
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gesture) =>
-        Math.abs(gesture.dy) > Math.abs(gesture.dx),
-      onPanResponderGrant: () => {
-        startIndexRef.current = indexRef.current;
-        appliedOffsetRef.current = 0;
-        setDragging(true);
-      },
-      onPanResponderMove: (_, gesture) => {
-        const requestedOffset = workoutDragOffset(
-          gesture.dy,
-          startIndexRef.current,
-          itemCountRef.current,
-        );
-        while (appliedOffsetRef.current < requestedOffset) {
-          onMoveRef.current(1);
-          appliedOffsetRef.current += 1;
-        }
-        while (appliedOffsetRef.current > requestedOffset) {
-          onMoveRef.current(-1);
-          appliedOffsetRef.current -= 1;
-        }
-      },
-      onPanResponderRelease: finishDrag,
-      onPanResponderTerminate: finishDrag,
-      onPanResponderTerminationRequest: () => false,
-    }),
-  ).current;
-
   return (
-    <View
-      {...panResponder.panHandlers}
+    <Pressable
       accessibilityActions={[
         { name: "increment", label: "Move down" },
         { name: "decrement", label: "Move up" },
       ]}
-      accessibilityHint="Drag up or down to reorder"
+      accessibilityHint="Hold and drag to reorder. Use move up or down actions."
       accessibilityLabel={`Reorder exercise ${index + 1}`}
       accessibilityRole="adjustable"
-      accessibilityValue={{ text: `${index + 1} of ${itemCount}` }}
-      onAccessibilityAction={({ nativeEvent }) => {
-        if (nativeEvent.actionName === "increment" && index < itemCount - 1)
-          onMove(1);
-        if (nativeEvent.actionName === "decrement" && index > 0) onMove(-1);
+      accessibilityValue={{
+        min: 1,
+        max: itemCount,
+        now: index + 1,
+        text: `${index + 1} of ${itemCount}`,
       }}
-      style={[styles.handle, dragging && styles.handleDragging]}
+      accessibilityState={{ disabled: itemCount < 2 }}
+      disabled={itemCount < 2}
+      onAccessibilityAction={({ nativeEvent }) => {
+        if (nativeEvent.actionName === "increment") move(1);
+        if (nativeEvent.actionName === "decrement") move(-1);
+      }}
+      onPressIn={Keyboard.dismiss}
+      onLongPress={onDrag}
+      delayLongPress={180}
+      {...(Platform.OS === "web"
+        ? {
+            onKeyDown: (event: { key: string; preventDefault: () => void }) => {
+              if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+                event.preventDefault();
+                move(event.key === "ArrowUp" ? -1 : 1);
+              }
+            },
+          }
+        : {})}
+      style={[
+        styles.handle,
+        dragging && styles.active,
+        itemCount < 2 && styles.disabled,
+      ]}
     >
-      <Text style={styles.grip}>≡</Text>
-      <Text style={styles.label}>{dragging ? "Dragging" : "Drag"}</Text>
-    </View>
+      <Icon name="reorder" size={20} color={colors.blue} />
+      <Text style={styles.label}>Drag</Text>
+    </Pressable>
   );
 }
-
 const styles = StyleSheet.create({
   handle: {
     alignItems: "center",
-    backgroundColor: "#E6F7F3",
-    borderColor: "#B7E4D8",
-    borderRadius: 9,
-    borderWidth: 1,
     flexDirection: "row",
-    gap: 3,
-    minHeight: 36,
-    paddingHorizontal: 9,
+    gap: 5,
+    minHeight: 44,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: colors.blueSoft,
   },
-  handleDragging: {
-    backgroundColor: "#B7E4D8",
-    borderColor: "#16776A",
-  },
-  grip: { color: "#16776A", fontSize: 20, fontWeight: "800" },
-  label: { color: "#16776A", fontSize: 12, fontWeight: "800" },
+  active: { backgroundColor: colors.fill },
+  disabled: { opacity: 0.5 },
+  label: { color: colors.blue, fontSize: 13, fontWeight: "600" },
 });

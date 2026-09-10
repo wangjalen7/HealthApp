@@ -1,10 +1,13 @@
+import { trackingStyles } from "../../ui/tracking-styles";
+import { ScreenScrollView } from "../../ui/screen-scroll-view";
+import { Pressable } from "../../ui/pressable";
+import { colors } from "../../ui/theme";
+import { Icon } from "../../ui/icon";
 import { useState } from "react";
 import { SymbolView } from "expo-symbols";
 import {
   ActivityIndicator,
   Image,
-  Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -156,7 +159,9 @@ export function ManualVitalsLog({ mode }: { mode: ManualVitalsLogMode }) {
             ? `Saved on this device. Sync is waiting: ${result.error}`
             : photoUploaded
               ? "Saved with progress photo."
-              : "Saved and synced to Supabase.",
+              : configured
+                ? "Saved and synced."
+                : "Saved on this device.",
       );
     } catch (error) {
       setFeedback(
@@ -170,7 +175,7 @@ export function ManualVitalsLog({ mode }: { mode: ManualVitalsLogMode }) {
   }
 
   return (
-    <ScrollView
+    <ScreenScrollView
       contentInsetAdjustmentBehavior="automatic"
       contentContainerStyle={styles.page}
       keyboardShouldPersistTaps="handled"
@@ -214,7 +219,7 @@ export function ManualVitalsLog({ mode }: { mode: ManualVitalsLogMode }) {
                 </Pressable>
               ) : null}
             </View>
-            {photoBusy ? <ActivityIndicator color="#16776A" /> : null}
+            {photoBusy ? <ActivityIndicator color={colors.blue} /> : null}
           </View>
         </>
       ) : (
@@ -262,7 +267,7 @@ export function ManualVitalsLog({ mode }: { mode: ManualVitalsLogMode }) {
               : "Save blood pressure"}
         </Text>
       </Pressable>
-    </ScrollView>
+    </ScreenScrollView>
   );
 }
 
@@ -286,10 +291,16 @@ function PhotoButton({
       style={[styles.photoButton, disabled && styles.disabledButton]}
     >
       <SymbolView
-        fallback={<Text style={styles.photoFallback}>+</Text>}
+        fallback={
+          <Icon
+            name={name === "camera.fill" ? "camera" : "image"}
+            size={20}
+            color={colors.blue}
+          />
+        }
         name={name}
         size={20}
-        tintColor="#16776A"
+        tintColor={colors.blue}
         weight="regular"
       />
       <Text style={styles.photoButtonText}>{label}</Text>
@@ -312,9 +323,10 @@ function Field({
     <View style={compact ? styles.compact : undefined}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
+        accessibilityLabel={label}
         keyboardType="decimal-pad"
         placeholder="0"
-        placeholderTextColor="#9FB3C8"
+        placeholderTextColor={colors.tertiary}
         style={styles.input}
         value={value}
         onChangeText={onChangeText}
@@ -324,42 +336,15 @@ function Field({
 }
 
 const styles = StyleSheet.create({
-  page: { backgroundColor: "#F7FAFC", flexGrow: 1, padding: 20 },
-  title: {
-    color: "#102A43",
-    fontSize: 30,
-    fontWeight: "800",
-    marginBottom: 18,
-  },
-  section: {
-    color: "#243B53",
-    fontSize: 17,
-    fontWeight: "800",
-    marginBottom: 10,
-    marginTop: 8,
-  },
-  label: { color: "#486581", fontSize: 14, fontWeight: "600", marginBottom: 7 },
-  input: {
-    backgroundColor: "#fff",
-    borderColor: "#D9E2EC",
-    borderRadius: 12,
-    borderWidth: 1,
-    color: "#102A43",
-    fontSize: 18,
-    marginBottom: 16,
-    padding: 14,
-  },
+  page: trackingStyles.page,
+  title: trackingStyles.title,
+  section: trackingStyles.section,
+  label: trackingStyles.label,
+  input: { ...trackingStyles.input, marginBottom: 16 },
   row: { flexDirection: "row", gap: 12 },
   compact: { flex: 1 },
-  photoCard: {
-    backgroundColor: "#fff",
-    borderColor: "#D9E2EC",
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 16,
-    padding: 13,
-  },
-  photoTitle: { color: "#243B53", fontSize: 14, fontWeight: "800" },
+  photoCard: { ...trackingStyles.card, marginBottom: 16 },
+  photoTitle: trackingStyles.section,
   photoPreview: {
     borderRadius: 10,
     height: 180,
@@ -373,29 +358,18 @@ const styles = StyleSheet.create({
     marginTop: 11,
   },
   photoButton: {
-    alignItems: "center",
-    backgroundColor: "#F0F8F6",
-    borderRadius: 9,
-    flexDirection: "row",
-    gap: 6,
-    justifyContent: "center",
-    minHeight: 42,
-    paddingHorizontal: 11,
+    ...trackingStyles.addButton,
+    minHeight: 44,
+    marginBottom: 0,
+    paddingVertical: 10,
   },
-  photoButtonText: { color: "#16776A", fontSize: 13, fontWeight: "800" },
-  photoFallback: { color: "#16776A", fontSize: 18, fontWeight: "800" },
+  photoButtonText: trackingStyles.addButtonText,
+  photoFallback: { color: colors.blue, fontSize: 18, fontWeight: "600" },
   removePhotoButton: { marginLeft: "auto", padding: 9 },
-  removePhotoText: { color: "#B42318", fontSize: 13, fontWeight: "800" },
-  success: { color: "#16776A", fontWeight: "700", marginBottom: 8 },
-  error: { color: "#B42318", lineHeight: 20, marginBottom: 8 },
-  button: {
-    alignItems: "center",
-    backgroundColor: "#16776A",
-    borderRadius: 13,
-    justifyContent: "center",
-    marginTop: 8,
-    minHeight: 54,
-  },
+  removePhotoText: { color: "#B42318", fontSize: 13, fontWeight: "600" },
+  success: trackingStyles.success,
+  error: trackingStyles.error,
+  button: trackingStyles.button,
   disabledButton: { opacity: 0.65 },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "800" },
+  buttonText: trackingStyles.buttonText,
 });

@@ -17,6 +17,18 @@ export function pulseForBloodPressure(
   systolic: VitalSample,
   samples: VitalSample[],
 ): VitalSample | undefined {
+  if (systolic.source === "manual") {
+    return systolic.correlationId
+      ? samples.find(
+          (sample) =>
+            sample.kind === "pulse" &&
+            sample.source === "manual" &&
+            sample.userId === systolic.userId &&
+            !sample.deletedAt &&
+            sample.correlationId === systolic.correlationId,
+        )
+      : undefined;
+  }
   if (systolic.source !== "healthkit") return undefined;
   const readingTime = new Date(systolic.occurredAt).getTime();
   const sourceName = normalizedSourceName(systolic);
@@ -25,6 +37,7 @@ export function pulseForBloodPressure(
       (sample) =>
         sample.kind === "pulse" &&
         sample.source === "healthkit" &&
+        sample.userId === systolic.userId &&
         !sample.deletedAt &&
         Math.abs(new Date(sample.occurredAt).getTime() - readingTime) <=
           maxPulseDistanceMs,

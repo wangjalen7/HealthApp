@@ -1,17 +1,30 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { applyExerciseOrder } from "./exercise-reorder";
 
-import { workoutDragOffset } from "./exercise-reorder";
-
-test("turns vertical drag distance into bounded reorder offsets", () => {
-  assert.equal(workoutDragOffset(51, 1, 4), 0);
-  assert.equal(workoutDragOffset(52, 1, 4), 1);
-  assert.equal(workoutDragOffset(104, 1, 4), 2);
-  assert.equal(workoutDragOffset(-52, 1, 4), -1);
+test("applies a multi-position drop while preserving current exercise fields", () => {
+  const current = [
+    { id: "a", reps: [8] },
+    { id: "b", reps: [12] },
+    { id: "c", reps: [6] },
+  ];
+  const result = applyExerciseOrder(current, ["c", "a", "b"]);
+  assert.deepEqual(
+    result.map((entry) => entry.id),
+    ["c", "a", "b"],
+  );
+  assert.equal(result[0], current[2]);
+  assert.equal(result[2], current[1]);
+  assert.deepEqual(
+    current.map((entry) => entry.id),
+    ["a", "b", "c"],
+  );
 });
-
-test("keeps drag reordering inside the exercise list", () => {
-  assert.equal(workoutDragOffset(-500, 1, 4), -1);
-  assert.equal(workoutDragOffset(500, 1, 4), 2);
-  assert.equal(workoutDragOffset(500, 0, 1), 0);
+test("drop preserves newly added exercises and ignores removed or duplicate IDs", () => {
+  const current = [{ id: "a" }, { id: "b" }, { id: "new" }];
+  assert.deepEqual(applyExerciseOrder(current, ["b", "deleted", "b", "a"]), [
+    current[1],
+    current[0],
+    current[2],
+  ]);
 });

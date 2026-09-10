@@ -1,11 +1,14 @@
+import { trackingStyles } from "../../src/ui/tracking-styles";
+import { ScreenScrollView } from "../../src/ui/screen-scroll-view";
+import { Pressable } from "../../src/ui/pressable";
+import { colors } from "../../src/ui/theme";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useCallback, useMemo, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import {
   ActivityIndicator,
-  Pressable,
-  ScrollView,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -13,6 +16,7 @@ import {
 } from "react-native";
 
 import { useAuth } from "../../src/features/auth/auth-provider";
+import { Icon } from "../../src/ui/icon";
 import {
   createReminder,
   dateFromLocalDay,
@@ -304,8 +308,26 @@ export default function RemindersScreen() {
     }
   }
 
+  if (Platform.OS === "web") {
+    return (
+      <ScreenScrollView contentContainerStyle={styles.page}>
+        <Text style={styles.title}>Reminders</Text>
+        <View style={[styles.editor, { gap: 12, marginTop: 18 }]}>
+          <Icon name="bell" size={28} color={colors.blue} />
+          <Text style={styles.section}>Set reminders on your iPhone</Text>
+          <Text
+            style={{ color: colors.secondary, fontSize: 15, lineHeight: 22 }}
+          >
+            Open HealthApp on your iPhone to schedule reminders and receive
+            notifications.
+          </Text>
+        </View>
+      </ScreenScrollView>
+    );
+  }
+
   return (
-    <ScrollView
+    <ScreenScrollView
       contentInsetAdjustmentBehavior="automatic"
       contentContainerStyle={styles.page}
       keyboardShouldPersistTaps="handled"
@@ -372,7 +394,7 @@ export default function RemindersScreen() {
                       ? "Supplement name"
                       : "Reminder name"
                 }
-                placeholderTextColor="#9FB3C8"
+                placeholderTextColor={colors.tertiary}
                 style={styles.input}
                 value={draft.name}
               />
@@ -531,7 +553,7 @@ export default function RemindersScreen() {
       ) : null}
 
       {loading ? (
-        <ActivityIndicator color="#16776A" style={styles.loading} />
+        <ActivityIndicator color={colors.blue} style={styles.loading} />
       ) : reminders.length ? (
         <>
           <Text style={styles.section}>Today</Text>
@@ -558,7 +580,7 @@ export default function RemindersScreen() {
                     }
                     name={complete ? "checkmark" : "circle"}
                     size={17}
-                    tintColor={complete ? "#FFFFFF" : "#16776A"}
+                    tintColor={complete ? "#FFFFFF" : colors.blue}
                     weight="bold"
                   />
                 </Pressable>
@@ -588,7 +610,7 @@ export default function RemindersScreen() {
           })}
         </>
       ) : null}
-    </ScrollView>
+    </ScreenScrollView>
   );
 }
 
@@ -616,21 +638,16 @@ function Chip({
 }
 
 const styles = StyleSheet.create({
-  page: {
-    backgroundColor: "#F7FAFC",
-    flexGrow: 1,
-    padding: 20,
-    paddingBottom: 40,
-  },
+  page: trackingStyles.page,
   header: {
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  title: { color: "#102A43", fontSize: 30, fontWeight: "800" },
+  title: trackingStyles.title,
   addButton: {
     alignItems: "center",
-    backgroundColor: "#16776A",
+    backgroundColor: colors.blue,
     borderRadius: 20,
     height: 40,
     justifyContent: "center",
@@ -642,71 +659,37 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     lineHeight: 25,
   },
-  success: { color: "#16776A", fontSize: 14, fontWeight: "700", marginTop: 12 },
-  error: { color: "#B42318", fontSize: 13, fontWeight: "700", marginTop: 12 },
-  section: {
-    color: "#243B53",
-    fontSize: 18,
-    fontWeight: "800",
-    marginBottom: 10,
-    marginTop: 22,
-  },
-  editor: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#D9E2EC",
-    borderRadius: 16,
-    borderWidth: 1,
-    marginTop: 20,
-    padding: 16,
-  },
+  success: trackingStyles.success,
+  error: trackingStyles.error,
+  section: { ...trackingStyles.section, marginTop: 20 },
+  editor: { ...trackingStyles.card, marginTop: 20 },
   editorHeader: {
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
   },
   textButton: { paddingVertical: 5 },
-  textButtonText: { color: "#16776A", fontSize: 14, fontWeight: "800" },
-  label: {
-    color: "#486581",
-    fontSize: 13,
-    fontWeight: "800",
-    marginBottom: 7,
-    marginTop: 17,
-  },
-  input: {
-    backgroundColor: "#F7FAFC",
-    borderColor: "#C5D1DD",
-    borderRadius: 11,
-    borderWidth: 1,
-    color: "#102A43",
-    fontSize: 16,
-    minHeight: 46,
-    paddingHorizontal: 12,
-  },
+  textButtonText: { color: colors.blue, fontSize: 14, fontWeight: "600" },
+  label: { ...trackingStyles.label, marginTop: 16 },
+  input: trackingStyles.input,
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    backgroundColor: "#F1F5F9",
-    borderColor: "#D9E2EC",
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingHorizontal: 11,
-    paddingVertical: 8,
-  },
-  chipSelected: { backgroundColor: "#E6F7F3", borderColor: "#16776A" },
-  chipText: { color: "#486581", fontSize: 13, fontWeight: "700" },
-  chipTextSelected: { color: "#12685D" },
+  chip: trackingStyles.chip,
+  chipSelected: trackingStyles.chipActive,
+  chipText: trackingStyles.chipText,
+  chipTextSelected: trackingStyles.chipTextActive,
   days: { flexDirection: "row", justifyContent: "space-between" },
   day: {
     alignItems: "center",
-    borderColor: "#D9E2EC",
-    borderRadius: 16,
+    borderColor: colors.separator,
+    borderRadius: 22,
+    borderCurve: "continuous",
     borderWidth: 1,
     height: 34,
     justifyContent: "center",
     width: 34,
   },
-  daySelected: { backgroundColor: "#16776A", borderColor: "#16776A" },
-  dayText: { color: "#486581", fontSize: 11, fontWeight: "800" },
+  daySelected: { backgroundColor: colors.blue, borderColor: colors.blue },
+  dayText: { color: colors.secondary, fontSize: 11, fontWeight: "600" },
   dayTextSelected: { color: "#FFFFFF" },
   additionalTime: {
     alignItems: "center",
@@ -715,20 +698,12 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   removeTimeButton: { paddingHorizontal: 8, paddingVertical: 7 },
-  removeTimeText: { color: "#B42318", fontSize: 13, fontWeight: "800" },
+  removeTimeText: { color: "#B42318", fontSize: 13, fontWeight: "600" },
   addTimeButton: { alignSelf: "flex-start", marginTop: 8, paddingVertical: 7 },
-  addTimeText: { color: "#16776A", fontSize: 13, fontWeight: "800" },
+  addTimeText: { color: colors.blue, fontSize: 13, fontWeight: "600" },
   editorActions: { flexDirection: "row", gap: 10, marginTop: 20 },
-  saveButton: {
-    alignItems: "center",
-    backgroundColor: "#16776A",
-    borderRadius: 12,
-    flex: 1,
-    justifyContent: "center",
-    minHeight: 48,
-    paddingHorizontal: 16,
-  },
-  saveText: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
+  saveButton: { ...trackingStyles.button, flex: 1 },
+  saveText: trackingStyles.buttonText,
   deleteButton: {
     alignItems: "center",
     borderColor: "#E5A7A1",
@@ -738,22 +713,23 @@ const styles = StyleSheet.create({
     minHeight: 48,
     paddingHorizontal: 16,
   },
-  deleteText: { color: "#B42318", fontSize: 15, fontWeight: "800" },
+  deleteText: { color: "#B42318", fontSize: 15, fontWeight: "600" },
   disabled: { opacity: 0.6 },
   loading: { marginTop: 36 },
   card: {
     alignItems: "center",
     backgroundColor: "#FFFFFF",
-    borderColor: "#D9E2EC",
-    borderRadius: 16,
-    borderWidth: 1,
+    borderColor: colors.separator,
+    borderRadius: 22,
+    borderCurve: "continuous",
+    borderWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     marginBottom: 10,
     padding: 14,
   },
   completeButton: {
     alignItems: "center",
-    borderColor: "#16776A",
+    borderColor: colors.blue,
     borderRadius: 17,
     borderWidth: 1.5,
     height: 34,
@@ -761,13 +737,18 @@ const styles = StyleSheet.create({
     marginRight: 12,
     width: 34,
   },
-  completeButtonDone: { backgroundColor: "#16776A" },
-  checkFallback: { color: "#FFFFFF", fontSize: 17, fontWeight: "800" },
+  completeButtonDone: { backgroundColor: colors.blue },
+  checkFallback: { color: "#FFFFFF", fontSize: 17, fontWeight: "600" },
   cardContent: { flex: 1 },
-  cardTitle: { color: "#102A43", fontSize: 16, fontWeight: "800" },
-  cardCopy: { color: "#627D98", fontSize: 13, marginTop: 2 },
-  active: { color: "#16776A", fontSize: 12, fontWeight: "700", marginTop: 4 },
-  done: { color: "#486581", fontSize: 12, fontWeight: "700", marginTop: 4 },
+  cardTitle: { color: colors.text, fontSize: 16, fontWeight: "600" },
+  cardCopy: { color: colors.secondary, fontSize: 13, marginTop: 2 },
+  active: { color: colors.blue, fontSize: 12, fontWeight: "700", marginTop: 4 },
+  done: {
+    color: colors.secondary,
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 4,
+  },
   editButton: { paddingBottom: 9, paddingLeft: 10, paddingTop: 9 },
-  editText: { color: "#16776A", fontSize: 13, fontWeight: "800" },
+  editText: { color: colors.blue, fontSize: 13, fontWeight: "600" },
 });

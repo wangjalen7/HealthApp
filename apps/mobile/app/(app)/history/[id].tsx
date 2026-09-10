@@ -1,9 +1,10 @@
+import { ScreenScrollView } from "../../../src/ui/screen-scroll-view";
+import { Pressable } from "../../../src/ui/pressable";
+import { colors } from "../../../src/ui/theme";
 import { useCallback, useState } from "react";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import {
   ActivityIndicator,
-  Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -234,11 +235,11 @@ export default function EditWorkoutScreen() {
   if (loading)
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color="#16776A" />
+        <ActivityIndicator color={colors.blue} />
       </View>
     );
   return (
-    <ScrollView
+    <ScreenScrollView
       contentInsetAdjustmentBehavior="automatic"
       contentContainerStyle={styles.page}
       keyboardShouldPersistTaps="handled"
@@ -428,40 +429,46 @@ export default function EditWorkoutScreen() {
           {saving ? "Saving..." : "Save changes"}
         </Text>
       </Pressable>
-    </ScrollView>
+    </ScreenScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   loading: {
     alignItems: "center",
-    backgroundColor: "#F7FAFC",
+    backgroundColor: colors.background,
     flex: 1,
     justifyContent: "center",
   },
-  page: { backgroundColor: "#F7FAFC", flexGrow: 1, padding: 20 },
+  page: { backgroundColor: colors.background, flexGrow: 1, padding: 20 },
   title: {
-    color: "#102A43",
-    fontSize: 30,
-    fontWeight: "800",
+    color: colors.text,
+    fontSize: 34,
+    fontWeight: "700",
+    letterSpacing: -1,
     marginBottom: 20,
   },
-  label: { color: "#486581", fontSize: 14, fontWeight: "800", marginBottom: 8 },
+  label: {
+    color: colors.secondary,
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
   groups: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 20 },
   chip: {
-    backgroundColor: "#E6EEF3",
+    backgroundColor: colors.fill,
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  chipActive: { backgroundColor: "#16776A" },
-  chipText: { color: "#486581", fontWeight: "800" },
-  chipTextActive: { color: "#fff", fontWeight: "800" },
+  chipActive: { backgroundColor: colors.blue },
+  chipText: { color: colors.secondary, fontWeight: "600" },
+  chipTextActive: { color: "#fff", fontWeight: "600" },
   card: {
     backgroundColor: "#fff",
-    borderColor: "#D9E2EC",
+    borderColor: colors.separator,
     borderRadius: 15,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     marginBottom: 12,
     padding: 14,
   },
@@ -475,7 +482,7 @@ const styles = StyleSheet.create({
   reorderActions: { flexDirection: "row", gap: 5 },
   reorderButton: {
     alignItems: "center",
-    backgroundColor: "#E6F7F3",
+    backgroundColor: colors.blueSoft,
     borderRadius: 8,
     height: 32,
     justifyContent: "center",
@@ -483,32 +490,32 @@ const styles = StyleSheet.create({
   },
   reorderButtonDisabled: { opacity: 0.3 },
   reorderButtonText: {
-    color: "#16776A",
+    color: colors.blue,
     fontSize: 18,
-    fontWeight: "800",
+    fontWeight: "600",
     lineHeight: 20,
   },
   entryLabel: {
-    color: "#7B8794",
+    color: colors.tertiary,
     fontSize: 11,
-    fontWeight: "800",
+    fontWeight: "600",
     letterSpacing: 1,
   },
-  remove: { color: "#B42318", fontWeight: "800" },
+  remove: { color: "#B42318", fontWeight: "600" },
   input: {
-    backgroundColor: "#F7FAFC",
-    borderColor: "#D9E2EC",
+    backgroundColor: colors.background,
+    borderColor: colors.separator,
     borderRadius: 11,
     borderWidth: 1,
-    color: "#102A43",
+    color: colors.text,
     fontSize: 16,
     padding: 12,
   },
   location: { marginBottom: 18 },
   exerciseGroupLabel: {
-    color: "#486581",
+    color: colors.secondary,
     fontSize: 12,
-    fontWeight: "800",
+    fontWeight: "600",
     marginBottom: 6,
     marginTop: 10,
   },
@@ -519,71 +526,76 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   exerciseGroupChip: {
-    backgroundColor: "#E6EEF3",
-    borderRadius: 16,
+    backgroundColor: colors.fill,
+    borderRadius: 22,
+    borderCurve: "continuous",
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
-  exerciseGroupChipActive: { backgroundColor: "#16776A" },
-  exerciseGroupText: { color: "#486581", fontSize: 12, fontWeight: "700" },
+  exerciseGroupChipActive: { backgroundColor: colors.blue },
+  exerciseGroupText: {
+    color: colors.secondary,
+    fontSize: 12,
+    fontWeight: "700",
+  },
   exerciseGroupTextActive: {
     color: "#fff",
     fontSize: 12,
-    fontWeight: "800",
+    fontWeight: "600",
   },
   row: { alignItems: "center", flexDirection: "row", gap: 6, marginTop: 12 },
   count: {
-    backgroundColor: "#F7FAFC",
-    borderColor: "#D9E2EC",
+    backgroundColor: colors.background,
+    borderColor: colors.separator,
     borderRadius: 9,
     borderWidth: 1,
-    color: "#102A43",
+    color: colors.text,
     padding: 9,
     textAlign: "center",
     width: 47,
   },
-  times: { color: "#486581", fontSize: 18, fontWeight: "800" },
+  times: { color: colors.secondary, fontSize: 18, fontWeight: "600" },
   reps: { flex: 1, flexDirection: "row", flexWrap: "wrap", gap: 5 },
   rep: {
-    backgroundColor: "#F7FAFC",
-    borderColor: "#D9E2EC",
+    backgroundColor: colors.background,
+    borderColor: colors.separator,
     borderRadius: 9,
     borderWidth: 1,
-    color: "#102A43",
+    color: colors.text,
     padding: 9,
     textAlign: "center",
     width: 45,
   },
   weight: {
-    backgroundColor: "#F7FAFC",
-    borderColor: "#D9E2EC",
+    backgroundColor: colors.background,
+    borderColor: colors.separator,
     borderRadius: 9,
     borderWidth: 1,
-    color: "#102A43",
+    color: colors.text,
     padding: 9,
     textAlign: "center",
     width: 56,
   },
-  lb: { color: "#486581", fontSize: 13, fontWeight: "800" },
+  lb: { color: colors.secondary, fontSize: 13, fontWeight: "600" },
   add: {
     alignItems: "center",
-    borderColor: "#16776A",
+    borderColor: colors.blue,
     borderRadius: 11,
     borderStyle: "dashed",
     borderWidth: 1,
     marginBottom: 18,
     padding: 13,
   },
-  addText: { color: "#16776A", fontWeight: "800" },
+  addText: { color: colors.blue, fontWeight: "600" },
   notes: { minHeight: 80, textAlignVertical: "top" },
   error: { color: "#B42318", marginTop: 10 },
   save: {
     alignItems: "center",
-    backgroundColor: "#16776A",
+    backgroundColor: colors.blue,
     borderRadius: 13,
     marginTop: 16,
     minHeight: 54,
     justifyContent: "center",
   },
-  saveText: { color: "#fff", fontSize: 16, fontWeight: "800" },
+  saveText: { color: "#fff", fontSize: 16, fontWeight: "600" },
 });

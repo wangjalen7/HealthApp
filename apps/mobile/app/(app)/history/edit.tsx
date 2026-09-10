@@ -1,9 +1,10 @@
+import { ScreenScrollView } from "../../../src/ui/screen-scroll-view";
+import { Pressable } from "../../../src/ui/pressable";
+import { colors } from "../../../src/ui/theme";
 import { useCallback, useState } from "react";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import {
   ActivityIndicator,
-  Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -352,7 +353,7 @@ export default function EditHistoryScreen() {
           : "Edit food";
   const canEdit = Boolean(cardio || food || vitalSamples.length);
   return (
-    <ScrollView
+    <ScreenScrollView
       contentContainerStyle={[styles.page, { paddingTop: insets.top + 18 }]}
       contentInsetAdjustmentBehavior="never"
       keyboardShouldPersistTaps="handled"
@@ -370,7 +371,7 @@ export default function EditHistoryScreen() {
       </Pressable>
       <Text style={styles.title}>{title}</Text>
       {loading ? (
-        <ActivityIndicator color="#16776A" style={styles.loading} />
+        <ActivityIndicator color={colors.blue} style={styles.loading} />
       ) : null}
       {!loading && kind === "cardio" && cardio ? (
         <>
@@ -491,7 +492,7 @@ export default function EditHistoryScreen() {
           </Text>
         </Pressable>
       ) : null}
-    </ScrollView>
+    </ScreenScrollView>
   );
 }
 
@@ -511,6 +512,7 @@ function ChoiceRow<T extends string>({
       {choices.map((choice) => (
         <Pressable
           key={choice}
+          accessibilityState={{ selected: choice === selected }}
           onPress={() => onSelect(choice)}
           style={[styles.choice, choice === selected && styles.choiceActive]}
         >
@@ -544,6 +546,7 @@ function Field({
     <View>
       <Text style={styles.label}>{label}</Text>
       <TextInput
+        accessibilityLabel={label}
         keyboardType={numeric ? "decimal-pad" : "default"}
         multiline={multiline}
         onChangeText={onChangeText}
@@ -557,30 +560,41 @@ function Field({
 
 const styles = StyleSheet.create({
   page: {
-    backgroundColor: "#F7FAFC",
+    backgroundColor: colors.background,
     flexGrow: 1,
     padding: 20,
     paddingBottom: 44,
   },
-  back: { color: "#16776A", fontSize: 16, fontWeight: "800", marginBottom: 12 },
+  back: {
+    color: colors.blue,
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 12,
+  },
   title: {
-    color: "#102A43",
-    fontSize: 30,
-    fontWeight: "800",
+    color: colors.text,
+    fontSize: 34,
+    fontWeight: "700",
+    letterSpacing: -1,
     marginBottom: 18,
   },
   loading: { marginTop: 24 },
-  help: { color: "#627D98", lineHeight: 20, marginBottom: 16 },
-  foodName: { color: "#243B53", fontSize: 19, fontWeight: "800" },
-  foodBrand: { color: "#627D98", fontSize: 13, marginTop: 3 },
-  serving: { color: "#16776A", fontWeight: "700", marginBottom: 15 },
-  label: { color: "#486581", fontSize: 13, fontWeight: "700", marginBottom: 6 },
+  help: { color: colors.secondary, lineHeight: 20, marginBottom: 16 },
+  foodName: { color: colors.text, fontSize: 19, fontWeight: "600" },
+  foodBrand: { color: colors.secondary, fontSize: 13, marginTop: 3 },
+  serving: { color: colors.blue, fontWeight: "700", marginBottom: 15 },
+  label: {
+    color: colors.secondary,
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
   input: {
     backgroundColor: "#fff",
-    borderColor: "#D9E2EC",
+    borderColor: colors.separator,
     borderRadius: 11,
     borderWidth: 1,
-    color: "#102A43",
+    color: colors.text,
     fontSize: 16,
     marginBottom: 15,
     padding: 13,
@@ -588,30 +602,30 @@ const styles = StyleSheet.create({
   multiline: { minHeight: 82, textAlignVertical: "top" },
   choices: { flexDirection: "row", flexWrap: "wrap", gap: 7, marginBottom: 16 },
   choice: {
-    backgroundColor: "#E6EEF3",
+    backgroundColor: colors.fill,
     borderRadius: 18,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  choiceActive: { backgroundColor: "#16776A" },
+  choiceActive: { backgroundColor: colors.blue },
   choiceText: {
-    color: "#486581",
+    color: colors.secondary,
     fontWeight: "700",
     textTransform: "capitalize",
   },
   choiceTextActive: {
     color: "#fff",
-    fontWeight: "800",
+    fontWeight: "600",
     textTransform: "capitalize",
   },
   error: { color: "#B42318", lineHeight: 20, marginBottom: 12 },
   save: {
     alignItems: "center",
-    backgroundColor: "#16776A",
+    backgroundColor: colors.blue,
     borderRadius: 13,
     justifyContent: "center",
     minHeight: 54,
   },
   disabled: { opacity: 0.65 },
-  saveText: { color: "#fff", fontSize: 16, fontWeight: "800" },
+  saveText: { color: "#fff", fontSize: 16, fontWeight: "600" },
 });

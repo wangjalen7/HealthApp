@@ -22,7 +22,7 @@ Use a real monitored contact address in the Open Food Facts User-Agent. Do not c
 npx eas-cli@latest build --platform ios --profile development
 ```
 
-After installation, start Metro with `npx expo start --dev-client`, open Food, choose Add food, and select Scan barcode. Camera permission is remembered by iOS and can later be changed in Settings.
+After installation, start Metro from the repository root with `npm run dev -- --dev-client`, open Food, choose Add food, and select Scan barcode. The script starts Expo in `apps/mobile`. Camera permission is remembered by iOS and can later be changed in Settings.
 
 ## Current provider boundary
 

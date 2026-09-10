@@ -1,13 +1,11 @@
+import { trackingStyles } from "../../src/ui/tracking-styles";
+import { Modal } from "../../src/ui/modal";
+import { ScreenScrollView } from "../../src/ui/screen-scroll-view";
+import { Pressable } from "../../src/ui/pressable";
+import { colors } from "../../src/ui/theme";
+import { Icon } from "../../src/ui/icon";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  AppState,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { AppState, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "../../src/features/auth/auth-provider";
 import {
@@ -128,7 +126,7 @@ export default function NutritionScreen() {
       await clearNutritionDraft(userId);
       setEntries([]);
       setMealType(undefined);
-      setFeedback("Meal saved. These foods are now available in My Foods.");
+      setFeedback("Meal saved.");
     } catch (error) {
       setFeedback(
         error instanceof Error ? error.message : "Could not save this meal.",
@@ -148,7 +146,7 @@ export default function NutritionScreen() {
 
   return (
     <>
-      <ScrollView
+      <ScreenScrollView
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.page}
         keyboardShouldPersistTaps="handled"
@@ -169,12 +167,10 @@ export default function NutritionScreen() {
         </View>
 
         {draftLoaded && nutritionDraftHasContent(draft) ? (
-          <Text style={styles.draftStatus}>
-            Unfinished meal saved on this device.
-          </Text>
+          <Text style={styles.draftStatus}>Draft saved</Text>
         ) : null}
 
-        <Text style={styles.label}>1. Meal</Text>
+        <Text style={styles.label}>Meal</Text>
         <View style={styles.chips}>
           {meals.map((meal) => (
             <Pressable
@@ -199,7 +195,7 @@ export default function NutritionScreen() {
         </View>
 
         <View style={styles.foodBar}>
-          <Text style={styles.label}>2. Foods</Text>
+          <Text style={styles.label}>Foods</Text>
           <View style={styles.foodActions}>
             <Pressable
               accessibilityRole="button"
@@ -213,24 +209,13 @@ export default function NutritionScreen() {
             >
               <Text style={styles.manageLabelsText}>Manage labels</Text>
             </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                setEditing(undefined);
-                setEditorPurpose("add");
-                setEditorOpen(true);
-                setFeedback("");
-              }}
-              style={styles.addButton}
-            >
-              <Text style={styles.addButtonText}>+ Add food</Text>
-            </Pressable>
           </View>
         </View>
 
-        {!entries.length ? (
+        {!mealType ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>Build this meal</Text>
+            <Icon name="food" size={22} color={colors.orange} />
+            <Text style={styles.emptyTitle}>Choose a meal to get started</Text>
           </View>
         ) : null}
 
@@ -286,6 +271,24 @@ export default function NutritionScreen() {
           </View>
         ))}
 
+        <Pressable
+          accessibilityRole="button"
+          disabled={!mealType || saving || !draftLoaded}
+          onPress={() => {
+            setEditing(undefined);
+            setEditorPurpose("add");
+            setEditorOpen(true);
+            setFeedback("");
+          }}
+          style={[
+            styles.addButton,
+            (!mealType || saving || !draftLoaded) && styles.buttonDisabled,
+          ]}
+        >
+          <Icon name="plus" size={20} color={colors.surface} />
+          <Text style={styles.addButtonText}>Add food</Text>
+        </Pressable>
+
         {entries.length ? (
           <View style={styles.totalCard}>
             <View>
@@ -309,15 +312,19 @@ export default function NutritionScreen() {
         ) : null}
         <Pressable
           accessibilityRole="button"
-          disabled={saving}
+          disabled={saving || !draftLoaded || !mealType || !entries.length}
           onPress={() => void save()}
-          style={[styles.saveButton, saving && styles.buttonDisabled]}
+          style={[
+            styles.saveButton,
+            (saving || !draftLoaded || !mealType || !entries.length) &&
+              styles.buttonDisabled,
+          ]}
         >
           <Text style={styles.saveButtonText}>
             {saving ? "Saving..." : "Save meal"}
           </Text>
         </Pressable>
-      </ScrollView>
+      </ScreenScrollView>
 
       {userId ? (
         <FoodEditor
@@ -368,15 +375,10 @@ export default function NutritionScreen() {
 }
 
 const styles = StyleSheet.create({
-  page: { backgroundColor: "#F7FAFC", flexGrow: 1, padding: 20 },
-  titleRow: {
-    alignItems: "flex-start",
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 15,
-  },
+  page: trackingStyles.page,
+  titleRow: { alignItems: "flex-start", flexDirection: "row", gap: 12 },
   titleCopy: { flex: 1 },
-  title: { color: "#102A43", fontSize: 30, fontWeight: "800" },
+  title: trackingStyles.title,
   discardButton: {
     borderColor: "#F1AEB5",
     borderRadius: 9,
@@ -385,106 +387,91 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
-  discardText: { color: "#B42318", fontSize: 12, fontWeight: "800" },
+  discardText: { color: "#B42318", fontSize: 12, fontWeight: "600" },
   draftStatus: {
-    backgroundColor: "#E6F7F3",
+    backgroundColor: colors.blueSoft,
     borderRadius: 9,
-    color: "#16776A",
+    color: colors.blue,
     fontSize: 12,
     fontWeight: "700",
     marginBottom: 17,
     overflow: "hidden",
     padding: 9,
   },
-  label: { color: "#486581", fontSize: 14, fontWeight: "800" },
-  chips: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 22,
-    marginTop: 9,
-  },
-  chip: {
-    backgroundColor: "#E6EEF3",
-    borderRadius: 20,
-    paddingHorizontal: 13,
-    paddingVertical: 9,
-  },
-  chipActive: { backgroundColor: "#16776A" },
-  chipText: {
-    color: "#486581",
-    fontWeight: "700",
-    textTransform: "capitalize",
-  },
+  label: trackingStyles.label,
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 20 },
+  chip: trackingStyles.chip,
+  chipActive: trackingStyles.chipActive,
+  chipText: { ...trackingStyles.chipText, textTransform: "capitalize" },
   chipTextActive: {
-    color: "#fff",
-    fontWeight: "800",
+    ...trackingStyles.chipTextActive,
     textTransform: "capitalize",
   },
   foodBar: {
     alignItems: "center",
     flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
     justifyContent: "space-between",
     marginBottom: 9,
   },
-  foodActions: { alignItems: "center", flexDirection: "row", gap: 7 },
+  foodActions: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 7,
+  },
   manageLabelsButton: {
-    borderColor: "#B7D9D1",
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingHorizontal: 8,
+    minHeight: 44,
+    justifyContent: "center",
   },
-  manageLabelsText: { color: "#16776A", fontSize: 12, fontWeight: "800" },
-  addButton: {
-    backgroundColor: "#D8F3EB",
-    borderRadius: 10,
-    paddingHorizontal: 11,
-    paddingVertical: 8,
-  },
-  addButtonText: { color: "#16776A", fontSize: 13, fontWeight: "800" },
+  manageLabelsText: { color: colors.blue, fontSize: 14, fontWeight: "600" },
+  addButton: trackingStyles.listAddButton,
+  addButtonText: trackingStyles.listAddButtonText,
   empty: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
     backgroundColor: "#fff",
-    borderColor: "#D9E2EC",
+    borderColor: colors.separator,
     borderRadius: 14,
     borderWidth: 1,
     marginBottom: 18,
     padding: 18,
   },
-  emptyTitle: { color: "#243B53", fontWeight: "800" },
-  foodCard: {
-    backgroundColor: "#fff",
-    borderColor: "#D9E2EC",
-    borderRadius: 16,
-    borderWidth: 1,
-    marginBottom: 12,
-    padding: 14,
-  },
+  emptyTitle: { color: colors.secondary, fontWeight: "500", flex: 1 },
+  foodCard: { ...trackingStyles.card, marginBottom: 12 },
   foodHeader: { alignItems: "flex-start", flexDirection: "row" },
   foodIdentity: { flex: 1 },
-  foodName: { color: "#102A43", fontSize: 17, fontWeight: "800" },
+  foodName: trackingStyles.section,
   foodBrand: {
-    color: "#486581",
+    color: colors.secondary,
     fontSize: 13,
     fontWeight: "700",
     marginTop: 2,
   },
-  amountLine: { color: "#627D98", fontSize: 13, marginTop: 9 },
+  amountLine: { color: colors.secondary, fontSize: 13, marginTop: 9 },
   nutritionLine: {
-    color: "#243B53",
+    color: colors.text,
     fontSize: 15,
-    fontWeight: "800",
+    fontWeight: "600",
     marginTop: 5,
   },
-  note: { color: "#7B8794", fontSize: 12, fontStyle: "italic", marginTop: 7 },
+  note: {
+    color: colors.tertiary,
+    fontSize: 12,
+    fontStyle: "italic",
+    marginTop: 7,
+  },
   actions: { flexDirection: "row", gap: 8, marginTop: 12 },
   editButton: {
-    backgroundColor: "#E6F7F3",
+    backgroundColor: colors.blueSoft,
     borderRadius: 9,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  editText: { color: "#16776A", fontSize: 13, fontWeight: "800" },
+  editText: { color: colors.blue, fontSize: 13, fontWeight: "600" },
   removeButton: {
     borderColor: "#F1AEB5",
     borderRadius: 9,
@@ -492,35 +479,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  removeText: { color: "#B42318", fontSize: 13, fontWeight: "800" },
+  removeText: { color: "#B42318", fontSize: 13, fontWeight: "600" },
   totalCard: {
-    alignItems: "center",
-    backgroundColor: "#102A43",
-    borderRadius: 15,
+    ...trackingStyles.card,
     flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 14,
-    padding: 15,
+    marginBottom: 16,
   },
   totalEyebrow: {
-    color: "#A7C7D4",
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 1,
+    color: colors.secondary,
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 0.6,
   },
-  totalValue: { color: "#fff", fontSize: 19, fontWeight: "800", marginTop: 3 },
-  totalProtein: { color: "#D8F3EB", fontWeight: "800" },
-  success: { color: "#16776A", fontWeight: "700", marginBottom: 10 },
-  error: { color: "#B42318", marginBottom: 10 },
-  saveButton: {
-    alignItems: "center",
-    backgroundColor: "#16776A",
-    borderRadius: 13,
-    justifyContent: "center",
-    minHeight: 54,
+  totalValue: {
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: "600",
+    marginTop: 4,
   },
+  totalProtein: { color: colors.secondary, fontSize: 15, fontWeight: "600" },
+  success: trackingStyles.success,
+  error: trackingStyles.error,
+  saveButton: trackingStyles.button,
   buttonDisabled: { opacity: 0.65 },
-  saveButtonText: { color: "#fff", fontSize: 16, fontWeight: "800" },
+  saveButtonText: trackingStyles.buttonText,
   modalBackdrop: {
     alignItems: "center",
     backgroundColor: "rgba(16, 42, 67, 0.52)",
@@ -535,8 +521,8 @@ const styles = StyleSheet.create({
     padding: 20,
     width: "100%",
   },
-  modalTitle: { color: "#102A43", fontSize: 19, fontWeight: "800" },
-  modalCopy: { color: "#486581", lineHeight: 20, marginTop: 8 },
+  modalTitle: { color: colors.text, fontSize: 19, fontWeight: "600" },
+  modalCopy: { color: colors.secondary, lineHeight: 20, marginTop: 8 },
   modalActions: {
     flexDirection: "row",
     gap: 10,
@@ -545,14 +531,14 @@ const styles = StyleSheet.create({
   },
   modalCancel: {
     alignItems: "center",
-    borderColor: "#D9E2EC",
+    borderColor: colors.separator,
     borderRadius: 10,
     borderWidth: 1,
     justifyContent: "center",
     minHeight: 42,
     paddingHorizontal: 15,
   },
-  modalCancelText: { color: "#486581", fontWeight: "800" },
+  modalCancelText: { color: colors.secondary, fontWeight: "600" },
   modalDelete: {
     alignItems: "center",
     backgroundColor: "#B42318",
@@ -561,5 +547,5 @@ const styles = StyleSheet.create({
     minHeight: 42,
     paddingHorizontal: 16,
   },
-  modalDeleteText: { color: "#fff", fontWeight: "800" },
+  modalDeleteText: { color: "#fff", fontWeight: "600" },
 });

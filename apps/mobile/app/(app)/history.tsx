@@ -1,12 +1,17 @@
+import type { ScrollView } from "react-native";
+import { Modal } from "../../src/ui/modal";
+import { SegmentedControl } from "../../src/ui/segmented-control";
+import { SwipeContent } from "../../src/ui/swipe-content";
+import { Icon } from "../../src/ui/icon";
+import { ScreenScrollView } from "../../src/ui/screen-scroll-view";
+import { Pressable } from "../../src/ui/pressable";
+import { colors } from "../../src/ui/theme";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import {
   ActivityIndicator,
-  Modal,
-  Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -18,6 +23,7 @@ import { useAuth } from "../../src/features/auth/auth-provider";
 import { mlToFluidOunces } from "../../src/features/hydration/model";
 import {
   getHydrationHistory,
+  deleteHydration,
   type HydrationHistoryEntry,
 } from "../../src/features/hydration/repository";
 import { foodAmountDescription } from "../../src/features/nutrition/model";
@@ -51,6 +57,13 @@ import {
 } from "../../src/features/vitals/sync";
 import { classifyBloodPressure } from "../../src/features/vitals/blood-pressure";
 import { pulseForBloodPressure } from "../../src/features/vitals/blood-pressure-pulse";
+
+const historyOptions = [
+  { value: "exercise", label: "Workout" },
+  { value: "food", label: "Food" },
+  { value: "weight", label: "Weight" },
+  { value: "blood_pressure", label: "Blood pressure" },
+] as const;
 
 type HistoryView = "exercise" | "blood_pressure" | "weight" | "food";
 type DeletionRequest = {
@@ -159,7 +172,13 @@ export default function HistoryScreen() {
   const { view: requestedView } = useLocalSearchParams<{ view?: string }>();
   const { session, configured } = useAuth();
   const insets = useSafeAreaInsets();
+  const [swiping, setSwiping] = useState(false);
   const [view, setView] = useState<HistoryView>("exercise");
+  const historyScroll = useRef<ScrollView>(null);
+  const changeView = (next: HistoryView) => {
+    setView(next);
+    historyScroll.current?.scrollTo({ y: 0, animated: false });
+  };
   const [history, setHistory] = useState<WorkoutHistorySession[]>([]);
   const [cardio, setCardio] = useState<CardioHistoryEntry[]>([]);
   const [food, setFood] = useState<FoodHistoryEntry[]>([]);
@@ -301,6 +320,28 @@ export default function HistoryScreen() {
       confirm: () => void removeFood(foodId),
     });
   }
+  function confirmRemoveHydration(entry: HydrationHistoryEntry) {
+    setPendingDeletion({
+      title: "Delete fluid entry?",
+      message: `Remove ${entry.fluidName} from your history and daily total?`,
+      confirm: () => {
+        if (!session) return;
+        void deleteHydration(session.user.id, entry.id)
+          .then(() => {
+            setHydration((current) =>
+              current.filter((item) => item.id !== entry.id),
+            );
+          })
+          .catch((caught) =>
+            setError(
+              caught instanceof Error
+                ? caught.message
+                : "Could not delete fluid.",
+            ),
+          );
+      },
+    });
+  }
   async function removeVitals(samples: VitalSample[]) {
     if (!samples.length) return;
     try {
@@ -337,7 +378,10 @@ export default function HistoryScreen() {
     .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt));
   const bloodPressure = bloodPressureReadings(activeVitals);
   return (
-    <ScrollView
+    <ScreenScrollView
+      ref={historyScroll}
+      directionalLockEnabled
+      scrollEnabled={!swiping}
       contentInsetAdjustmentBehavior="never"
       contentContainerStyle={[styles.page, { paddingTop: insets.top + 20 }]}
       refreshControl={
@@ -348,77 +392,70 @@ export default function HistoryScreen() {
       }
     >
       <Text style={styles.title}>History</Text>
-      <View style={styles.tabs}>
-        <HistoryTab
-          label="Workout"
-          active={view === "exercise"}
-          onPress={() => setView("exercise")}
-        />
-        <HistoryTab
-          label="Food"
-          active={view === "food"}
-          onPress={() => setView("food")}
-        />
-        <HistoryTab
-          label="Weight"
-          active={view === "weight"}
-          onPress={() => setView("weight")}
-        />
-        <HistoryTab
-          label="Blood pressure"
-          active={view === "blood_pressure"}
-          onPress={() => setView("blood_pressure")}
-        />
-      </View>
+      <View style={{ height: 16 }} />
+      <SegmentedControl
+        label="History category"
+        options={historyOptions}
+        value={view}
+        onChange={changeView}
+      />
       {loading &&
       !history.length &&
       !cardio.length &&
       !food.length &&
       !hydration.length &&
       !vitals.length ? (
-        <ActivityIndicator color="#16776A" />
+        <ActivityIndicator color={colors.blue} />
       ) : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      {view === "exercise" ? (
-        <ExerciseHistory
-          cardio={cardio}
-          history={history}
-          loading={loading}
-          onDeleteCardio={confirmRemoveCardio}
-          onDeleteWorkout={confirmRemoveWorkout}
-        />
-      ) : null}
-      {view === "blood_pressure" ? (
-        <BloodPressureHistory
-          readings={bloodPressure}
-          loading={loading}
-          onDelete={(reading) =>
-            confirmRemoveVitals(
-              "Delete blood-pressure reading?",
-              samplesForBloodPressureReading(reading, activeVitals),
-            )
-          }
-        />
-      ) : null}
-      {view === "weight" ? (
-        <WeightHistory
-          photoWeightSampleIds={weightSampleIdsWithPhotos}
-          readings={weights}
-          loading={loading}
-          onOpenPhotos={setPhotoGalleryWeightId}
-          onDelete={(reading) =>
-            confirmRemoveVitals("Delete weight reading?", [reading])
-          }
-        />
-      ) : null}
-      {view === "food" ? (
-        <FoodHistory
-          entries={food}
-          hydration={hydration}
-          loading={loading}
-          onDelete={confirmRemoveFood}
-        />
-      ) : null}
+      <SwipeContent
+        index={historyOptions.findIndex((option) => option.value === view)}
+        count={historyOptions.length}
+        onChange={(index) => changeView(historyOptions[index].value)}
+        onGestureChange={setSwiping}
+      >
+        {view === "exercise" ? (
+          <ExerciseHistory
+            cardio={cardio}
+            history={history}
+            loading={loading}
+            onDeleteCardio={confirmRemoveCardio}
+            onDeleteWorkout={confirmRemoveWorkout}
+          />
+        ) : null}
+        {view === "blood_pressure" ? (
+          <BloodPressureHistory
+            readings={bloodPressure}
+            loading={loading}
+            onDelete={(reading) =>
+              confirmRemoveVitals(
+                "Delete blood-pressure reading?",
+                samplesForBloodPressureReading(reading, activeVitals),
+              )
+            }
+          />
+        ) : null}
+        {view === "weight" ? (
+          <WeightHistory
+            photoWeightSampleIds={weightSampleIdsWithPhotos}
+            readings={weights}
+            loading={loading}
+            onOpenPhotos={setPhotoGalleryWeightId}
+            onDelete={(reading) =>
+              confirmRemoveVitals("Delete weight reading?", [reading])
+            }
+          />
+        ) : null}
+        {view === "food" ? (
+          <FoodHistory
+            entries={food}
+            hydration={hydration}
+            loading={loading}
+            onDelete={confirmRemoveFood}
+            onDeleteHydration={confirmRemoveHydration}
+          />
+        ) : null}
+      </SwipeContent>
       <DeleteConfirmation
         request={pendingDeletion}
         onCancel={() => setPendingDeletion(undefined)}
@@ -439,7 +476,7 @@ export default function HistoryScreen() {
           visible={Boolean(photoGalleryWeightId)}
         />
       ) : null}
-    </ScrollView>
+    </ScreenScrollView>
   );
 }
 
@@ -484,28 +521,7 @@ function DeleteConfirmation({
     </Modal>
   );
 }
-function HistoryTab({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-      onPress={onPress}
-      style={[styles.tab, active && styles.tabActive]}
-    >
-      <Text style={active ? styles.tabTextActive : styles.tabText}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
+
 type ExerciseTimelineItem =
   | { kind: "workout"; occurredAt: string; session: WorkoutHistorySession }
   | { kind: "cardio"; occurredAt: string; entry: CardioHistoryEntry };
@@ -579,7 +595,9 @@ function WorkoutHistoryCard({
             Sets by muscle: {muscleGroupSetBreakdown(session)}
           </Text>
         </View>
-        <Text style={styles.setTotal}>{session.sets.length} sets</Text>
+        <Text style={styles.setTotal}>
+          {session.sets.length} {session.sets.length === 1 ? "set" : "sets"}
+        </Text>
       </View>
       {groupSets(session.sets).map((exercise) => (
         <View key={exercise.name} style={styles.exercise}>
@@ -832,7 +850,7 @@ function WeightHistory({
                     : "photo.on.rectangle"
                 }
                 size={22}
-                tintColor="#16776A"
+                tintColor={colors.blue}
                 weight="regular"
               />
               {photoWeightSampleIds.has(reading.id) ? (
@@ -914,11 +932,13 @@ function FoodHistory({
   hydration,
   loading,
   onDelete,
+  onDeleteHydration,
 }: {
   entries: FoodHistoryEntry[];
   hydration: HydrationHistoryEntry[];
   loading: boolean;
   onDelete: (foodId: string) => void;
+  onDeleteHydration: (entry: HydrationHistoryEntry) => void;
 }) {
   const [selectedDay, setSelectedDay] = useState<FoodHistoryDay>();
   if (!loading && !entries.length && !hydration.length)
@@ -939,6 +959,9 @@ function FoodHistory({
     <>
       {groupFoodByDay(entries, hydration).map((day) => {
         const totals = dailyNutritionTotals(day.entries, day.waterMl);
+        const fluids = hydration.filter(
+          (entry) => localHistoryDateKey(entry.occurredAt) === day.key,
+        );
         return (
           <View key={day.key} style={styles.card}>
             <View style={styles.cardHeader}>
@@ -1053,6 +1076,43 @@ function FoodHistory({
                 </View>
               );
             })}
+            {fluids.length ? (
+              <View style={styles.mealGroup}>
+                <Text style={styles.mealTitle}>Fluids</Text>
+                {fluids.map((entry) => (
+                  <View key={entry.id} style={styles.foodRow}>
+                    <View style={styles.foodHistoryHeader}>
+                      <View style={styles.foodDetails}>
+                        <Text style={styles.exerciseName}>
+                          {entry.fluidName}
+                        </Text>
+                      </View>
+                      <Text style={styles.foodTime}>
+                        {new Intl.DateTimeFormat(undefined, {
+                          hour: "numeric",
+                          minute: "2-digit",
+                        }).format(new Date(entry.occurredAt))}
+                      </Text>
+                    </View>
+                    <Text style={styles.detail}>
+                      {mlToFluidOunces(entry.volumeMl)} fl oz
+                    </Text>
+                    <View style={styles.cardActions}>
+                      <Pressable
+                        accessibilityLabel={`Delete ${entry.fluidName} entry`}
+                        onPress={() => onDeleteHydration(entry)}
+                        style={[
+                          styles.deleteButton,
+                          styles.compactDeleteButton,
+                        ]}
+                      >
+                        <Text style={styles.deleteText}>Delete fluid</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : null}
           </View>
         );
       })}
@@ -1182,41 +1242,72 @@ function DailyTotalRow({ label, value }: { label: string; value: string }) {
 function Empty({ title, copy }: { title: string; copy: string }) {
   return (
     <View style={styles.empty}>
+      <View style={styles.emptyIcon}>
+        <Icon name="history" size={30} color={colors.blue} />
+      </View>
       <Text style={styles.emptyTitle}>{title}</Text>
       <Text style={styles.emptyCopy}>{copy}</Text>
+      <Pressable
+        onPress={() => router.push("/create")}
+        style={[
+          styles.editButton,
+          {
+            minHeight: 44,
+            justifyContent: "center",
+            marginTop: 14,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 6,
+          },
+        ]}
+      >
+        <Icon name="plus" size={17} color={colors.blue} />
+        <Text style={styles.editText}>Add a log</Text>
+      </Pressable>
     </View>
   );
 }
 const styles = StyleSheet.create({
-  page: { backgroundColor: "#F7FAFC", flexGrow: 1, padding: 20 },
-  title: { color: "#102A43", fontSize: 30, fontWeight: "800" },
-  tabs: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 7,
+  subtitle: {
+    color: colors.secondary,
+    fontSize: 15,
+    marginTop: 6,
+    marginBottom: 22,
+  },
+  swipeHint: {
+    color: colors.secondary,
+    fontSize: 12,
+    marginTop: -6,
     marginBottom: 18,
-    marginTop: 16,
   },
-  tab: {
-    backgroundColor: "#E6EEF3",
-    borderRadius: 18,
-    paddingHorizontal: 11,
-    paddingVertical: 9,
+  emptyIcon: {
+    width: 62,
+    height: 62,
+    borderRadius: 20,
+    backgroundColor: colors.blueSoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
   },
-  tabActive: { backgroundColor: "#102A43" },
-  tabText: { color: "#486581", fontSize: 12, fontWeight: "800" },
-  tabTextActive: { color: "#fff", fontSize: 12, fontWeight: "800" },
+  page: { backgroundColor: colors.background, flexGrow: 1, padding: 20 },
+  title: {
+    color: colors.text,
+    fontSize: 34,
+    fontWeight: "700",
+    letterSpacing: -1,
+  },
   card: {
     backgroundColor: "#fff",
-    borderColor: "#D9E2EC",
-    borderRadius: 16,
-    borderWidth: 1,
+    borderColor: colors.separator,
+    borderRadius: 22,
+    borderCurve: "continuous",
+    borderWidth: StyleSheet.hairlineWidth,
     marginBottom: 13,
     padding: 15,
   },
   cardHeader: {
     alignItems: "flex-start",
-    borderBottomColor: "#E6EEF3",
+    borderBottomColor: colors.fill,
     borderBottomWidth: 1,
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1224,18 +1315,18 @@ const styles = StyleSheet.create({
     paddingBottom: 11,
   },
   cardHeaderMain: { flex: 1, minWidth: 0, paddingRight: 10 },
-  date: { color: "#243B53", fontSize: 16, fontWeight: "800" },
-  group: { color: "#16776A", fontSize: 13, fontWeight: "700", marginTop: 3 },
-  groupBreakdown: { color: "#486581", fontSize: 12, marginTop: 4 },
+  date: { color: colors.text, fontSize: 16, fontWeight: "600" },
+  group: { color: colors.blue, fontSize: 13, fontWeight: "700", marginTop: 3 },
+  groupBreakdown: { color: colors.secondary, fontSize: 12, marginTop: 4 },
   cardioBadge: {
-    color: "#7B8794",
+    color: colors.tertiary,
     fontSize: 11,
-    fontWeight: "800",
+    fontWeight: "600",
     letterSpacing: 0.8,
     marginTop: 4,
   },
   setTotal: {
-    color: "#627D98",
+    color: colors.secondary,
     flexShrink: 0,
     fontSize: 13,
     fontWeight: "700",
@@ -1252,9 +1343,9 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   dailyTotalsButtonText: {
-    color: "#16776A",
+    color: colors.blue,
     fontSize: 11,
-    fontWeight: "800",
+    fontWeight: "600",
   },
   exercise: { marginTop: 10 },
   exerciseSummary: {
@@ -1262,37 +1353,37 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  exerciseName: { color: "#243B53", fontWeight: "800" },
+  exerciseName: { color: colors.text, fontWeight: "600" },
   workoutExerciseName: { flex: 1, paddingRight: 8 },
   exerciseMuscleBadge: {
     alignSelf: "flex-start",
-    backgroundColor: "#E6F7F3",
+    backgroundColor: colors.blueSoft,
     borderRadius: 11,
-    color: "#16776A",
+    color: colors.blue,
     fontSize: 11,
-    fontWeight: "800",
+    fontWeight: "600",
     flexShrink: 0,
     overflow: "hidden",
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   cardioTitle: {
-    color: "#243B53",
+    color: colors.text,
     fontSize: 17,
-    fontWeight: "800",
+    fontWeight: "600",
     textTransform: "capitalize",
   },
-  detail: { color: "#486581", marginTop: 3 },
+  detail: { color: colors.secondary, marginTop: 3 },
   mealGroup: { marginTop: 10 },
   mealTitle: {
-    color: "#16776A",
+    color: colors.blue,
     fontSize: 12,
-    fontWeight: "800",
+    fontWeight: "600",
     letterSpacing: 0.7,
     textTransform: "uppercase",
   },
   foodRow: {
-    borderBottomColor: "#E6EEF3",
+    borderBottomColor: colors.fill,
     borderBottomWidth: 1,
     paddingVertical: 10,
   },
@@ -1302,34 +1393,44 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  foodBrand: { color: "#627D98", fontSize: 12, marginTop: 2 },
-  foodTime: { color: "#7B8794", fontSize: 10, marginLeft: 10, marginTop: 1 },
-  foodFacts: { color: "#627D98", fontSize: 12, marginTop: 4 },
+  foodBrand: { color: colors.secondary, fontSize: 12, marginTop: 2 },
+  foodTime: {
+    color: colors.tertiary,
+    fontSize: 10,
+    marginLeft: 10,
+    marginTop: 1,
+  },
+  foodFacts: { color: colors.secondary, fontSize: 12, marginTop: 4 },
   foodNote: {
-    color: "#7B8794",
+    color: colors.tertiary,
     fontSize: 12,
     fontStyle: "italic",
     marginTop: 5,
   },
   notes: {
-    borderTopColor: "#E6EEF3",
+    borderTopColor: colors.fill,
     borderTopWidth: 1,
-    color: "#627D98",
+    color: colors.secondary,
     fontSize: 13,
     fontStyle: "italic",
     marginTop: 12,
     paddingTop: 10,
   },
-  location: { color: "#16776A", fontSize: 13, fontWeight: "700", marginTop: 9 },
+  location: {
+    color: colors.blue,
+    fontSize: 13,
+    fontWeight: "700",
+    marginTop: 9,
+  },
   cardActions: { flexDirection: "row", gap: 8, marginTop: 14 },
   editButton: {
     alignSelf: "flex-start",
-    backgroundColor: "#E6F7F3",
+    backgroundColor: colors.blueSoft,
     borderRadius: 9,
     paddingHorizontal: 11,
     paddingVertical: 8,
   },
-  editText: { color: "#16776A", fontSize: 13, fontWeight: "800" },
+  editText: { color: colors.blue, fontSize: 13, fontWeight: "600" },
   deleteButton: {
     alignSelf: "flex-start",
     borderColor: "#F1AEB5",
@@ -1340,16 +1441,16 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   compactDeleteButton: { marginTop: 0 },
-  deleteText: { color: "#B42318", fontSize: 13, fontWeight: "800" },
+  deleteText: { color: "#B42318", fontSize: 13, fontWeight: "600" },
   readingCard: {
     backgroundColor: "#fff",
-    borderColor: "#D9E2EC",
+    borderColor: colors.separator,
     borderRadius: 14,
     borderWidth: 1,
     marginBottom: 10,
     padding: 14,
   },
-  readingValue: { color: "#102A43", fontSize: 18, fontWeight: "800" },
+  readingValue: { color: colors.text, fontSize: 18, fontWeight: "600" },
   readingHeader: {
     alignItems: "center",
     flexDirection: "row",
@@ -1360,20 +1461,20 @@ const styles = StyleSheet.create({
   bpCategory: {
     borderRadius: 12,
     fontSize: 10,
-    fontWeight: "800",
+    fontWeight: "600",
     overflow: "hidden",
     paddingHorizontal: 8,
     paddingVertical: 5,
   },
-  readingTime: { color: "#486581", marginTop: 4 },
+  readingTime: { color: colors.secondary, marginTop: 4 },
   readingPulse: {
-    color: "#243B53",
+    color: colors.text,
     fontSize: 13,
     fontWeight: "700",
     marginTop: 4,
   },
   readingSource: {
-    color: "#7B8794",
+    color: colors.tertiary,
     fontSize: 12,
     marginTop: 4,
     textTransform: "capitalize",
@@ -1386,7 +1487,7 @@ const styles = StyleSheet.create({
   weightReadingCopy: { flex: 1, minWidth: 0, paddingRight: 12 },
   progressPhotoButton: {
     alignItems: "center",
-    backgroundColor: "#E6F7F3",
+    backgroundColor: colors.blueSoft,
     borderRadius: 20,
     height: 40,
     justifyContent: "center",
@@ -1394,9 +1495,9 @@ const styles = StyleSheet.create({
   },
   progressPhotoButtonFilled: { backgroundColor: "#C6F2E8" },
   progressPhotoButtonPressed: { opacity: 0.55 },
-  progressPhotoFallback: { color: "#16776A", fontWeight: "800" },
+  progressPhotoFallback: { color: colors.blue, fontWeight: "600" },
   progressPhotoMarker: {
-    backgroundColor: "#16776A",
+    backgroundColor: colors.blue,
     borderColor: "#fff",
     borderRadius: 5,
     borderWidth: 1.5,
@@ -1408,13 +1509,13 @@ const styles = StyleSheet.create({
   },
   empty: {
     backgroundColor: "#fff",
-    borderColor: "#D9E2EC",
+    borderColor: colors.separator,
     borderRadius: 14,
     borderWidth: 1,
     padding: 18,
   },
-  emptyTitle: { color: "#243B53", fontWeight: "800" },
-  emptyCopy: { color: "#627D98", marginTop: 5 },
+  emptyTitle: { color: colors.text, fontWeight: "600" },
+  emptyCopy: { color: colors.secondary, marginTop: 5 },
   error: { color: "#B42318", marginBottom: 12 },
   modalBackdrop: {
     alignItems: "center",
@@ -1430,10 +1531,10 @@ const styles = StyleSheet.create({
     padding: 20,
     width: "100%",
   },
-  modalTitle: { color: "#102A43", fontSize: 19, fontWeight: "800" },
-  modalCopy: { color: "#486581", lineHeight: 20, marginTop: 8 },
+  modalTitle: { color: colors.text, fontSize: 19, fontWeight: "600" },
+  modalCopy: { color: colors.secondary, lineHeight: 20, marginTop: 8 },
   dailyTotalsList: {
-    borderColor: "#D9E2EC",
+    borderColor: colors.separator,
     borderRadius: 12,
     borderWidth: 1,
     marginTop: 16,
@@ -1441,31 +1542,31 @@ const styles = StyleSheet.create({
   },
   dailyTotalRow: {
     alignItems: "center",
-    borderBottomColor: "#E6EEF3",
+    borderBottomColor: colors.fill,
     borderBottomWidth: 1,
     flexDirection: "row",
     justifyContent: "space-between",
-    minHeight: 43,
+    minHeight: 48,
     paddingHorizontal: 12,
     paddingVertical: 9,
   },
-  dailyTotalLabel: { color: "#486581", fontSize: 13, fontWeight: "700" },
-  dailyTotalValue: { color: "#102A43", fontSize: 13, fontWeight: "800" },
+  dailyTotalLabel: { color: colors.secondary, fontSize: 13, fontWeight: "700" },
+  dailyTotalValue: { color: colors.text, fontSize: 13, fontWeight: "600" },
   dailyTotalsNote: {
-    color: "#7B8794",
+    color: colors.tertiary,
     fontSize: 11,
     lineHeight: 16,
     marginTop: 11,
   },
   dailyTotalsClose: {
     alignItems: "center",
-    backgroundColor: "#16776A",
+    backgroundColor: colors.blue,
     borderRadius: 10,
     justifyContent: "center",
     marginTop: 16,
     minHeight: 44,
   },
-  dailyTotalsCloseText: { color: "#fff", fontWeight: "800" },
+  dailyTotalsCloseText: { color: "#fff", fontWeight: "600" },
   modalActions: {
     flexDirection: "row",
     gap: 10,
@@ -1474,14 +1575,14 @@ const styles = StyleSheet.create({
   },
   modalCancel: {
     alignItems: "center",
-    borderColor: "#D9E2EC",
+    borderColor: colors.separator,
     borderRadius: 10,
     borderWidth: 1,
     justifyContent: "center",
     minHeight: 42,
     paddingHorizontal: 15,
   },
-  modalCancelText: { color: "#486581", fontWeight: "800" },
+  modalCancelText: { color: colors.secondary, fontWeight: "600" },
   modalDelete: {
     alignItems: "center",
     backgroundColor: "#B42318",
@@ -1490,5 +1591,5 @@ const styles = StyleSheet.create({
     minHeight: 42,
     paddingHorizontal: 16,
   },
-  modalDeleteText: { color: "#fff", fontWeight: "800" },
+  modalDeleteText: { color: "#fff", fontWeight: "600" },
 });

@@ -1,14 +1,16 @@
-const reorderDistance = 52;
-
-export function workoutDragOffset(
-  translationY: number,
-  startIndex: number,
-  itemCount: number,
-): number {
-  if (!Number.isFinite(translationY) || itemCount < 2) return 0;
-  const requestedOffset = Math.trunc(translationY / reorderDistance);
-  return Math.max(
-    -startIndex,
-    Math.min(itemCount - startIndex - 1, requestedOffset),
-  );
+/** Apply the dropped order without replacing fields updated while dragging. */
+export function applyExerciseOrder<T extends { id: string }>(
+  current: T[],
+  orderedIds: string[],
+): T[] {
+  const remaining = new Map(current.map((entry) => [entry.id, entry]));
+  const result: T[] = [];
+  for (const id of orderedIds) {
+    const entry = remaining.get(id);
+    if (entry) {
+      result.push(entry);
+      remaining.delete(id);
+    }
+  }
+  return [...result, ...remaining.values()];
 }

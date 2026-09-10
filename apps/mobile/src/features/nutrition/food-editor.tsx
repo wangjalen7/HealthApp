@@ -1,12 +1,15 @@
+import { trackingStyles } from "../../ui/tracking-styles";
+import { Modal } from "../../ui/modal";
+import { Pressable } from "../../ui/pressable";
+import { colors } from "../../ui/theme";
+import { Icon } from "../../ui/icon";
 import type { BarcodeScanningResult, BarcodeType } from "expo-camera";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Keyboard,
   Linking,
-  Modal,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -918,13 +921,27 @@ function MethodPicker({
         <Pressable
           accessibilityRole="button"
           key={title}
+          accessibilityLabel={title}
           onPress={action}
           style={styles.methodCard}
         >
+          <View style={{ marginRight: 12 }}>
+            <Icon
+              name={
+                title === "Scan barcode"
+                  ? "scan"
+                  : title === "Create food label"
+                    ? "edit"
+                    : "food"
+              }
+              color={colors.blue}
+              size={23}
+            />
+          </View>
           <View style={styles.methodText}>
             <Text style={styles.methodTitle}>{title}</Text>
           </View>
-          <Text style={styles.arrow}>→</Text>
+          <Icon name="chevron" size={18} color={colors.secondary} />
         </Pressable>
       ))}
     </>
@@ -1627,22 +1644,22 @@ function PrimaryButton({
 }
 
 const styles = StyleSheet.create({
-  safeArea: { backgroundColor: "#F7FAFC", flex: 1 },
+  safeArea: { backgroundColor: colors.background, flex: 1 },
   header: {
     alignItems: "center",
-    borderBottomColor: "#D9E2EC",
+    borderBottomColor: colors.separator,
     borderBottomWidth: 1,
     flexDirection: "row",
     minHeight: 54,
     paddingHorizontal: 14,
   },
   headerButton: { minWidth: 58, paddingVertical: 10 },
-  headerButtonText: { color: "#16776A", fontWeight: "800" },
+  headerButtonText: { color: colors.blue, fontWeight: "600" },
   headerTitle: {
-    color: "#102A43",
+    color: colors.text,
     flex: 1,
     fontSize: 17,
-    fontWeight: "800",
+    fontWeight: "600",
     textAlign: "center",
   },
   headerSpacer: { width: 58 },
@@ -1650,36 +1667,22 @@ const styles = StyleSheet.create({
   methodCard: {
     alignItems: "center",
     backgroundColor: "#fff",
-    borderColor: "#D9E2EC",
-    borderRadius: 16,
+    borderColor: colors.separator,
+    borderRadius: 22,
+    borderCurve: "continuous",
     borderWidth: 1,
     flexDirection: "row",
     marginBottom: 11,
-    minHeight: 84,
+    minHeight: 68,
     padding: 15,
   },
   methodText: { flex: 1 },
-  methodTitle: { color: "#102A43", fontSize: 16, fontWeight: "800" },
-  arrow: { color: "#16776A", fontSize: 22, marginLeft: 10 },
+  methodTitle: { color: colors.text, fontSize: 16, fontWeight: "600" },
+  arrow: { color: colors.blue, fontSize: 22, marginLeft: 10 },
   field: { marginBottom: 14 },
   compactField: { flex: 1, minWidth: 110 },
-  fieldLabel: {
-    color: "#486581",
-    fontSize: 12,
-    fontWeight: "800",
-    marginBottom: 6,
-  },
-  input: {
-    backgroundColor: "#fff",
-    borderColor: "#D9E2EC",
-    borderRadius: 11,
-    borderWidth: 1,
-    color: "#102A43",
-    fontSize: 16,
-    minHeight: 48,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
+  fieldLabel: trackingStyles.label,
+  input: trackingStyles.input,
   multiline: { minHeight: 82, textAlignVertical: "top" },
   formRow: {
     alignItems: "flex-end",
@@ -1687,14 +1690,13 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 14,
   },
-  sectionLabel: {
-    color: "#243B53",
-    fontSize: 14,
-    fontWeight: "800",
-    marginBottom: 8,
-    marginTop: 8,
+  sectionLabel: { ...trackingStyles.section, marginTop: 8 },
+  help: {
+    color: colors.tertiary,
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 12,
   },
-  help: { color: "#7B8794", fontSize: 12, lineHeight: 17, marginBottom: 12 },
   unitRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -1702,25 +1704,13 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     marginTop: 7,
   },
-  unitChip: {
-    backgroundColor: "#E6EEF3",
-    borderRadius: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  unitChipActive: { backgroundColor: "#16776A" },
-  unitText: { color: "#486581", fontSize: 12, fontWeight: "800" },
-  unitTextActive: { color: "#fff", fontSize: 12, fontWeight: "800" },
-  primaryButton: {
-    alignItems: "center",
-    backgroundColor: "#16776A",
-    borderRadius: 13,
-    justifyContent: "center",
-    marginTop: 8,
-    minHeight: 52,
-  },
+  unitChip: trackingStyles.chip,
+  unitChipActive: trackingStyles.chipActive,
+  unitText: trackingStyles.chipText,
+  unitTextActive: trackingStyles.chipTextActive,
+  primaryButton: { ...trackingStyles.button, marginTop: 8 },
   primaryDisabled: { opacity: 0.6 },
-  primaryText: { color: "#fff", fontSize: 15, fontWeight: "800" },
+  primaryText: trackingStyles.buttonText,
   feedback: {
     color: "#B42318",
     lineHeight: 20,
@@ -1728,25 +1718,25 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   info: {
-    color: "#16776A",
+    color: colors.blue,
     lineHeight: 20,
     marginTop: 14,
     textAlign: "center",
   },
   sourceNotice: {
-    backgroundColor: "#E6F7F3",
+    backgroundColor: colors.blueSoft,
     borderRadius: 13,
     marginBottom: 16,
     padding: 13,
   },
-  sourceNoticeTitle: { color: "#16776A", fontWeight: "800" },
-  sourceNoticeCopy: { color: "#486581", lineHeight: 18, marginTop: 4 },
+  sourceNoticeTitle: { color: colors.blue, fontWeight: "600" },
+  sourceNoticeCopy: { color: colors.secondary, lineHeight: 18, marginTop: 4 },
   searchInput: { marginBottom: 8 },
-  searchState: { color: "#627D98", marginVertical: 10 },
+  searchState: { color: colors.secondary, marginVertical: 10 },
   suggestionSection: { marginTop: 10 },
   suggestionCard: {
     backgroundColor: "#fff",
-    borderColor: "#D9E2EC",
+    borderColor: colors.separator,
     borderRadius: 13,
     borderWidth: 1,
     marginBottom: 8,
@@ -1758,16 +1748,16 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   suggestionMain: { flex: 1 },
-  suggestionName: { color: "#243B53", fontSize: 15, fontWeight: "800" },
+  suggestionName: { color: colors.text, fontSize: 15, fontWeight: "600" },
   suggestionBrand: {
-    color: "#486581",
+    color: colors.secondary,
     fontSize: 13,
     fontWeight: "700",
     marginTop: 2,
   },
-  suggestionMeta: { color: "#7B8794", fontSize: 12, marginTop: 4 },
+  suggestionMeta: { color: colors.tertiary, fontSize: 12, marginTop: 4 },
   profileActions: {
-    borderTopColor: "#E6EEF3",
+    borderTopColor: colors.fill,
     borderTopWidth: 1,
     flexDirection: "row",
   },
@@ -1778,11 +1768,11 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   profileDeleteAction: {
-    borderLeftColor: "#E6EEF3",
+    borderLeftColor: colors.fill,
     borderLeftWidth: 1,
   },
-  profileEditText: { color: "#16776A", fontSize: 12, fontWeight: "800" },
-  profileDeleteText: { color: "#B42318", fontSize: 12, fontWeight: "800" },
+  profileEditText: { color: colors.blue, fontSize: 12, fontWeight: "600" },
+  profileDeleteText: { color: "#B42318", fontSize: 12, fontWeight: "600" },
   profileDeleteOverlay: {
     alignItems: "center",
     backgroundColor: "rgba(16, 42, 67, 0.52)",
@@ -1802,8 +1792,8 @@ const styles = StyleSheet.create({
     padding: 20,
     width: "100%",
   },
-  profileDeleteTitle: { color: "#102A43", fontSize: 19, fontWeight: "800" },
-  profileDeleteCopy: { color: "#486581", lineHeight: 20, marginTop: 8 },
+  profileDeleteTitle: { color: colors.text, fontSize: 19, fontWeight: "600" },
+  profileDeleteCopy: { color: colors.secondary, lineHeight: 20, marginTop: 8 },
   profileDeleteActions: {
     flexDirection: "row",
     gap: 10,
@@ -1812,14 +1802,14 @@ const styles = StyleSheet.create({
   },
   profileDeleteCancel: {
     alignItems: "center",
-    borderColor: "#D9E2EC",
+    borderColor: colors.separator,
     borderRadius: 10,
     borderWidth: 1,
     justifyContent: "center",
     minHeight: 42,
     paddingHorizontal: 15,
   },
-  profileDeleteCancelText: { color: "#486581", fontWeight: "800" },
+  profileDeleteCancelText: { color: colors.secondary, fontWeight: "600" },
   profileDeleteConfirm: {
     alignItems: "center",
     backgroundColor: "#B42318",
@@ -1829,56 +1819,48 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   profileDeleteDisabled: { opacity: 0.6 },
-  profileDeleteConfirmText: { color: "#fff", fontWeight: "800" },
+  profileDeleteConfirmText: { color: "#fff", fontWeight: "600" },
   empty: {
     backgroundColor: "#fff",
-    borderColor: "#D9E2EC",
+    borderColor: colors.separator,
     borderRadius: 14,
     borderWidth: 1,
     marginTop: 16,
     padding: 18,
   },
-  emptyTitle: { color: "#243B53", fontWeight: "800" },
-  emptyCopy: { color: "#627D98", lineHeight: 19, marginTop: 5 },
-  foodIdentity: {
-    alignItems: "flex-start",
-    backgroundColor: "#fff",
-    borderColor: "#D9E2EC",
-    borderRadius: 15,
-    borderWidth: 1,
-    marginBottom: 18,
-    padding: 14,
-  },
-  foodIdentityName: { color: "#102A43", fontSize: 18, fontWeight: "800" },
+  emptyTitle: { color: colors.text, fontWeight: "600" },
+  emptyCopy: { color: colors.secondary, lineHeight: 19, marginTop: 5 },
+  foodIdentity: { ...trackingStyles.card, marginBottom: 18 },
+  foodIdentityName: trackingStyles.section,
   amountInput: {
     fontSize: 24,
-    fontWeight: "800",
+    fontWeight: "600",
     marginBottom: 5,
     maxWidth: 180,
   },
-  totalCard: {
-    backgroundColor: "#102A43",
-    borderRadius: 16,
-    marginBottom: 17,
-    padding: 17,
-  },
+  totalCard: { ...trackingStyles.card, marginBottom: 17 },
   totalEyebrow: {
-    color: "#A7C7D4",
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 1,
+    color: colors.secondary,
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 0.6,
   },
-  totalValue: { color: "#fff", fontSize: 27, fontWeight: "800", marginTop: 5 },
+  totalValue: {
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: "600",
+    marginTop: 5,
+  },
   totalMeta: {
-    color: "#D8F3EB",
+    color: colors.secondary,
     fontSize: 15,
-    fontWeight: "700",
+    fontWeight: "600",
     marginTop: 3,
   },
-  totalDetails: { color: "#BCCCDC", fontSize: 12, marginTop: 8 },
+  totalDetails: { color: colors.secondary, fontSize: 13, marginTop: 8 },
   scannerPage: { flex: 1 },
   cameraFrame: {
-    backgroundColor: "#102A43",
+    backgroundColor: colors.text,
     flex: 1,
     minHeight: 330,
     overflow: "hidden",
@@ -1912,10 +1894,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
-  torchText: { color: "#102A43", fontWeight: "800" },
+  torchText: { color: colors.text, fontWeight: "600" },
   permissionCard: {
     backgroundColor: "#fff",
-    borderColor: "#D9E2EC",
+    borderColor: colors.separator,
     borderRadius: 15,
     borderWidth: 1,
     margin: 18,
@@ -1923,16 +1905,16 @@ const styles = StyleSheet.create({
   },
   permissionButton: {
     alignSelf: "flex-start",
-    backgroundColor: "#16776A",
+    backgroundColor: colors.blue,
     borderRadius: 10,
     marginTop: 14,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  permissionButtonText: { color: "#fff", fontWeight: "800" },
+  permissionButtonText: { color: "#fff", fontWeight: "600" },
   manualCard: {
-    backgroundColor: "#F7FAFC",
-    borderTopColor: "#D9E2EC",
+    backgroundColor: colors.background,
+    borderTopColor: colors.separator,
     borderTopWidth: 1,
     padding: 18,
   },

@@ -7,14 +7,18 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace=@healthapp/mobile",
+    "dev": "npm run dev --workspace=@healthapp/mobile --",
+    "start": "npm run start --workspace=@healthapp/mobile --",
+    "web": "npm run web --workspace=@healthapp/mobile --",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present && npm run test:edge",
     "test:edge": "tsx --test supabase/functions/**/*.test.ts",
+    "test:e2e": "npm run test:e2e --workspace=@healthapp/mobile --",
     "precheck": "npm run lint --workspaces --if-present",
     "check": "npm run typecheck --workspaces --if-present",
-    "postcheck": "npm run test"
+    "postcheck": "npm run test",
+    "postinstall": "patch-package --error-on-fail"
   },
   "engines": {
     "node": ">=22.13.0"
@@ -23,5 +27,8 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native-web": "^0.21.2"
+  },
+  "devDependencies": {
+    "patch-package": "^8.0.1"
   }
 }

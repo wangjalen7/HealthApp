@@ -1,8 +1,50 @@
 # Current status
 
 **Active release:** Release 3 — nutrition and tracking expansion
-**Active item:** Validate Face ID, progress photos, nutrition/barcodes, and expanded tracking on the registered iPhone
-**Last updated:** 2026-09-04
+**Active item:** Validate the reviewed flows against live Supabase and the registered iPhone
+**Verification blocker:** No connected Apple mobile device or iOS control tool, and no available disposable live test account. Local review and automated checks are complete; full end-to-end verification awaits access or hands-on results.
+**Last updated:** 2026-09-10
+
+## Exercise dragging and visible Add actions — 2026-09-10
+
+- Replaced fixed-distance exercise swaps with a gesture-driven draggable list: cards follow the finger, adjacent cards slide aside, a spring settles the drop, and the list scrolls near its edges. Variable card heights and current reps/weights survive reordering; keyboard and accessibility move actions remain available. Reduce Motion suppresses the lift/settling animation.
+- Made Add food and Add exercise full-width, high-contrast blue buttons with white plus icons and labels. Kept them below their lists. Removed the requested saved-exercise/history hint and corrected cramped numeric-field padding.
+- Added the JavaScript-only draggable-list dependency using the existing Gesture Handler/Reanimated modules, plus a pinned, reproducible patch for browser scroll measurements and competing scroll gestures. Root E2E scripts now forward test filters.
+- Verification: all 9 browser flows pass together, including pointer tracking, repeated/variable-height reordering, edge auto-scroll, keyboard movement, draft restoration and exact saved sets. Lint, TypeScript, 92 app tests, 16 Edge tests, patch application and iOS/Hermes export pass. Reviewed synthetic food/workout screenshots. Physical iPhone gesture feel, VoiceOver and Reduce Motion remain hands-on checks.
+
+## Face ID return screen and tracking consistency — 2026-09-09
+
+- Fixed the background-lock route reset: the authenticated tab navigator remains mounted behind an opaque privacy cover, preserving the selected screen and in-memory drafts. Locked content blocks pointer/accessibility/keyboard interaction, dismisses the keyboard and hides private dialogs. Quick Log dismisses back to its existing screen instead of redirecting to Summary.
+- Introduced shared tracking styles for page titles, labels, system-font inputs, cards, selection chips and save/add actions across Food, Water, Weight, Blood pressure, Workout/Cardio and Reminders, including the food editor. Removed Cardio's collapse/Hide control and duplicate heading; one Add exercise / Add food action now follows its respective list.
+- Verification: repeated lock/unlock state preservation and private-dialog concealment component tests; all 8 browser flows across four widths (including Cardio); 92 app tests, 16 Edge tests, lint, TypeScript and iOS/Hermes export pass. Screenshots use synthetic data. Physical Face ID/background transitions and native accessibility still need hands-on iPhone confirmation.
+
+## Food History fluid layout — 2026-09-09
+
+- Moved individual drinks into a Fluids group below the meals inside each existing daily card. Reused meal headings, food-row spacing/dividers, name and timestamp layout, amount text and the compact bordered Delete action. The daily fluid total remains in the date header.
+- Verified mixed meal/fluid layouts at 320 and 390 px. The existing water and meal browser flows pass, including cancel/confirm fluid deletion, updated daily totals and preservation of the meal. Lint, TypeScript, 90 app tests and 16 Edge tests pass.
+
+## Metro startup fix — 2026-09-09
+
+- The server on port 8081 reported the repository root as its project directory, so Expo selected `expo/AppEntry.js` and failed to resolve `../../App`. The mobile workspace already had the correct `expo-router/entry` configuration.
+- Corrected README and barcode setup commands to use `npm run dev -- --dev-client` from `HealthApp`. Added root `start` and `web` scripts and explicit flag forwarding for all root startup scripts.
+- Verified the root command on an isolated port: the iOS manifest selected `apps/mobile` and `/node_modules/expo-router/entry.bundle`; Metro bundled 1,750 modules and returned HTTP 200. The temporary verification server was stopped. Stop the old server with Ctrl+C and restart using the corrected command to apply the fix to port 8081.
+
+## App review — 2026-09-08
+
+- Preserved the existing uncommitted UI refresh and reviewed the running app using an isolated headless Edge browser with synthetic Supabase responses. The in-app Browser runtime has no connected browser.
+- Compact Quick Log rows, food-method icons, clearer meal progression, responsive Summary heading, accessible form/button states, and shorter History/Coach copy. Browser Reminders now explains its iPhone requirement instead of presenting an unusable time picker.
+- Fixed unsigned Quick Log access, inappropriate auth validation, browser SVG warnings, hidden workout-save confirmation, orphan workout cleanup after failed set insertion, manual pulse display, and missing fluid-entry deletion.
+- Added reproducible Playwright flows under `apps/mobile/e2e`. All 8 browser tests pass together, covering 320/390/430/1280 px layouts, failure/retry, saves, edits, deletion, navigation, populated charts, keyboard point inspection and sign-out. See `docs/APP_REVIEW.md` for the change list and exact scope. Synthetic backend checks do not verify hosted RLS or actual iPhone capabilities.
+- Lint, strict TypeScript, 90 app tests, 16 Edge tests, web and iPhone bundle exports, and whitespace checks pass. Browser artifacts contain synthetic data only and remain ignored under `apps/mobile/dist/e2e-results`.
+
+## UI refresh ? 2026-09-04
+
+- Replaced the mixed teal/slate styling with a shared iOS-inspired palette, grouped backgrounds, white continuous-corner cards, readable system typography, and consistent category icons across Summary, History, Quick Log, Profile, authentication, and tracking forms.
+- Added spring press feedback, animated segmented controls, animated nutrition rings, tab fades, and motion-aware sheets. A shared motion provider respects native Reduce Motion and the browser preference; all new gestures retain tappable alternatives. No native dependencies or backend changes were added.
+- History supports direction-locked horizontal swipes between Workout, Food, Weight, and Blood pressure, resets the category scroll position, and releases its vertical scroll lock after completion or cancellation. Existing continuous chart dragging and photo paging remain intact.
+- Standardized safe-area and keyboard-aware scrolling, constrained wide previews to a readable content width, made Quick Log scrollable with expandable sheet detents, and removed the cramped side-by-side text/ring layout from nutrition cards.
+- Verification: lint, strict TypeScript, 87/87 mobile tests (including three swipe-behavior tests), 16/16 Edge tests, production web export, and whitespace checks pass. The default sandbox blocked test workers with `spawn EPERM`; the unchanged test suite passed with approved worker-process access.
+- Browser visual verification was subsequently completed on September 8 using isolated Edge at 320, 390, 430 and 1280 px. Native larger text, keyboard entry, History swipes versus vertical scrolling, Quick Log dismissal, VoiceOver and Reduce Motion still require the installed development client. Existing Face ID/camera/HealthKit device checks below remain required.
 
 ## Delivered locally
 
@@ -64,7 +106,7 @@
 - An unfinished lifting workout is continuously saved as a user-scoped local draft. It restores after navigation, app restart, or backgrounding and clears only after a successful Finish workout save.
 - Food History uses the same bordered Delete button and in-app confirmation sheet as the other History sections.
 - Summary Weight, Blood pressure, Calories, and Protein cards open their corresponding History view; Water opens hydration logging.
-- The Track sheet is a fixed two-column grid ordered Food/Water, Blood Pressure/Weight, and Workout/Reminders.
+- Quick Log uses six compact icon rows ordered Food, Water, Blood pressure, Weight, Workout and Reminders, with authenticated access and a safe close destination.
 - Summary no longer repeats a separate goals card; each top metric retains the relevant goal context, while Profile remains the editing surface.
 - Expo dev client and EAS are configured for `@jalenwang/healthapp`; the Apple bundle identifier, signing certificate, ad hoc provisioning profile, and development iPhone registration are active.
 - Supabase configuration accepts the current `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` name while retaining compatibility with the legacy `EXPO_PUBLIC_SUPABASE_ANON_KEY` name.
@@ -88,7 +130,7 @@
 | Docker / WSL2                        | Intentionally deferred                                                                                                                                                                                   |
 | Supabase project and app credentials | Configured locally in ignored `apps/mobile/.env`                                                                                                                                                         |
 | EAS / Apple signing                  | Camera/HealthKit development client is installed; a new iOS development build is required to include Face ID, native SF Symbols, progress-photo camera/library support, and local reminder notifications |
-| Local checks                         | Lint, strict TypeScript, 84/84 mobile tests, 16/16 Edge tests, production web export, Expo public/native config introspection, and `git diff --check` pass                                               |
+| Local checks                         | Lint, strict TypeScript, 92/92 mobile tests, 16/16 Edge tests, 8/8 browser flows and current iPhone bundle export pass; prior production web export passed. See `docs/APP_REVIEW.md` for scope. |
 | Hosted migrations                    | All migrations through `202609040002_progress_photos.sql` are applied to HealthHub and linked database lint reports no schema errors                                                                     |
 | Edge Functions                       | `resolve-food-barcode` v8 and `biometric-auth` v1 are deployed and ACTIVE; biometric auth validates enrollment JWTs internally and exposes password-free device authentication                           |
 | Remote RLS check                     | Basic read isolation observed with a second account; direct cross-user update/delete verification remains                                                                                                |

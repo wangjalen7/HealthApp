@@ -29,6 +29,39 @@ test("pairs a nearby pulse from the same HealthKit source", () => {
   assert.equal(pulseForBloodPressure(reading, [pulse])?.id, "pulse");
 });
 
+test("manual pulse is matched only to the same user's exact BP correlation", () => {
+  const base = sample("systolic", "systolic_bp", "2026-09-04T09:00:00.000Z");
+  const reading: VitalSample = {
+    ...base,
+    source: "manual",
+    correlationId: "bp-1",
+  };
+  const pulse: VitalSample = {
+    ...reading,
+    id: "pulse",
+    kind: "pulse",
+    unit: "bpm",
+    value: 65,
+  };
+  assert.equal(pulseForBloodPressure(reading, [pulse])?.value, 65);
+  assert.equal(
+    pulseForBloodPressure(reading, [{ ...pulse, correlationId: "bp-2" }]),
+    undefined,
+  );
+  assert.equal(
+    pulseForBloodPressure(reading, [{ ...pulse, userId: "other-user" }]),
+    undefined,
+  );
+  assert.equal(
+    pulseForBloodPressure(reading, [{ ...pulse, deletedAt: base.occurredAt }]),
+    undefined,
+  );
+  assert.equal(
+    pulseForBloodPressure({ ...reading, correlationId: undefined }, [pulse]),
+    undefined,
+  );
+});
+
 test("prefers the same-source pulse, but permits a same-time fallback", () => {
   const reading = sample("systolic", "systolic_bp", "2026-09-04T09:00:00.000Z");
   assert.equal(
