@@ -65,7 +65,7 @@ Status key: `[ ]` planned, `[-]` in progress, `[x]` complete.
 - [x] Add reusable, brand-aware food profiles with immutable meal snapshots, exact serving/mass/volume calculations, and user-scoped unfinished meal drafts.
 - [x] Combine Basic entry with saved-food search, offer prefilled reusable-label creation only when no exact saved name exists, and deduplicate reusable profiles by catalog product or canonical per-user barcode.
 - [x] Deploy an authenticated, cached Open Food Facts barcode resolver as a TypeScript Supabase Edge Function.
-- [-] Validate the native Face ID, progress-photo, unified nutrition/barcode, and expanded tracking flows on the registered iPhone, including hydration, workout ordering/location, Summary navigation/calendar, and manual-history editing.
+- [ ] Validate the native Face ID, progress-photo, unified nutrition/barcode, and expanded tracking flows on the registered iPhone, including hydration, workout ordering/location, Summary navigation/calendar, and manual-history editing.
 - [x] Complete local app review, usability/save-flow fixes, and repeatable browser regression coverage; document outstanding live-backend and iPhone checks separately.
 - [x] Correct repository-root Expo startup instructions and workspace script forwarding; verify the iOS development bundle uses Expo Router.
 - [x] Match Food History fluid entries to meal formatting within the daily card, retaining daily totals and confirmed deletion.
@@ -97,6 +97,10 @@ Status key: `[ ]` planned, `[-]` in progress, `[x]` complete.
 - [ ] Add Strava import after its platform/API setup.
 
 - [x] Refresh the interface with a shared iOS-inspired design system, responsive touch feedback, swipeable History categories, and accessible navigation.
+
+- [x] Implement AI meal estimates from photos/text with editable separate labels, one-serving and item-count portions, per-user daily quota, duplicate suppression, secure API and setup guidance.
+
+- [-] Fund the OpenAI API project and validate real text/photo meal estimates on the registered iPhone.
 
 ## Later releases
 

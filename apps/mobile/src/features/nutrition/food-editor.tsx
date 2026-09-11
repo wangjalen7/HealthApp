@@ -57,6 +57,7 @@ import {
 
 type EditorMode = "methods" | "label" | "search" | "scan" | "amount";
 type LabelForm = {
+  description: string;
   name: string;
   brand: string;
   fallbackServingLabel: string;
@@ -76,6 +77,7 @@ type LabelForm = {
 };
 
 const blankLabel = (): LabelForm => ({
+  description: "",
   name: "",
   brand: "",
   fallbackServingLabel: "",
@@ -124,6 +126,7 @@ function productForm(product: BarcodeProduct): LabelForm {
     product.servingVolumeMl,
   );
   return {
+    description: "",
     name: product.name === "Scanned product" ? "" : product.name,
     brand: product.brand ?? "",
     fallbackServingLabel: hasStructuredServing
@@ -162,6 +165,7 @@ function basisForm(basis: FoodBasis): LabelForm {
     basis.servingVolumeMl,
   );
   return {
+    description: basis.description ?? "",
     name: basis.name,
     brand: basis.brand ?? "",
     fallbackServingLabel: hasStructuredServing
@@ -226,9 +230,7 @@ export function FoodEditor({
   const [saving, setSaving] = useState(false);
   const [managingLabels, setManagingLabels] = useState(false);
   const [label, setLabel] = useState<LabelForm>(blankLabel);
-  const [labelSource, setLabelSource] = useState<"manual" | "open_food_facts">(
-    "manual",
-  );
+  const [labelSource, setLabelSource] = useState<FoodBasis["source"]>("manual");
   const [catalogProductId, setCatalogProductId] = useState<string>();
   const [barcode, setBarcode] = useState<string>();
   const [providerSignature, setProviderSignature] = useState<string>();
@@ -281,6 +283,7 @@ export function FoodEditor({
       profileId: initial.profileId,
       catalogProductId: initial.catalogProductId,
       name: initial.name,
+      description: initial.description,
       brand: initial.brand,
       barcode: initial.barcode,
       source: initial.source,
@@ -418,6 +421,7 @@ export function FoodEditor({
       profileId: editingProfileId ?? labelProfileId,
       catalogProductId,
       name: label.name.trim(),
+      description: label.description.trim() || undefined,
       brand: label.brand.trim() || undefined,
       barcode,
       source: labelSource,
@@ -582,7 +586,11 @@ export function FoodEditor({
     setAmount(String(item.defaultAmount));
     setUnit(units.includes(item.defaultUnit) ? item.defaultUnit : "serving");
     setEntryMethod(item.kind === "recent" ? "history" : "profile");
-    setNote("");
+    setNote(
+      item.basis.source === "ai"
+        ? `AI-estimated label. ${item.basis.description ?? ""}`.trim()
+        : (item.basis.description ?? ""),
+    );
     setFeedback("");
     setMode("amount");
   }
@@ -1012,6 +1020,13 @@ function LabelEditor({
         label="Food name"
         value={form.name}
         onChangeText={(name) => change({ name })}
+      />
+      <FormField
+        label="Description (optional)"
+        value={form.description}
+        onChangeText={(description) =>
+          change({ description: description.slice(0, 600) })
+        }
       />
       <FormField
         label="Brand (optional)"

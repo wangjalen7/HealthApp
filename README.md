@@ -16,6 +16,8 @@ Expo Go and the browser preview cannot load Apple Health. The camera-enabled dev
 
 The Supabase migrations and barcode Edge Function are already deployed to the canonical HealthHub development project. Follow [the Supabase setup guide](docs/SUPABASE_SETUP.md) only when configuring a new environment, and use [the barcode setup guide](docs/FOOD_BARCODE_SETUP.md) for deployment/validation details. The persistent [status](docs/STATUS.md), [roadmap](docs/ROADMAP.md), and [implementation log](docs/IMPLEMENTATION_LOG.md) provide the cross-session handoff.
 
+AI Coach now supports meal descriptions and photos, producing separate editable food labels and serving, weight, volume, or item-count estimates that join the existing meal builder. The AI function and migration are deployed to HealthHub development; fund the configured OpenAI API project to activate estimates. See [AI meal setup](docs/AI_MEAL_SETUP.md) for the remaining setup, privacy boundaries and validation steps.
+
 ## Project map
 
 - `apps/mobile` — Expo Router React Native app

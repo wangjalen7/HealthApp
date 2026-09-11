@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sameEstimatedFoodName } from "../../../../../supabase/functions/_shared/meal-estimate";
 
 import { supabase } from "../../lib/supabase";
 import { createId } from "../vitals/storage";
@@ -124,9 +125,15 @@ function rowBasis(row: Record<string, unknown>): FoodBasis {
         ? undefined
         : String(row.catalog_product_id),
     name: String(row.food_name),
+    description: row.description ? String(row.description) : undefined,
     brand: row.brand ? String(row.brand) : undefined,
     barcode: row.barcode ? String(row.barcode) : undefined,
-    source: row.source === "open_food_facts" ? "open_food_facts" : "manual",
+    source:
+      row.source === "ai"
+        ? "ai"
+        : row.source === "open_food_facts"
+          ? "open_food_facts"
+          : "manual",
     isUserCorrected: Boolean(row.is_user_corrected),
     servingLabel: row.serving_label ? String(row.serving_label) : undefined,
     servingWeightGrams: optionalNumber(row.serving_weight_grams),
@@ -140,17 +147,17 @@ function rowBasis(row: Record<string, unknown>): FoodBasis {
 }
 
 const profileSelect =
-  "id, catalog_product_id, food_name, brand, barcode, source, is_user_corrected, serving_label, serving_weight_grams, serving_volume_ml, household_quantity_per_serving, household_unit, calories_per_serving, protein_grams_per_serving, carbohydrate_grams_per_serving, fat_grams_per_serving, fiber_grams_per_serving, sugar_grams_per_serving, sodium_mg_per_serving, archived_at, updated_at" as const;
+  "id, catalog_product_id, food_name, description, brand, barcode, source, is_user_corrected, serving_label, serving_weight_grams, serving_volume_ml, household_quantity_per_serving, household_unit, calories_per_serving, protein_grams_per_serving, carbohydrate_grams_per_serving, fat_grams_per_serving, fiber_grams_per_serving, sugar_grams_per_serving, sodium_mg_per_serving, archived_at, updated_at" as const;
 
 function profileFields(userId: string, basis: FoodBasis) {
   return {
     user_id: userId,
     catalog_product_id: basis.catalogProductId ?? null,
     food_name: basis.name,
+    description: basis.description ?? null,
     brand: basis.brand?.trim() || null,
     barcode: canonicalFoodBarcode(basis.barcode) ?? null,
-    source:
-      basis.source === "open_food_facts" ? "open_food_facts" : "manual_label",
+    source: basis.source === "manual" ? "manual_label" : basis.source,
     is_user_corrected: basis.isUserCorrected,
     serving_label: basis.servingLabel?.trim() || null,
     serving_weight_grams: basis.servingWeightGrams ?? null,
@@ -178,6 +185,7 @@ export async function saveFoodProfile(
   if (basis.profileId) return basis;
   const canonicalBarcode = canonicalFoodBarcode(basis.barcode);
   let current: Record<string, unknown> | null = null;
+  let redundantAiProfileIds: string[] = [];
   if (basis.catalogProductId) {
     const { data, error: currentError } = await supabase
       .from("user_food_profiles")
@@ -198,7 +206,42 @@ export async function saveFoodProfile(
     if (currentError) throw new Error(currentError.message);
     current = data;
   }
-  if (!current && !basis.catalogProductId && !canonicalBarcode) {
+  if (
+    !current &&
+    !basis.catalogProductId &&
+    !canonicalBarcode &&
+    basis.source === "ai"
+  ) {
+    const { data, error: currentError } = await supabase
+      .from("user_food_profiles")
+      .select(profileSelect)
+      .eq("user_id", userId)
+      .eq("source", "ai")
+      .is("archived_at", null)
+      .order("updated_at", { ascending: false })
+      .limit(200);
+    if (currentError) throw new Error(currentError.message);
+    const matches = (data ?? [])
+      .filter((row) => sameEstimatedFoodName(String(row.food_name), basis.name))
+      .sort((left, right) => {
+        const corrected =
+          Number(Boolean(right.is_user_corrected)) -
+          Number(Boolean(left.is_user_corrected));
+        if (corrected) return corrected;
+        return (
+          (Date.parse(String(right.updated_at ?? "")) || 0) -
+          (Date.parse(String(left.updated_at ?? "")) || 0)
+        );
+      });
+    current = matches[0] ?? null;
+    redundantAiProfileIds = matches.slice(1).map((row) => String(row.id));
+  }
+  if (
+    !current &&
+    !basis.catalogProductId &&
+    !canonicalBarcode &&
+    basis.source !== "ai"
+  ) {
     const { data, error: currentError } = await supabase
       .from("user_food_profiles")
       .select(profileSelect)
@@ -213,8 +256,23 @@ export async function saveFoodProfile(
         (row) => foodProfileContentKey(rowBasis(row)) === contentKey,
       ) ?? null;
   }
+  const archiveRedundantAiProfiles = async () => {
+    if (!redundantAiProfileIds.length) return;
+    const archivedAt = new Date().toISOString();
+    for (const profileId of redundantAiProfileIds) {
+      const { error } = await supabase
+        .from("user_food_profiles")
+        .update({ archived_at: archivedAt, updated_at: archivedAt })
+        .eq("user_id", userId)
+        .eq("id", profileId);
+      if (error) throw new Error(error.message);
+    }
+  };
   if (current && current.is_user_corrected && !basis.isUserCorrected) {
-    if (!current.archived_at) return rowBasis(current);
+    if (!current.archived_at) {
+      await archiveRedundantAiProfiles();
+      return rowBasis(current);
+    }
     const { data, error } = await supabase
       .from("user_food_profiles")
       .update({
@@ -226,6 +284,7 @@ export async function saveFoodProfile(
       .select(profileSelect)
       .single();
     if (error) throw new Error(error.message);
+    await archiveRedundantAiProfiles();
     return rowBasis(data);
   }
   if (current) {
@@ -237,6 +296,7 @@ export async function saveFoodProfile(
       .select(profileSelect)
       .single();
     if (error) throw new Error(error.message);
+    await archiveRedundantAiProfiles();
     return rowBasis(data);
   }
   const { data, error } = await supabase
@@ -386,6 +446,15 @@ export async function getFoodSuggestions(
     const brand = row.brand ? String(row.brand) : undefined;
     const score = searchScore(name, brand, normalized);
     if (!score) continue;
+    if (
+      row.nutrition_source === "ai" &&
+      suggestions.some(
+        (item) =>
+          item.basis.source === "ai" &&
+          sameEstimatedFoodName(item.basis.name, name),
+      )
+    )
+      continue;
     seen.add(fingerprint);
     const savedBasis = profileId ? profileMap.get(profileId) : undefined;
     if (profileId && savedBasis) recentProfileIds.add(profileId);
@@ -400,9 +469,11 @@ export async function getFoodSuggestions(
           brand,
           barcode: row.barcode ? String(row.barcode) : undefined,
           source:
-            row.nutrition_source === "open_food_facts"
-              ? "open_food_facts"
-              : "manual",
+            row.nutrition_source === "ai"
+              ? "ai"
+              : row.nutrition_source === "open_food_facts"
+                ? "open_food_facts"
+                : "manual",
           isUserCorrected: false,
           servingLabel: row.serving_label
             ? String(row.serving_label)
@@ -435,6 +506,15 @@ export async function getFoodSuggestions(
     if (recentProfileIds.has(id)) continue;
     const basis = rowBasis(row);
     if (!searchScore(basis.name, basis.brand, normalized)) continue;
+    if (
+      basis.source === "ai" &&
+      suggestions.some(
+        (item) =>
+          item.basis.source === "ai" &&
+          sameEstimatedFoodName(item.basis.name, basis.name),
+      )
+    )
+      continue;
     suggestions.push({
       key: `profile:${id}`,
       kind: "profile",
@@ -535,8 +615,9 @@ export type FoodHistoryEntry = {
   householdUnit?: string;
   note?: string;
   occurredAt: string;
-  source: "manual" | "open_food_facts" | "import";
-  entryMethod: "basic" | "history" | "profile" | "label" | "barcode" | "import";
+  source: "manual" | "open_food_facts" | "import" | "ai";
+  entryMethod:
+    "basic" | "history" | "profile" | "label" | "barcode" | "import" | "ai";
 };
 
 const foodHistorySelect =
@@ -573,14 +654,21 @@ function foodHistoryEntry(row: Record<string, unknown>): FoodHistoryEntry {
     note: row.note ? String(row.note) : undefined,
     occurredAt: String(row.occurred_at),
     source:
-      row.nutrition_source === "open_food_facts"
-        ? "open_food_facts"
-        : row.nutrition_source === "import"
-          ? "import"
-          : "manual",
-    entryMethod: ["history", "profile", "label", "barcode", "import"].includes(
-      String(row.entry_method),
-    )
+      row.nutrition_source === "ai"
+        ? "ai"
+        : row.nutrition_source === "open_food_facts"
+          ? "open_food_facts"
+          : row.nutrition_source === "import"
+            ? "import"
+            : "manual",
+    entryMethod: [
+      "history",
+      "profile",
+      "label",
+      "barcode",
+      "import",
+      "ai",
+    ].includes(String(row.entry_method))
       ? (row.entry_method as FoodHistoryEntry["entryMethod"])
       : "basic",
   };

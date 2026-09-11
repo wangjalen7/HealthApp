@@ -31,9 +31,10 @@ export const foodBasisSchema = z.object({
   profileId: z.string().uuid().optional(),
   catalogProductId: z.string().uuid().optional(),
   name: z.string().trim().min(1).max(160),
+  description: z.string().trim().max(600).optional(),
   brand: z.string().trim().max(160).optional(),
   barcode: z.string().trim().max(32).optional(),
-  source: z.enum(["manual", "open_food_facts"]),
+  source: z.enum(["manual", "open_food_facts", "ai"]),
   isUserCorrected: z.boolean().default(false),
   servingLabel: z.string().trim().max(160).optional(),
   servingWeightGrams: z.number().positive().max(100000).optional(),
@@ -57,6 +58,7 @@ export function foodProfileContentKey(input: FoodBasis) {
   const basis = foodBasisSchema.parse(input);
   return JSON.stringify([
     normalizedProfileText(basis.name),
+    normalizedProfileText(basis.description),
     normalizedProfileText(basis.brand),
     basis.source,
     normalizedProfileText(basis.servingLabel),
@@ -83,14 +85,21 @@ export const mealDraftEntrySchema = foodBasisSchema.extend({
   consumedVolumeMl: z.number().positive().optional(),
   totalNutrients: nutrientValuesSchema,
   note: z.string().trim().max(1000).optional(),
-  entryMethod: z.enum(["basic", "history", "profile", "label", "barcode"]),
+  entryMethod: z.enum([
+    "basic",
+    "history",
+    "profile",
+    "label",
+    "barcode",
+    "ai",
+  ]),
 });
 export type MealDraftEntry = z.infer<typeof mealDraftEntrySchema>;
 
 export type FoodHistorySnapshot = {
   name: string;
   brand?: string;
-  source: "manual" | "open_food_facts" | "import";
+  source: "manual" | "open_food_facts" | "import" | "ai";
   servingLabel?: string;
   householdQuantityPerServing?: number;
   householdUnit?: string;
@@ -216,8 +225,7 @@ export function foodBasisFromHistorySnapshot(
   return foodBasisSchema.parse({
     name: snapshot.name,
     brand: snapshot.brand,
-    source:
-      snapshot.source === "open_food_facts" ? "open_food_facts" : "manual",
+    source: snapshot.source === "import" ? "manual" : snapshot.source,
     isUserCorrected: false,
     servingLabel: snapshot.servingLabel,
     servingWeightGrams: perServing(consumedWeightGrams),
@@ -342,10 +350,10 @@ export function hasReproducibleServingBasis({
 }): boolean {
   return Boolean(
     (typeof weightAmount === "number" && weightAmount > 0) ||
-      (typeof volumeAmount === "number" && volumeAmount > 0) ||
-      (typeof householdAmount === "number" &&
-        householdAmount > 0 &&
-        isSpecificHouseholdUnit(householdUnit)),
+    (typeof volumeAmount === "number" && volumeAmount > 0) ||
+    (typeof householdAmount === "number" &&
+      householdAmount > 0 &&
+      isSpecificHouseholdUnit(householdUnit)),
   );
 }
 

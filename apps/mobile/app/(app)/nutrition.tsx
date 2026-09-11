@@ -15,12 +15,19 @@ import {
   saveNutritionDraft,
 } from "../../src/features/nutrition/draft";
 import { FoodEditor } from "../../src/features/nutrition/food-editor";
+import { AiMealEditor } from "../../src/features/nutrition/ai-meal-editor";
+import {
+  appendEstimatedEntries,
+  deduplicateAiDraftEntries,
+} from "../../src/features/nutrition/ai-meal";
+import { router, useLocalSearchParams } from "expo-router";
 import {
   foodAmountDescription,
   type MealDraftEntry,
   type NutritionDraft,
 } from "../../src/features/nutrition/model";
 import {
+  saveFoodProfile,
   saveNutritionMeal,
   type MealType,
 } from "../../src/features/nutrition/repository";
@@ -34,11 +41,13 @@ function persistDraft(userId: string, draft: NutritionDraft) {
 }
 
 export default function NutritionScreen() {
+  const { estimate } = useLocalSearchParams<{ estimate?: string }>();
   const { session } = useAuth();
   const userId = session?.user.id;
   const [mealType, setMealType] = useState<MealType>();
   const [entries, setEntries] = useState<MealDraftEntry[]>([]);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
   const [editorPurpose, setEditorPurpose] = useState<"add" | "manage">("add");
   const [editing, setEditing] = useState<MealDraftEntry>();
   const [draftLoaded, setDraftLoaded] = useState(false);
@@ -51,6 +60,31 @@ export default function NutritionScreen() {
   );
   const draftRef = useRef(draft);
   draftRef.current = draft;
+
+  useEffect(() => {
+    if (estimate === "true" && draftLoaded) {
+      setAiOpen(true);
+      router.setParams({ estimate: "" });
+    }
+  }, [estimate, draftLoaded]);
+
+  async function acceptEstimates(added: MealDraftEntry[]) {
+    if (!userId || !draftLoaded)
+      throw new Error("Please wait for your meal draft to load.");
+    appendEstimatedEntries(draftRef.current.entries, added);
+    const profiled: MealDraftEntry[] = [];
+    for (const entry of added) {
+      const profile = await saveFoodProfile(userId, entry);
+      profiled.push({ ...entry, ...profile });
+    }
+    const next = appendEstimatedEntries(draftRef.current.entries, profiled);
+    await saveNutritionDraft(userId, {
+      mealType: draftRef.current.mealType,
+      entries: next,
+    });
+    setEntries(next);
+    setFeedback("");
+  }
 
   useEffect(() => {
     let active = true;
@@ -66,7 +100,7 @@ export default function NutritionScreen() {
       if (!active) return;
       if (saved) {
         setMealType(saved.mealType);
-        setEntries(saved.entries);
+        setEntries(deduplicateAiDraftEntries(saved.entries));
       }
       setDraftLoaded(true);
     });
@@ -212,6 +246,27 @@ export default function NutritionScreen() {
           </View>
         </View>
 
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Estimate meal with AI from a photo or description"
+          disabled={saving || !draftLoaded}
+          onPress={() => setAiOpen(true)}
+          style={[
+            styles.aiEstimateButton,
+            (saving || !draftLoaded) && styles.buttonDisabled,
+          ]}
+        >
+          <Icon name="sparkles" size={24} color={colors.surface} />
+          <View style={styles.aiEstimateCopy}>
+            <Text style={styles.aiEstimateTitle}>
+              Estimate meal from photo or text
+            </Text>
+            <Text style={styles.aiEstimateSubtitle}>
+              AI creates editable food labels and portions
+            </Text>
+          </View>
+        </Pressable>
+
         {!mealType ? (
           <View style={styles.empty}>
             <Icon name="food" size={22} color={colors.orange} />
@@ -327,6 +382,15 @@ export default function NutritionScreen() {
       </ScreenScrollView>
 
       {userId ? (
+        <AiMealEditor
+          key={userId}
+          visible={aiOpen}
+          onClose={() => setAiOpen(false)}
+          onAdd={acceptEstimates}
+        />
+      ) : null}
+
+      {userId ? (
         <FoodEditor
           initial={editing}
           labelManagementOnly={editorPurpose === "manage"}
@@ -427,6 +491,28 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   manageLabelsText: { color: colors.blue, fontSize: 14, fontWeight: "600" },
+  aiEstimateButton: {
+    alignItems: "center",
+    backgroundColor: colors.purple,
+    borderRadius: 16,
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 20,
+    minHeight: 68,
+    paddingHorizontal: 18,
+    paddingVertical: 13,
+  },
+  aiEstimateCopy: { flex: 1, gap: 3 },
+  aiEstimateTitle: {
+    color: colors.surface,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  aiEstimateSubtitle: {
+    color: "#F3EAFF",
+    fontSize: 13,
+    lineHeight: 18,
+  },
   addButton: trackingStyles.listAddButton,
   addButtonText: trackingStyles.listAddButtonText,
   empty: {
