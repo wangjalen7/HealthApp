@@ -2,7 +2,7 @@
 
 The local review covers the current app, including the uncommitted interface refresh that was already present. Testing uses the real Expo app in an isolated Edge browser with a synthetic account and intercepted Supabase responses. No personal health records were created, changed, or captured.
 
-September 11 follow-up: AI Coach now opens the photo/text meal estimator with editable separate labels, one-serving conversions, and countable item portions. Five synthetic browser flows cover text saves, an editable six-of-eight dumpling count, JPEG preparation with descriptions, missing setup/retry, cancellation and appending to an existing meal. Existing nine browser flows pass. See [AI meal setup](AI_MEAL_SETUP.md) and the current status for deployment and unverified live/native checks.
+September 11 Coach follow-up: AI Coach now provides multi-goal consent/profile setup, saved chats, structured-history evidence, quota/retry/cancel states, and editable meal/training action reviews. The Coach home uses a compact three-action layout, hides history until requested, simplifies message surfaces, and keeps quota and meal estimation secondary. Seven synthetic Coach flows cover the 320 px layout, setup, PostgreSQL offset timestamps, exact saved-food recalculation, approval-time creation of user-requested labels, workout completion and Cancel/Append conflicts, cardio draft routing, restoration, and permanent deletion. Together with six AI meal and nine existing review flows, all 22 browser tests pass. See [AI Coach setup](AI_COACH_SETUP.md), [AI meal setup](AI_MEAL_SETUP.md), and current status for live/native checks.
 
 ## Changes made
 
@@ -17,7 +17,7 @@ September 9 follow-up: corrected the repository startup instructions and added r
 | Icons and charts  | Fixed native accessibility/event properties leaking onto browser SVG elements and animated SVG warnings. These warnings covered the browser navigation bar. Chart points now also support Enter/Space activation. Native chart touch handling remains available.                                                                                                     |
 | Accessibility     | Added a default button role, explicit browser selected/checked/expanded/busy states, and labels for auth, vitals, cardio, profile and history-edit inputs.                                                                                                                                                                                                           |
 | Authentication    | Password reset validates email without requesting a password. Sign-in accepts existing passwords without applying the signup minimum. Signup retains its eight-character minimum. Password entry supports keyboard submission.                                                                                                                                       |
-| Meals             | Adding foods follows meal selection; incomplete meals cannot be saved. The empty state explains the next action. Added food-method icons, shorter draft/save feedback, and wrapping action rows.                                                                                                                                                                     |
+| Meals             | Meal choices remain at the top while foods can be added before selection; Save explains when a meal is still required. Removed the redundant meal-selection empty box, added the food icon to Add food, and retained concise draft/save feedback and wrapping action rows.                                                                                           |
 | Workouts          | Save feedback remains visible after the completed draft clears. Failed set insertion removes the newly created empty session; if cleanup fails, the error explains how to recover.                                                                                                                                                                                   |
 | Blood pressure    | Manually logged pulse now appears with its exact correlated reading. Matching respects user ownership and excludes deleted samples.                                                                                                                                                                                                                                  |
 | Fluids            | Quick amounts show icons and selected state, with consistent three-column wrapping and 44-point targets. Following the September 9 feedback, Food History groups drinks below meals in the same daily card, reusing meal headings, row layout, timestamps and Delete styling. Daily fluid totals remain in the header; individual entries retain confirmed deletion. |
@@ -62,11 +62,11 @@ Screenshots and failure artifacts are ignored under `apps/mobile/dist/e2e-result
 ## Verification record
 
 - Lint and strict TypeScript: pass.
-- App/domain/component tests: 92 pass.
-- Edge Function tests: 16 pass.
+- App/domain/component tests: 100 pass.
+- Edge Function tests: 35 pass.
 - Production web export: passed the September 8 review; the current September 10 changes are covered by the live Expo browser suite.
 - iPhone JavaScript/Hermes export: pass. This is a bundle check, not a native device test.
-- Browser suite: all 9 tests pass together after the September 10 drag/button changes (45.0 seconds), including automatic startup of a fresh test server.
+- Browser suite: all 19 tests pass together, including 4 Coach flows and 6 AI meal flows, with automatic startup of a fresh test server.
 - Dependency patch application and whitespace check: pass.
 
 ## Remaining device and live-service checks

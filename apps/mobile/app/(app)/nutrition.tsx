@@ -4,7 +4,7 @@ import { ScreenScrollView } from "../../src/ui/screen-scroll-view";
 import { Pressable } from "../../src/ui/pressable";
 import { colors } from "../../src/ui/theme";
 import { Icon } from "../../src/ui/icon";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppState, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "../../src/features/auth/auth-provider";
@@ -20,7 +20,7 @@ import {
   appendEstimatedEntries,
   deduplicateAiDraftEntries,
 } from "../../src/features/nutrition/ai-meal";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import {
   foodAmountDescription,
   type MealDraftEntry,
@@ -108,6 +108,21 @@ export default function NutritionScreen() {
       active = false;
     };
   }, [userId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      if (!userId || !draftLoaded) return () => undefined;
+      void loadNutritionDraft(userId).then((saved) => {
+        if (!active || !saved) return;
+        setMealType(saved.mealType);
+        setEntries(deduplicateAiDraftEntries(saved.entries));
+      });
+      return () => {
+        active = false;
+      };
+    }, [draftLoaded, userId]),
+  );
 
   useEffect(() => {
     if (!userId || !draftLoaded) return;
@@ -267,13 +282,6 @@ export default function NutritionScreen() {
           </View>
         </Pressable>
 
-        {!mealType ? (
-          <View style={styles.empty}>
-            <Icon name="food" size={22} color={colors.orange} />
-            <Text style={styles.emptyTitle}>Choose a meal to get started</Text>
-          </View>
-        ) : null}
-
         {entries.map((entry) => (
           <View key={entry.id} style={styles.foodCard}>
             <View style={styles.foodHeader}>
@@ -328,7 +336,7 @@ export default function NutritionScreen() {
 
         <Pressable
           accessibilityRole="button"
-          disabled={!mealType || saving || !draftLoaded}
+          disabled={saving || !draftLoaded}
           onPress={() => {
             setEditing(undefined);
             setEditorPurpose("add");
@@ -337,10 +345,10 @@ export default function NutritionScreen() {
           }}
           style={[
             styles.addButton,
-            (!mealType || saving || !draftLoaded) && styles.buttonDisabled,
+            (saving || !draftLoaded) && styles.buttonDisabled,
           ]}
         >
-          <Icon name="plus" size={20} color={colors.surface} />
+          <Icon name="food" size={20} color={colors.surface} />
           <Text style={styles.addButtonText}>Add food</Text>
         </Pressable>
 
@@ -367,11 +375,11 @@ export default function NutritionScreen() {
         ) : null}
         <Pressable
           accessibilityRole="button"
-          disabled={saving || !draftLoaded || !mealType || !entries.length}
+          disabled={saving || !draftLoaded || !entries.length}
           onPress={() => void save()}
           style={[
             styles.saveButton,
-            (saving || !draftLoaded || !mealType || !entries.length) &&
+            (saving || !draftLoaded || !entries.length) &&
               styles.buttonDisabled,
           ]}
         >
@@ -515,18 +523,6 @@ const styles = StyleSheet.create({
   },
   addButton: trackingStyles.listAddButton,
   addButtonText: trackingStyles.listAddButtonText,
-  empty: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: "#fff",
-    borderColor: colors.separator,
-    borderRadius: 14,
-    borderWidth: 1,
-    marginBottom: 18,
-    padding: 18,
-  },
-  emptyTitle: { color: colors.secondary, fontWeight: "500", flex: 1 },
   foodCard: { ...trackingStyles.card, marginBottom: 12 },
   foodHeader: { alignItems: "flex-start", flexDirection: "row" },
   foodIdentity: { flex: 1 },

@@ -4,7 +4,9 @@ import test from "node:test";
 import {
   muscleGroupLabel,
   moveWorkoutEntry,
+  normalizeWorkoutDraftStructure,
   workoutDraftHasContent,
+  workoutEntryCompletionIssue,
   workoutDraftSchema,
 } from "./workout-draft";
 
@@ -75,4 +77,51 @@ test("accepts incomplete entries while a workout is in progress", () => {
   });
 
   assert.equal(draft.entries[0].weight, undefined);
+});
+
+test("normalizes hidden rep slots and exercise muscle groups in restored drafts", () => {
+  const normalized = normalizeWorkoutDraftStructure(
+    workoutDraftSchema.parse({
+      muscleGroups: ["Chest"],
+      entries: [
+        {
+          id: "shoulder-press",
+          name: "Shoulder press",
+          muscleGroup: "Delt",
+          setCount: 3,
+          reps: [10, 9],
+          weight: 40,
+        },
+      ],
+      notes: "",
+      location: "",
+    }),
+  );
+  assert.deepEqual(normalized.muscleGroups, ["Chest", "Delt"]);
+  assert.deepEqual(normalized.entries[0].reps, [10, 9, 0]);
+  assert.equal(
+    workoutEntryCompletionIssue(normalized.entries[0], normalized.muscleGroups, 0),
+    "Shoulder press: enter reps for all 3 sets.",
+  );
+});
+
+test("completion feedback identifies the exact missing workout field", () => {
+  const entry = workoutDraftSchema.parse({
+    muscleGroups: ["Back"],
+    entries: [
+      {
+        id: "row",
+        name: "Row",
+        muscleGroup: "Back",
+        setCount: 1,
+        reps: [8],
+      },
+    ],
+    notes: "",
+    location: "",
+  }).entries[0];
+  assert.equal(
+    workoutEntryCompletionIssue(entry, ["Back"], 0),
+    "Row: enter a working weight; use 0 lb for bodyweight.",
+  );
 });

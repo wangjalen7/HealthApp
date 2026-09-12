@@ -149,6 +149,22 @@ function rowBasis(row: Record<string, unknown>): FoodBasis {
 const profileSelect =
   "id, catalog_product_id, food_name, description, brand, barcode, source, is_user_corrected, serving_label, serving_weight_grams, serving_volume_ml, household_quantity_per_serving, household_unit, calories_per_serving, protein_grams_per_serving, carbohydrate_grams_per_serving, fat_grams_per_serving, fiber_grams_per_serving, sugar_grams_per_serving, sodium_mg_per_serving, archived_at, updated_at" as const;
 
+export async function getFoodProfilesByIds(
+  userId: string,
+  profileIds: string[],
+): Promise<FoodBasis[]> {
+  const ids = [...new Set(profileIds.map((id) => z.string().uuid().parse(id)))];
+  if (!ids.length) return [];
+  const { data, error } = await supabase
+    .from("user_food_profiles")
+    .select(profileSelect)
+    .eq("user_id", userId)
+    .in("id", ids)
+    .is("archived_at", null);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => rowBasis(row));
+}
+
 function profileFields(userId: string, basis: FoodBasis) {
   return {
     user_id: userId,

@@ -10,6 +10,7 @@ import {
 } from "../_shared/meal-estimate.ts";
 
 const result = {
+  inputType: "meal" as const,
   items: [
     {
       name: "Cooked pasta",
@@ -135,6 +136,11 @@ test("text and image request use strict schema, high image detail and disabled r
   assert.equal(body.store, false);
   assert.equal(body.max_output_tokens, 3500);
   assert.equal(body.text.format.strict, true);
+  assert.deepEqual(body.text.format.schema.properties.inputType.enum, [
+    "meal",
+    "not_food",
+    "unclear",
+  ]);
   assert.equal(body.input[0].content.length, 2);
   assert.deepEqual(body.input[0].content[1], {
     type: "input_image",
@@ -322,24 +328,47 @@ test("provider diagnostics contain only bounded operational metadata", async () 
   );
 });
 test("unidentifiable food returns an empty review with useful explanation", () => {
-  assert.deepEqual(
-    parseMealResponse({
-      status: "completed",
-      output: [
-        {
-          type: "message",
-          content: [
-            {
-              type: "output_text",
-              text: JSON.stringify({
-                items: [],
-                explanation: "Describe the food or choose a clearer photo.",
-              }),
-            },
-          ],
-        },
-      ],
-    }).items,
-    [],
-  );
+  const parsed = parseMealResponse({
+    status: "completed",
+    output: [
+      {
+        type: "message",
+        content: [
+          {
+            type: "output_text",
+            text: JSON.stringify({
+              inputType: "unclear",
+              items: [],
+              explanation: "Describe the food or choose a clearer photo.",
+            }),
+          },
+        ],
+      },
+    ],
+  });
+  assert.deepEqual(parsed.items, []);
+  assert.match(parsed.explanation, /clearer meal photo/);
+});
+test("non-food classification discards hallucinated food labels", () => {
+  const parsed = parseMealResponse({
+    status: "completed",
+    output: [
+      {
+        type: "message",
+        content: [
+          {
+            type: "output_text",
+            text: JSON.stringify({
+              ...result,
+              inputType: "not_food",
+              items: result.items,
+              explanation: "This is a chair.",
+            }),
+          },
+        ],
+      },
+    ],
+  });
+  assert.deepEqual(parsed.items, []);
+  assert.match(parsed.explanation, /does not appear to show food or a meal/);
 });

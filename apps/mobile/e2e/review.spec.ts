@@ -200,7 +200,19 @@ test("meal label, draft restoration, amount editing, save and deletion", async (
   await expect(
     page.getByRole("button", { name: "Save meal", exact: true }),
   ).toBeDisabled();
-  await page.getByRole("button", { name: "breakfast", exact: true }).click();
+  await expect(
+    page.getByText("Choose a meal to get started", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Add food", exact: true }),
+  ).toBeEnabled();
+  const addFoodBox = await page
+    .getByRole("button", { name: "Add food", exact: true })
+    .boundingBox();
+  const breakfastBox = await page
+    .getByRole("button", { name: "breakfast", exact: true })
+    .boundingBox();
+  expect(breakfastBox!.y).toBeLessThan(addFoodBox!.y);
   await page.getByRole("button", { name: "Add food", exact: true }).click();
   await page
     .getByRole("button", { name: "Create food label", exact: true })
@@ -220,6 +232,14 @@ test("meal label, draft restoration, amount editing, save and deletion", async (
   await expect(
     page.getByRole("button", { name: "Add food", exact: true }),
   ).toHaveCount(1);
+  await expect(
+    page.getByRole("button", { name: "Save meal", exact: true }),
+  ).toBeEnabled();
+  await page.getByRole("button", { name: "Save meal", exact: true }).click();
+  await expect(
+    page.getByText("Choose a meal first.", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "breakfast", exact: true }).click();
   await page.screenshot({ path: testInfo.outputPath("food-draft.png") });
   await expect(
     page.getByRole("button", { name: "Edit amount", exact: true }),

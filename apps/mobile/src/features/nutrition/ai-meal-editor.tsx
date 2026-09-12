@@ -165,6 +165,18 @@ export function AiMealEditor({
         controller.signal,
       );
       if (current !== generation.current) return;
+      if (!result.items.length) {
+        setItems([]);
+        setExplanation("");
+        setFeedback(
+          result.inputType === "not_food" && photo
+            ? "This photo does not appear to show food or a meal. Try another photo or describe what you ate."
+            : result.inputType === "unclear" && photo
+              ? "I could not identify food in this photo. Try a clearer meal photo or describe what you ate."
+              : result.explanation,
+        );
+        return;
+      }
       setItems(
         result.items.map((food) => ({
           id: createId(),

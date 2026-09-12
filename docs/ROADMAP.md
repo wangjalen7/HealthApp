@@ -100,11 +100,21 @@ Status key: `[ ]` planned, `[-]` in progress, `[x]` complete.
 
 - [x] Implement AI meal estimates from photos/text with editable separate labels, one-serving and item-count portions, per-user daily quota, duplicate suppression, secure API and setup guidance.
 
-- [-] Fund the OpenAI API project and validate real text/photo meal estimates on the registered iPhone.
+- [x] Implement the first private AI Coach release with consent controls, saved chat, bounded historical tools, user-option/saved-label meals, lifting/cardio/combined/rest suggestions, evidence, quotas, safety suppression, and review-before-apply local drafts.
+
+- [-] Fund the OpenAI API project and validate live meal estimates and Luna/Terra Coach grounding; the Coach rollout is enabled, while registered-iPhone validation remains open.
 
 ## Later releases
 
+- [ ] Add scheduled weekly Coach progress reviews for adherence, strength, weight trajectory, and next focus.
+- [ ] Add daily readiness check-ins for sleep, soreness, energy, stress, hunger, and reviewed workout adjustments.
+- [ ] Add plateau/deload detection and exercise substitutions based on available equipment and limitations.
+- [ ] Add validated four-to-twelve-week bodybuilding programs after next-workout quality is proven.
+- [ ] Add remaining-macro meal combinations, reusable meal plans, and grocery-list generation.
+- [ ] Expand Apple Health recovery context with sleep, steps, resting heart rate, and HRV.
+- [ ] Add separately consented progress-photo comparison and body-measurement trends.
+- [ ] Add reviewed Coach reminder suggestions, evidence-focused supplement research, rest timers, warmups, and post-workout ratings.
 - [ ] Release 4: Strava import, USDA external food search/fallback, and richer source filters.
 - [ ] Release 5: cloud-synced, server-delivered reminder notifications.
-- [ ] Release 6: consented, wellness-only AI daily coach and evaluation suite.
+- [ ] Release 6: proactive wellness Coach check-ins, scheduled reviews, and multiweek programs after first-release evaluation.
 - [ ] Release 7: multi-user operational hardening, observability, cost controls, and web companion.

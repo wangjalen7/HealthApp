@@ -1,6 +1,7 @@
 import { test, expect, signIn, quickLog } from "./fixture";
 
 const estimate = {
+  inputType: "meal",
   explanation:
     "Estimated from the described cooked foods. Check the portions and cooking oil.",
   items: [
@@ -74,6 +75,7 @@ const estimate = {
 };
 
 const dumplingEstimate = {
+  inputType: "meal",
   explanation: "Estimated from the stated dumpling count.",
   items: [
     {
@@ -115,7 +117,7 @@ test("AI text meal creates separate editable labels and exact saved portions", a
     expect(body.imageBase64).toBeUndefined();
     await route.fulfill({ json: estimate });
   });
-  await page.getByRole("tab", { name: "AI Coach", exact: true }).click();
+  await quickLog(page, "Food");
   await page
     .getByRole("button", {
       name: "Estimate meal with AI from a photo or description",
@@ -164,8 +166,6 @@ test("AI text meal creates separate editable labels and exact saved portions", a
     .click();
   await page.getByRole("button", { name: "dinner", exact: true }).click();
   await expect(page.getByText("470 calories", { exact: true })).toBeVisible();
-  await page.getByRole("tab", { name: "AI Coach", exact: true }).click();
-  await quickLog(page, "Food");
   await expect(
     page
       .getByText("Whole wheat pasta", { exact: true })
@@ -420,6 +420,59 @@ test("AI photo is prepared as JPEG and sent with optional description", async ({
     .click();
   await expect(page.getByText("Review 3 estimated foods")).toBeVisible();
   expect(sent).toBe(true);
+});
+
+test("AI rejects a non-food photo without creating food labels", async ({
+  page,
+  backend,
+}) => {
+  await signIn(page);
+  await quickLog(page, "Food");
+  await page
+    .getByRole("button", {
+      name: "Estimate meal with AI from a photo or description",
+    })
+    .click();
+  const fileChooser = page.waitForEvent("filechooser");
+  await page
+    .getByRole("button", { name: "Choose meal photo", exact: true })
+    .click();
+  await (
+    await fileChooser
+  ).setFiles({
+    name: "not-food.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aT0kAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  });
+  await page
+    .getByRole("checkbox", { name: "Allow AI meal processing" })
+    .click();
+  await page.route("**/functions/v1/estimate-meal", (route) =>
+    route.fulfill({
+      json: {
+        ...estimate,
+        inputType: "not_food",
+        explanation: "A chair is visible.",
+        // A defensive client check must discard labels even if a provider
+        // contradicts its own classification.
+        items: [estimate.items[0]],
+      },
+    }),
+  );
+  await page
+    .getByRole("button", { name: "Estimate foods", exact: true })
+    .click();
+  await expect(
+    page.getByText(/does not appear to show food or a meal/),
+  ).toBeVisible();
+  await expect(page.getByText(/Review 1 estimated foods/)).toHaveCount(0);
+  await expect(
+    page.getByRole("img", { name: "Selected meal photo" }),
+  ).toBeVisible();
+  expect(backend.tables.user_food_profiles ?? []).toHaveLength(0);
 });
 
 test("cancelled AI response is ignored and existing meal portions survive another estimate", async ({

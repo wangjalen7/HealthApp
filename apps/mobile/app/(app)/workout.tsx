@@ -10,8 +10,9 @@ import { applyExerciseOrder } from "../../src/features/training/exercise-reorder
 import { Pressable } from "../../src/ui/pressable";
 import { colors } from "../../src/ui/theme";
 import { Icon } from "../../src/ui/icon";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppState, StyleSheet, Text, TextInput, View } from "react-native";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { useAuth } from "../../src/features/auth/auth-provider";
 import { CardioLog } from "../../src/features/training/cardio-log";
@@ -31,10 +32,12 @@ import {
   muscleGroupLabel,
   muscleGroups,
   moveWorkoutEntry,
+  normalizeWorkoutDraftStructure,
   saveWorkoutDraft,
   type MuscleGroup,
   type WorkoutDraft,
   workoutDraftHasContent,
+  workoutEntryCompletionIssue,
 } from "../../src/features/training/workout-draft";
 import { createId } from "../../src/features/vitals/storage";
 
@@ -69,11 +72,19 @@ function persistWorkoutDraft(
 }
 
 export default function WorkoutScreen() {
+  const { section: requestedSection } = useLocalSearchParams<{
+    section?: string;
+  }>();
   const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
   const { session } = useAuth();
   const userId = session?.user.id;
   const [section, setSection] = useState<"lifting" | "cardio">("lifting");
+
+  useEffect(() => {
+    if (requestedSection === "cardio" || requestedSection === "lifting")
+      setSection(requestedSection);
+  }, [requestedSection]);
   const [selectedGroups, setSelectedGroups] = useState<MuscleGroup[]>([]);
   const [entries, setEntries] = useState<ExerciseEntry[]>([]);
   const [activeEntry, setActiveEntry] = useState<string>();
@@ -132,22 +143,24 @@ export default function WorkoutScreen() {
     void loadWorkoutDraft(userId).then((savedDraft) => {
       if (!active) return;
       if (savedDraft) {
-        setSelectedGroups(savedDraft.muscleGroups);
+        const normalizedDraft = normalizeWorkoutDraftStructure(savedDraft);
+        setSelectedGroups(normalizedDraft.muscleGroups);
         setEntries(
-          savedDraft.entries.map((entry) => ({
+          normalizedDraft.entries.map((entry) => ({
             ...entry,
             muscleGroup:
               entry.muscleGroup ??
-              (savedDraft.muscleGroups.length === 1
-                ? savedDraft.muscleGroups[0]
+              (normalizedDraft.muscleGroups.length === 1
+                ? normalizedDraft.muscleGroups[0]
                 : undefined),
             guidanceState: "idle",
           })),
         );
-        for (const entry of savedDraft.entries) {
+        for (const entry of normalizedDraft.entries) {
           entryNames.current.set(entry.id, entry.name);
         }
-        setLocation(savedDraft.location);
+        setLocation(normalizedDraft.location);
+        setNotes(normalizedDraft.notes);
       }
       setDraftLoaded(true);
     });
@@ -155,6 +168,37 @@ export default function WorkoutScreen() {
       active = false;
     };
   }, [userId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      if (!userId || !draftLoaded) return () => undefined;
+      void loadWorkoutDraft(userId).then((savedDraft) => {
+        if (!active || !savedDraft) return;
+        const normalizedDraft = normalizeWorkoutDraftStructure(savedDraft);
+        setSelectedGroups(normalizedDraft.muscleGroups);
+        setEntries(
+          normalizedDraft.entries.map((entry) => ({
+            ...entry,
+            muscleGroup:
+              entry.muscleGroup ??
+              (normalizedDraft.muscleGroups.length === 1
+                ? normalizedDraft.muscleGroups[0]
+                : undefined),
+            guidanceState: "idle",
+          })),
+        );
+        entryNames.current = new Map(
+          normalizedDraft.entries.map((entry) => [entry.id, entry.name]),
+        );
+        setLocation(normalizedDraft.location);
+        setNotes(normalizedDraft.notes);
+      });
+      return () => {
+        active = false;
+      };
+    }, [draftLoaded, userId]),
+  );
 
   useEffect(() => {
     if (!userId) {
@@ -333,26 +377,17 @@ export default function WorkoutScreen() {
     if (!session) return setFeedback("Please sign in before saving.");
     if (!selectedGroups.length)
       return setFeedback("Choose one or more muscle groups first.");
-    const validEntries = entries.filter(
-      (entry) =>
-        entry.name.trim() &&
-        entry.muscleGroup !== undefined &&
-        selectedGroups.includes(entry.muscleGroup) &&
-        entry.setCount > 0 &&
-        entry.reps.length === entry.setCount &&
-        entry.reps.every((reps) => Number.isInteger(reps) && reps > 0) &&
-        entry.weight !== undefined &&
-        entry.weight >= 0,
-    );
-    if (!validEntries.length)
+    if (!entries.length)
       return setFeedback(
         "Add an exercise, choose its muscle group, set count, every rep target, and a working weight.",
       );
-    if (validEntries.length !== entries.length)
-      return setFeedback(
-        "Finish or remove incomplete exercises before saving.",
-      );
-    const sets: WorkoutSetInput[] = validEntries.flatMap(
+    const incomplete = entries
+      .map((entry, index) =>
+        workoutEntryCompletionIssue(entry, selectedGroups, index),
+      )
+      .find(Boolean);
+    if (incomplete) return setFeedback(incomplete);
+    const sets: WorkoutSetInput[] = entries.flatMap(
       (entry, exerciseIndex) =>
         entry.reps.map((reps) => ({
           exerciseName: entry.name.trim(),

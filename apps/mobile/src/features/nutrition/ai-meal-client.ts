@@ -1,7 +1,7 @@
 import {
-  deduplicateEstimatedFoods,
   mealEstimateRequestSchema,
   mealEstimateSchema,
+  normalizeMealEstimate,
   type MealEstimateRequest,
 } from "../../../../../supabase/functions/_shared/meal-estimate";
 import { supabase } from "../../lib/supabase";
@@ -36,8 +36,5 @@ export async function estimateMeal(
   const result = mealEstimateSchema.safeParse(data);
   if (!result.success)
     throw new Error("AI returned an incomplete estimate. Please try again.");
-  return {
-    ...result.data,
-    items: deduplicateEstimatedFoods(result.data.items),
-  };
+  return normalizeMealEstimate(result.data);
 }

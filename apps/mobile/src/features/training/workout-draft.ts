@@ -29,6 +29,7 @@ export const workoutDraftSchema = z.object({
 
 export type MuscleGroup = z.infer<typeof muscleGroupSchema>;
 export type WorkoutDraft = z.infer<typeof workoutDraftSchema>;
+export type WorkoutDraftEntry = WorkoutDraft["entries"][number];
 
 export function muscleGroupLabel(group: string): string {
   if (group === "Bi") return "Bicep";
@@ -60,6 +61,49 @@ export function workoutDraftHasContent(draft: WorkoutDraft): boolean {
   );
 }
 
+export function normalizeWorkoutDraftStructure(
+  draft: WorkoutDraft,
+): WorkoutDraft {
+  return {
+    ...draft,
+    muscleGroups: [
+      ...new Set([
+        ...draft.muscleGroups,
+        ...draft.entries.flatMap((entry) =>
+          entry.muscleGroup ? [entry.muscleGroup] : [],
+        ),
+      ]),
+    ],
+    entries: draft.entries.map((entry) => ({
+      ...entry,
+      reps: Array.from(
+        { length: entry.setCount },
+        (_, index) => entry.reps[index] ?? 0,
+      ),
+    })),
+  };
+}
+
+export function workoutEntryCompletionIssue(
+  entry: WorkoutDraftEntry,
+  selectedGroups: MuscleGroup[],
+  index: number,
+): string | undefined {
+  const label = entry.name.trim() || `Exercise ${index + 1}`;
+  if (!entry.name.trim()) return `${label}: enter an exercise name.`;
+  if (!entry.muscleGroup || !selectedGroups.includes(entry.muscleGroup))
+    return `${label}: choose one of the selected muscle groups.`;
+  if (entry.setCount <= 0) return `${label}: enter the number of sets.`;
+  if (
+    entry.reps.length !== entry.setCount ||
+    entry.reps.some((reps) => !Number.isInteger(reps) || reps <= 0)
+  )
+    return `${label}: enter reps for all ${entry.setCount} sets.`;
+  if (entry.weight === undefined || entry.weight < 0)
+    return `${label}: enter a working weight; use 0 lb for bodyweight.`;
+  return undefined;
+}
+
 export function moveWorkoutEntry<T extends { id: string }>(
   entries: T[],
   entryId: string,
@@ -78,7 +122,11 @@ export async function loadWorkoutDraft(
 ): Promise<WorkoutDraft | undefined> {
   try {
     const raw = await AsyncStorage.getItem(draftKey(userId));
-    return raw ? workoutDraftSchema.parse(JSON.parse(raw)) : undefined;
+    return raw
+      ? normalizeWorkoutDraftStructure(
+          workoutDraftSchema.parse(JSON.parse(raw)),
+        )
+      : undefined;
   } catch {
     return undefined;
   }

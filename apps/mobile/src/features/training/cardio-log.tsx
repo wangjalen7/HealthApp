@@ -1,10 +1,17 @@
 import { trackingStyles } from "../../ui/tracking-styles";
 import { Pressable } from "../../ui/pressable";
 import { colors } from "../../ui/theme";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
+import { useFocusEffect } from "expo-router";
 
 import { useAuth } from "../auth/auth-provider";
+import {
+  cardioDraftHasContent,
+  clearCardioDraft,
+  loadCardioDraft,
+  saveCardioDraft,
+} from "./cardio-draft";
 import { saveCardio, type CardioInput } from "./repository";
 
 const activities: CardioInput["activityType"][] = [
@@ -24,6 +31,71 @@ export function CardioLog() {
   const [notes, setNotes] = useState("");
   const [feedback, setFeedback] = useState("");
   const [saving, setSaving] = useState(false);
+  const [draftLoaded, setDraftLoaded] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      const userId = session?.user.id;
+      setDraftLoaded(false);
+      setActivityType(undefined);
+      setDuration("");
+      setDistance("");
+      setNotes("");
+      if (!userId) return () => undefined;
+      void loadCardioDraft(userId).then((draft) => {
+        if (!active) return;
+        if (draft) {
+          setActivityType(draft.activityType);
+          setDuration(
+            draft.durationMinutes === undefined
+              ? ""
+              : String(draft.durationMinutes),
+          );
+          setDistance(
+            draft.distanceMiles === undefined
+              ? ""
+              : String(draft.distanceMiles),
+          );
+          setNotes(draft.notes);
+        }
+        setDraftLoaded(true);
+      });
+      return () => {
+        active = false;
+      };
+    }, [session?.user.id]),
+  );
+
+  useEffect(() => {
+    const userId = session?.user.id;
+    if (!userId || !draftLoaded || saving) return;
+    const durationMinutes = Number(duration);
+    const distanceMiles = Number(distance);
+    const draft = {
+      activityType,
+      durationMinutes:
+        Number.isInteger(durationMinutes) && durationMinutes >= 1
+          ? durationMinutes
+          : undefined,
+      distanceMiles:
+        distance.trim() && Number.isFinite(distanceMiles) && distanceMiles >= 0
+          ? distanceMiles
+          : undefined,
+      notes,
+    };
+    void (cardioDraftHasContent(draft)
+      ? saveCardioDraft(userId, draft)
+      : clearCardioDraft(userId));
+  }, [
+    activityType,
+    distance,
+    draftLoaded,
+    duration,
+    notes,
+    saving,
+    session?.user.id,
+  ]);
 
   async function save() {
     if (!session) return setFeedback("Please sign in before saving.");
@@ -50,6 +122,7 @@ export function CardioLog() {
         distanceMiles,
         notes,
       });
+      await clearCardioDraft(session.user.id);
       setActivityType(undefined);
       setDuration("");
       setDistance("");
@@ -65,6 +138,17 @@ export function CardioLog() {
   }
   return (
     <View>
+      {draftLoaded &&
+      cardioDraftHasContent({
+        activityType,
+        durationMinutes: Number(duration) || undefined,
+        distanceMiles: distance.trim() ? Number(distance) : undefined,
+        notes,
+      }) ? (
+        <Text style={styles.draftStatus}>
+          Unfinished cardio saved on this device.
+        </Text>
+      ) : null}
       <Text style={styles.label}>Activity</Text>
       <View style={styles.chips}>
         {activities.map((item) => (
@@ -163,4 +247,5 @@ const styles = StyleSheet.create({
   error: trackingStyles.error,
   button: trackingStyles.button,
   buttonText: trackingStyles.buttonText,
+  draftStatus: { color: colors.secondary, fontSize: 13, marginBottom: 14 },
 });
