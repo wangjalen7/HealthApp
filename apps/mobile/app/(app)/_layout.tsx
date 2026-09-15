@@ -1,6 +1,6 @@
 import { Pressable } from "../../src/ui/pressable";
 import { colors } from "../../src/ui/theme";
-import { Redirect, router, Tabs } from "expo-router";
+import { Redirect, router, Tabs, usePathname } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -16,6 +16,7 @@ import {
 } from "react-native-safe-area-context";
 
 import { useAuth } from "../../src/features/auth/auth-provider";
+import { biometricPasswordReturnPath } from "../../src/features/auth/biometric-lock-navigation";
 import { Icon } from "../../src/ui/icon";
 import { useReducedMotion } from "../../src/ui/motion";
 import { PrivacyBoundary } from "../../src/ui/privacy-boundary";
@@ -38,6 +39,7 @@ function CreateTabButton() {
 
 export default function AppLayout() {
   const { biometricLocked, session, signOut, unlockWithFaceId } = useAuth();
+  const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
   if (!session) return <Redirect href="/(auth)/sign-in" />;
@@ -46,6 +48,7 @@ export default function AppLayout() {
       locked={biometricLocked}
       lockScreen={
         <FaceIdLockScreen
+          returnTo={biometricPasswordReturnPath(pathname)}
           signOut={signOut}
           unlockWithFaceId={unlockWithFaceId}
         />
@@ -123,9 +126,11 @@ export default function AppLayout() {
 }
 
 function FaceIdLockScreen({
+  returnTo,
   signOut,
   unlockWithFaceId,
 }: {
+  returnTo: string;
   signOut: () => Promise<void>;
   unlockWithFaceId: () => Promise<{ message?: string; success: boolean }>;
 }) {
@@ -160,7 +165,10 @@ function FaceIdLockScreen({
     setFeedback("");
     try {
       await signOut();
-      router.replace("/(auth)/sign-in");
+      router.replace({
+        pathname: "/(auth)/sign-in",
+        params: { returnTo },
+      });
     } catch (error) {
       setFeedback(
         error instanceof Error ? error.message : "Could not return to sign in.",

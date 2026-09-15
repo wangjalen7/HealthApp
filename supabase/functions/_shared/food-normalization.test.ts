@@ -7,6 +7,25 @@ import {
   sentenceCaseFoodName,
 } from "./food-normalization.ts";
 
+test("derives the total servings from package and serving weights", () => {
+  const product = normalizeFoodProduct(
+    {
+      code: "servings",
+      product_name: "Snack",
+      serving_quantity: 30,
+      serving_quantity_unit: "g",
+      product_quantity: 240,
+      product_quantity_unit: "g",
+      nutriments: {
+        "energy-kcal_serving": 120,
+        proteins_serving: 3,
+      },
+    },
+    "servings",
+  );
+  assert.equal(product.servingsPerContainer, 8);
+});
+
 test("turns an all-caps provider food name into sentence case", () => {
   assert.equal(sentenceCaseFoodName("SEA SALT POPPED CORN"), "Sea salt popped corn");
   assert.equal(sentenceCaseFoodName("PopCorners Sea Salt"), "PopCorners Sea Salt");

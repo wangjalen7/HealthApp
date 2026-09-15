@@ -18,6 +18,8 @@ const draftEntrySchema = z.object({
   setCount: z.number().int().min(0).max(12),
   reps: z.array(z.number().int().min(0).max(500)).max(12),
   weight: z.number().min(0).max(5000).optional(),
+  rightReps: z.array(z.number().int().min(0).max(500)).max(12).optional(),
+  rightWeight: z.number().min(0).max(5000).optional(),
 });
 
 export const workoutDraftSchema = z.object({
@@ -36,6 +38,20 @@ export function muscleGroupLabel(group: string): string {
   if (group === "Tri") return "Tricep";
   if (group === "Delt") return "Shoulders";
   return group;
+}
+
+const unilateralNamePatterns = [
+  /\bunilateral\b/i,
+  /\b(?:single|one)[ -]?(?:arm|hand|leg|side|limb)\b/i,
+  /\b(?:single|one)[ -]sided\b/i,
+  /\b(?:each|per)[ -]?(?:arm|hand|leg|side|limb)\b/i,
+  /\b(?:left|right)[ /&-]+(?:right|left)\b/i,
+  /\b(?:l\s*\/\s*r|r\s*\/\s*l)\b/i,
+];
+
+export function isUnilateralExerciseName(name: string): boolean {
+  const normalized = name.trim().replace(/[–—]/g, "-");
+  return unilateralNamePatterns.some((pattern) => pattern.test(normalized));
 }
 
 const draftKey = (userId: string): string =>
@@ -80,6 +96,12 @@ export function normalizeWorkoutDraftStructure(
         { length: entry.setCount },
         (_, index) => entry.reps[index] ?? 0,
       ),
+      rightReps: isUnilateralExerciseName(entry.name)
+        ? Array.from(
+            { length: entry.setCount },
+            (_, index) => entry.rightReps?.[index] ?? entry.reps[index] ?? 0,
+          )
+        : [],
     })),
   };
 }
@@ -101,6 +123,15 @@ export function workoutEntryCompletionIssue(
     return `${label}: enter reps for all ${entry.setCount} sets.`;
   if (entry.weight === undefined || entry.weight < 0)
     return `${label}: enter a working weight; use 0 lb for bodyweight.`;
+  if (isUnilateralExerciseName(entry.name)) {
+    if (
+      entry.rightReps?.length !== entry.setCount ||
+      entry.rightReps.some((reps) => !Number.isInteger(reps) || reps <= 0)
+    )
+      return `${label}: enter right-side reps for all ${entry.setCount} sets.`;
+    if (entry.rightWeight === undefined || entry.rightWeight < 0)
+      return `${label}: enter a right-side weight; use 0 lb for bodyweight.`;
+  }
   return undefined;
 }
 

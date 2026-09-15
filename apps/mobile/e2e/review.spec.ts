@@ -253,8 +253,12 @@ test("meal label, draft restoration, amount editing, save and deletion", async (
   await page.getByRole("button", { name: "Save meal", exact: true }).click();
   await expect(page.getByText("Meal saved.", { exact: true })).toBeVisible();
   expect(backend.tables.nutrition_entries).toHaveLength(1);
-  await page.getByRole("tab", { name: "History", exact: true }).click();
-  await page.getByRole("tab", { name: "Food", exact: true }).click();
+  await page
+    .getByRole("button", { name: "View food history", exact: true })
+    .click();
+  await expect(
+    page.getByRole("tab", { name: "Food", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
   await expect(
     page.getByRole("button", { name: "Edit Review oats", exact: true }),
   ).toBeVisible();
@@ -312,6 +316,9 @@ test("lifting and cardio saves, history and delete", async ({
     .getByRole("button", { name: "Finish workout", exact: true })
     .click();
   await expect(page.getByText(/Workout saved/)).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "View workout history", exact: true }),
+  ).toBeVisible();
   expect(backend.tables.workout_sessions).toHaveLength(1);
   expect(backend.tables.workout_sets).toHaveLength(1);
   await page.getByRole("tab", { name: "Cardio", exact: true }).click();
@@ -488,6 +495,20 @@ test("profile name persistence and browser reminder guidance", async ({
   await expect
     .poll(() => backend.tables.profiles[0].daily_calorie_goal)
     .toBe(2300);
+  await expect(
+    page.getByText("Export your data", { exact: true }),
+  ).toBeVisible();
+  const downloadPromise = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Export records", exact: true })
+    .click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(
+    /^HealthApp-data-\d{4}-\d{2}-\d{2}\.zip$/,
+  );
+  await expect(
+    page.getByText("Export finished.", { exact: true }),
+  ).toBeVisible();
   await quickLog(page, "Reminders");
   await expect(page.getByText("Set reminders on your iPhone")).toBeVisible();
   await expect(page.getByRole("button", { name: "Save reminder" })).toHaveCount(

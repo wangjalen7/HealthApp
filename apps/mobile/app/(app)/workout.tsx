@@ -12,7 +12,7 @@ import { colors } from "../../src/ui/theme";
 import { Icon } from "../../src/ui/icon";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppState, StyleSheet, Text, TextInput, View } from "react-native";
-import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { useAuth } from "../../src/features/auth/auth-provider";
 import { CardioLog } from "../../src/features/training/cardio-log";
@@ -31,6 +31,7 @@ import {
   loadWorkoutDraft,
   muscleGroupLabel,
   muscleGroups,
+  isUnilateralExerciseName,
   moveWorkoutEntry,
   normalizeWorkoutDraftStructure,
   saveWorkoutDraft,
@@ -48,6 +49,8 @@ type ExerciseEntry = {
   setCount: number;
   reps: number[];
   weight?: number;
+  rightReps: number[];
+  rightWeight?: number;
   guidance?: ExerciseGuidance;
   guidanceState: "idle" | "loading" | "loaded";
 };
@@ -57,6 +60,7 @@ const blankExercise = (selectedGroups: MuscleGroup[]): ExerciseEntry => ({
   muscleGroup: selectedGroups.length === 1 ? selectedGroups[0] : undefined,
   setCount: 0,
   reps: [],
+  rightReps: [],
   guidanceState: "idle",
 });
 const normalizedExerciseName = (value: string) =>
@@ -109,13 +113,24 @@ export default function WorkoutScreen() {
     () => ({
       muscleGroups: selectedGroups,
       entries: entries.map(
-        ({ id, name, muscleGroup, setCount, reps, weight }) => ({
+        ({
           id,
           name,
           muscleGroup,
           setCount,
           reps,
           weight,
+          rightReps,
+          rightWeight,
+        }) => ({
+          id,
+          name,
+          muscleGroup,
+          setCount,
+          reps,
+          weight,
+          rightReps,
+          rightWeight,
         }),
       ),
       location,
@@ -154,6 +169,7 @@ export default function WorkoutScreen() {
                 ? normalizedDraft.muscleGroups[0]
                 : undefined),
             guidanceState: "idle",
+            rightReps: entry.rightReps ?? [],
           })),
         );
         for (const entry of normalizedDraft.entries) {
@@ -186,6 +202,7 @@ export default function WorkoutScreen() {
                 ? normalizedDraft.muscleGroups[0]
                 : undefined),
             guidanceState: "idle",
+            rightReps: entry.rightReps ?? [],
           })),
         );
         entryNames.current = new Map(
@@ -294,30 +311,62 @@ export default function WorkoutScreen() {
                 { length: safeCount },
                 (_, index) => entry.reps[index] ?? 0,
               ),
-            }
-          : entry,
-      ),
-    );
-  }
-  function updateRep(id: string, index: number, raw: string) {
-    const value = Number(raw);
-    setEntries((current) =>
-      current.map((entry) =>
-        entry.id === id
-          ? {
-              ...entry,
-              reps: entry.reps.map((rep, repIndex) =>
-                repIndex === index ? (Number.isFinite(value) ? value : 0) : rep,
+              rightReps: Array.from(
+                { length: safeCount },
+                (_, index) => entry.rightReps[index] ?? entry.reps[index] ?? 0,
               ),
             }
           : entry,
       ),
     );
   }
-  function updateWeight(id: string, raw: string) {
-    if (!raw.trim()) return updateEntry(id, { weight: undefined });
+  function updateRep(
+    id: string,
+    index: number,
+    raw: string,
+    side: "left" | "right" = "left",
+  ) {
+    const value = Number(raw);
+    setEntries((current) =>
+      current.map((entry) =>
+        entry.id === id
+          ? {
+              ...entry,
+              ...(side === "right"
+                ? {
+                    rightReps: entry.rightReps.map((rep, repIndex) =>
+                      repIndex === index
+                        ? Number.isFinite(value)
+                          ? value
+                          : 0
+                        : rep,
+                    ),
+                  }
+                : {
+                    reps: entry.reps.map((rep, repIndex) =>
+                      repIndex === index
+                        ? Number.isFinite(value)
+                          ? value
+                          : 0
+                        : rep,
+                    ),
+                  }),
+            }
+          : entry,
+      ),
+    );
+  }
+  function updateWeight(
+    id: string,
+    raw: string,
+    side: "left" | "right" = "left",
+  ) {
+    const field = side === "right" ? "rightWeight" : "weight";
+    if (!raw.trim()) return updateEntry(id, { [field]: undefined });
     const value = Number(raw.replace(",", "."));
-    updateEntry(id, { weight: Number.isFinite(value) ? value : undefined });
+    updateEntry(id, {
+      [field]: Number.isFinite(value) ? value : undefined,
+    });
   }
   const matchingLocations = locationSuggestions.filter((suggestion) =>
     suggestion
@@ -368,7 +417,26 @@ export default function WorkoutScreen() {
   }
   function chooseExercise(entryId: string, name: string) {
     entryNames.current.set(entryId, name);
-    updateEntry(entryId, { name, guidance: undefined, guidanceState: "idle" });
+    setEntries((current) =>
+      current.map((entry) => {
+        if (entry.id !== entryId) return entry;
+        const unilateral = isUnilateralExerciseName(name);
+        return {
+          ...entry,
+          name,
+          guidance: undefined,
+          guidanceState: "idle",
+          rightReps: unilateral
+            ? entry.reps.map(
+                (reps, setIndex) => entry.rightReps[setIndex] ?? reps,
+              )
+            : [],
+          rightWeight: unilateral
+            ? (entry.rightWeight ?? entry.weight)
+            : undefined,
+        };
+      }),
+    );
     setSuggestions([]);
     setActiveEntry(undefined);
     void loadGuidance(entryId, name);
@@ -387,16 +455,19 @@ export default function WorkoutScreen() {
       )
       .find(Boolean);
     if (incomplete) return setFeedback(incomplete);
-    const sets: WorkoutSetInput[] = entries.flatMap(
-      (entry, exerciseIndex) =>
-        entry.reps.map((reps) => ({
-          exerciseName: entry.name.trim(),
-          exerciseOrder: exerciseIndex + 1,
-          muscleGroup: entry.muscleGroup!,
-          weight: entry.weight!,
-          reps,
-        })),
-    );
+    const sets: WorkoutSetInput[] = entries.flatMap((entry, exerciseIndex) => {
+      const unilateral = isUnilateralExerciseName(entry.name);
+      return entry.reps.map((reps, setIndex) => ({
+        exerciseName: entry.name.trim(),
+        exerciseOrder: exerciseIndex + 1,
+        muscleGroup: entry.muscleGroup!,
+        weight: entry.weight!,
+        reps,
+        sideMode: unilateral ? "unilateral" : "bilateral",
+        rightWeight: unilateral ? entry.rightWeight : undefined,
+        rightReps: unilateral ? entry.rightReps[setIndex] : undefined,
+      }));
+    });
     setSaving(true);
     setFeedback("");
     const savedLocation = location.trim();
@@ -445,13 +516,13 @@ export default function WorkoutScreen() {
           ),
         )
       }
-      activationDistance={6}
-      autoscrollThreshold={80}
-      autoscrollSpeed={220}
+      activationDistance={12}
+      autoscrollThreshold={40}
+      autoscrollSpeed={0}
       animationConfig={{
-        damping: 28,
-        stiffness: 240,
-        mass: 0.6,
+        damping: 34,
+        stiffness: 190,
+        mass: 0.9,
         overshootClamping: true,
         reduceMotion: reducedMotion ? ReduceMotion.Always : ReduceMotion.System,
       }}
@@ -532,6 +603,23 @@ export default function WorkoutScreen() {
                   </Pressable>
                 ))}
               </View>
+              {feedback.startsWith("Workout saved") ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(app)/history",
+                      params: { view: "exercise" },
+                    })
+                  }
+                  style={styles.historyButton}
+                >
+                  <Icon name="history" size={18} color={colors.blue} />
+                  <Text style={styles.historyButtonText}>
+                    View workout history
+                  </Text>
+                </Pressable>
+              ) : null}
               {selectedGroups.length ? (
                 <>
                   <Text style={styles.label}>Gym location (optional)</Text>
@@ -584,6 +672,7 @@ export default function WorkoutScreen() {
       }
       renderItem={({ item: entry, getIndex, drag, isActive }) => {
         const index = getIndex() ?? 0;
+        const unilateral = isUnilateralExerciseName(entry.name);
         return (
           <ScaleDecorator activeScale={reducedMotion ? 1 : 1.015}>
             <View
@@ -636,10 +725,19 @@ export default function WorkoutScreen() {
                     entry.id,
                     (guidanceRequests.current.get(entry.id) ?? 0) + 1,
                   );
+                  const unilateral = isUnilateralExerciseName(name);
                   updateEntry(entry.id, {
                     name,
                     guidance: undefined,
                     guidanceState: "idle",
+                    rightReps: unilateral
+                      ? entry.reps.map(
+                          (reps, setIndex) => entry.rightReps[setIndex] ?? reps,
+                        )
+                      : [],
+                    rightWeight: unilateral
+                      ? (entry.rightWeight ?? entry.weight)
+                      : undefined,
                   });
                   setActiveEntry(entry.id);
                   void searchSavedExercises(name);
@@ -689,12 +787,21 @@ export default function WorkoutScreen() {
                   </View>
                 </>
               ) : null}
+              {unilateral ? (
+                <Text style={styles.sideHint}>
+                  Single-side exercise detected. Log each side separately.
+                </Text>
+              ) : null}
               <View style={styles.prescriptionLabel}>
+                {unilateral ? (
+                  <Text style={styles.sideLabelSpacer}>Side</Text>
+                ) : null}
                 <Text style={styles.subLabel}>Number of sets</Text>
                 <Text style={styles.subLabel}>Reps per set</Text>
                 <Text style={styles.subLabel}>Working weight</Text>
               </View>
               <View style={styles.prescription}>
+                {unilateral ? <Text style={styles.sideLabel}>L</Text> : null}
                 <TextInput
                   accessibilityLabel="Number of sets"
                   keyboardType="number-pad"
@@ -732,6 +839,45 @@ export default function WorkoutScreen() {
                 />
                 <Text style={styles.lb}>lb</Text>
               </View>
+              {unilateral ? (
+                <View style={styles.prescription}>
+                  <Text style={styles.sideLabel}>R</Text>
+                  <View style={styles.countPlaceholder} />
+                  <Text style={styles.times}>x</Text>
+                  <View style={styles.repRow}>
+                    {entry.rightReps.map((reps, setIndex) => (
+                      <TextInput
+                        key={setIndex}
+                        accessibilityLabel={`Right side set ${setIndex + 1} reps`}
+                        keyboardType="number-pad"
+                        placeholder="_"
+                        placeholderTextColor={colors.tertiary}
+                        style={styles.repInput}
+                        value={reps ? String(reps) : ""}
+                        onChangeText={(value) =>
+                          updateRep(entry.id, setIndex, value, "right")
+                        }
+                      />
+                    ))}
+                  </View>
+                  <TextInput
+                    accessibilityLabel="Right side working weight in pounds"
+                    keyboardType="decimal-pad"
+                    placeholder="lb"
+                    placeholderTextColor={colors.tertiary}
+                    style={styles.weightInput}
+                    value={
+                      entry.rightWeight === undefined
+                        ? ""
+                        : String(entry.rightWeight)
+                    }
+                    onChangeText={(value) =>
+                      updateWeight(entry.id, value, "right")
+                    }
+                  />
+                  <Text style={styles.lb}>lb</Text>
+                </View>
+              ) : null}
               {entry.guidanceState === "loading" ? (
                 <Text style={styles.memoryMuted}>
                   Checking your last 90 days...
@@ -808,7 +954,18 @@ const styles = StyleSheet.create({
   groupChipActive: trackingStyles.chipActive,
   groupText: trackingStyles.chipText,
   groupTextActive: trackingStyles.chipTextActive,
-
+  historyButton: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    backgroundColor: colors.blueSoft,
+    borderRadius: 10,
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 18,
+    minHeight: 44,
+    paddingHorizontal: 14,
+  },
+  historyButtonText: { color: colors.blue, fontSize: 14, fontWeight: "700" },
   empty: {
     backgroundColor: "#fff",
     borderColor: colors.separator,
@@ -898,6 +1055,20 @@ const styles = StyleSheet.create({
   },
   suggestionName: { color: colors.text, fontWeight: "700" },
   prescriptionLabel: { flexDirection: "row", marginTop: 15 },
+  sideHint: {
+    color: colors.blue,
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 12,
+  },
+  sideLabelSpacer: { width: 22 },
+  sideLabel: {
+    color: colors.blue,
+    fontSize: 14,
+    fontWeight: "800",
+    textAlign: "center",
+    width: 22,
+  },
   subLabel: {
     color: colors.tertiary,
     flex: 1,
@@ -918,6 +1089,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     width: 44,
   },
+  countPlaceholder: { width: 44 },
   times: { color: colors.secondary, fontSize: 18, fontWeight: "600" },
   repRow: { flex: 1, flexDirection: "row", flexWrap: "wrap", gap: 5 },
   repInput: {

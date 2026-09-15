@@ -373,6 +373,21 @@ export default function NutritionScreen() {
             {feedback}
           </Text>
         ) : null}
+        {feedback.startsWith("Meal saved") ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() =>
+              router.push({
+                pathname: "/(app)/history",
+                params: { view: "food" },
+              })
+            }
+            style={styles.historyButton}
+          >
+            <Icon name="history" size={18} color={colors.blue} />
+            <Text style={styles.historyButtonText}>View food history</Text>
+          </Pressable>
+        ) : null}
         <Pressable
           accessibilityRole="button"
           disabled={saving || !draftLoaded || !entries.length}
@@ -586,6 +601,18 @@ const styles = StyleSheet.create({
   totalProtein: { color: colors.secondary, fontSize: 15, fontWeight: "600" },
   success: trackingStyles.success,
   error: trackingStyles.error,
+  historyButton: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    backgroundColor: colors.blueSoft,
+    borderRadius: 10,
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 14,
+    minHeight: 44,
+    paddingHorizontal: 14,
+  },
+  historyButtonText: { color: colors.blue, fontSize: 14, fontWeight: "700" },
   saveButton: trackingStyles.button,
   buttonDisabled: { opacity: 0.65 },
   saveButtonText: trackingStyles.buttonText,

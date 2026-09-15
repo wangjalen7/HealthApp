@@ -24,6 +24,7 @@ Status key: `[ ]` planned, `[-]` in progress, `[x]` complete.
 - [x] Enroll in the Apple Developer Program and link the Expo/EAS project.
 - [x] Install Expo dev client, configure EAS profiles, register the iPhone, and generate managed Apple signing credentials.
 - [x] Produce and install the baseline iOS development build; the repository path no longer contains the apostrophe that triggered Windows Git clone failures.
+- [x] Configure side-by-side standalone and development iPhone variants with distinct bundle identifiers, names, URL schemes, and authentication redirects.
 - [x] Implement source-aware, read-only HealthKit import for weight and paired blood pressure with incremental reconciliation.
 - [x] Move Apple Health connection to Profile and consolidate foreground Apple Health import into Summary's automatic and manual sync path.
 - [ ] Validate HealthKit permissions, imports, duplicate prevention, and deletion handling on the registered iPhone using the replacement development build.
@@ -38,6 +39,7 @@ Status key: `[ ]` planned, `[-]` in progress, `[x]` complete.
 - [x] Show last measured vital times and the last successful vitals sync time.
 - [x] Add fixed-duration rolling D/W/M/6M/Y vital viewports with hourly D averages, daily W/M averages, weekly 6M averages, monthly Y averages, range-specific time divisions, stable dataset-wide vertical scales, and enlarged near-edge plots.
 - [x] Add secure workout-history editing for muscle groups, exercises, sets, reps, weight, and notes.
+- [x] Add automatic single-side exercise detection with separate left/right reps and weights stored as one logical set, plus controlled drag and precise reorder actions.
 - [x] Treat an explicit 0 lb working weight as valid for bodyweight exercises while keeping an empty weight field invalid.
 - [x] Add Exercise, Blood pressure, and Weight history views with timestamps and source labels.
 - [x] Add user-owned calorie, weight, and blood-pressure goals plus automatic 0.7 g/lb protein progress.
@@ -93,8 +95,10 @@ Status key: `[ ]` planned, `[-]` in progress, `[x]` complete.
 - [x] Reduce redundant page subtext, move Face ID enrollment behind a minimal Profile-row password prompt, and show goal-save success inline.
 - [x] Add private, storage-efficient progress photos from camera or library during Weight logging and from every Weight History entry, with a swipeable archive, deletion, and a three-photo daily limit.
 - [x] Import read-only HealthKit pulse only when it can be safely associated with a paired Blood Pressure record, and display it in History.
-- [x] Add device-local medication, supplement, custom, blood-pressure, and weight reminders with native scheduled notifications, repeat timing including multiple daily times, and daily completion.
-- [ ] Add Strava import after its platform/API setup.
+- [x] Add device-local medication, supplement, custom, blood-pressure, and weight reminders with native scheduled notifications, repeat timing including multiple daily times, and completion-aware suppression for daily and individual multi-daily occurrences.
+- [x] Add total product servings to reusable food labels, correct narrow-screen serving-unit layout, and offer provider-basis nutrient scaling when serving size is corrected.
+- [x] Add a Profile data export with per-category CSV, complete JSON, device-only records, optional original progress photos, and native sharing.
+- [x] Add direct post-save Food/Workout history actions and reliable held-card edge scrolling during exercise reordering.
 
 - [x] Refresh the interface with a shared iOS-inspired design system, responsive touch feedback, swipeable History categories, and accessible navigation.
 
@@ -114,7 +118,7 @@ Status key: `[ ]` planned, `[-]` in progress, `[x]` complete.
 - [ ] Expand Apple Health recovery context with sleep, steps, resting heart rate, and HRV.
 - [ ] Add separately consented progress-photo comparison and body-measurement trends.
 - [ ] Add reviewed Coach reminder suggestions, evidence-focused supplement research, rest timers, warmups, and post-workout ratings.
-- [ ] Release 4: Strava import, USDA external food search/fallback, and richer source filters.
+- [ ] Release 4: USDA external food search/fallback and richer source filters.
 - [ ] Release 5: cloud-synced, server-delivered reminder notifications.
 - [ ] Release 6: proactive wellness Coach check-ins, scheduled reviews, and multiweek programs after first-release evaluation.
 - [ ] Release 7: multi-user operational hardening, observability, cost controls, and web companion.

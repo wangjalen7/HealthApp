@@ -2,10 +2,16 @@ import * as Notifications from "expo-notifications";
 
 import {
   type Reminder,
-  reminderTimes,
+  type ReminderCompletion,
+  completionAppliesToOccurrence,
+  localDay,
   reminderTitle,
-  timeParts,
+  timeFromDate,
+  upcomingReminderOccurrences,
 } from "./model";
+
+// Leave a small buffer below iOS's pending-local-notification ceiling.
+const maximumPendingReminderNotifications = 60;
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -18,6 +24,10 @@ Notifications.setNotificationHandler({
 
 function notificationContent(
   reminder: Reminder,
+  occurrence: {
+    localDay: string;
+    scheduledTime: string;
+  },
 ): Notifications.NotificationContentInput {
   const isTracking = ["blood_pressure", "weight"].includes(reminder.kind);
   return {
@@ -26,84 +36,127 @@ function notificationContent(
       ? `Time to track ${reminderTitle(reminder).toLowerCase()}.`
       : `Time for ${reminderTitle(reminder)}.`,
     sound: "default",
-    data: { url: "/(app)/reminders", reminderId: reminder.id },
+    data: {
+      url: "/(app)/reminders",
+      reminderId: reminder.id,
+      occurrenceDay: occurrence.localDay,
+      occurrenceTime: occurrence.scheduledTime,
+    },
   };
 }
 
-async function requestPermission(): Promise<void> {
+function notificationsAllowed(
+  settings: Notifications.NotificationPermissionsStatus,
+): boolean {
+  return (
+    settings.granted ||
+    settings.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL
+  );
+}
+
+async function notificationPermission(
+  shouldRequest: boolean,
+): Promise<boolean> {
   let settings = await Notifications.getPermissionsAsync();
-  if (!settings.granted) {
+  if (!notificationsAllowed(settings) && shouldRequest) {
     settings = await Notifications.requestPermissionsAsync({
       ios: { allowAlert: true, allowBadge: false, allowSound: true },
     });
   }
-  const provisionallyAllowed =
-    settings.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
-  if (!settings.granted && !provisionallyAllowed) {
+  if (!notificationsAllowed(settings) && shouldRequest) {
     throw new Error(
       "Allow notifications in iPhone Settings to activate reminders.",
     );
   }
+  return notificationsAllowed(settings);
 }
 
-export async function scheduleReminderNotifications(
-  reminder: Reminder,
-): Promise<string[]> {
-  await requestPermission();
-  const { hour, minute } = timeParts(reminder.time);
-  const content = notificationContent(reminder);
-  if (reminder.repeat === "once") {
-    const [year, month, day] = reminder.startDate.split("-").map(Number);
-    const date = new Date(year, month - 1, day, hour, minute);
-    if (date <= new Date()) {
-      throw new Error("Choose a future date and time for a one-time reminder.");
-    }
-    return [
-      await Notifications.scheduleNotificationAsync({
-        content,
+export async function synchronizeReminderNotifications(
+  reminders: Reminder[],
+  completions: ReminderCompletion[],
+  options: { now?: Date; requestPermission?: boolean } = {},
+): Promise<Reminder[]> {
+  if (!reminders.length) return [];
+  const allowed = await notificationPermission(
+    options.requestPermission ?? false,
+  );
+  if (!allowed) return reminders;
+
+  await cancelReminderNotifications(
+    reminders.flatMap((reminder) => reminder.notificationIds),
+  );
+  const occurrences = upcomingReminderOccurrences(
+    reminders,
+    completions,
+    options.now,
+    maximumPendingReminderNotifications,
+  );
+  const remindersById = new Map(
+    reminders.map((reminder) => [reminder.id, reminder]),
+  );
+  const idsByReminder = new Map<string, string[]>();
+  const scheduledIds: string[] = [];
+  try {
+    for (const occurrence of occurrences) {
+      const reminder = remindersById.get(occurrence.reminderId);
+      if (!reminder) continue;
+      const id = await Notifications.scheduleNotificationAsync({
+        content: notificationContent(reminder, occurrence),
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
-          date,
+          date: occurrence.date,
         },
-      }),
-    ];
+      });
+      scheduledIds.push(id);
+      idsByReminder.set(reminder.id, [
+        ...(idsByReminder.get(reminder.id) ?? []),
+        id,
+      ]);
+    }
+  } catch (error) {
+    await cancelReminderNotifications(scheduledIds);
+    throw error;
   }
-  if (reminder.repeat === "daily" || reminder.repeat === "multiple_daily") {
-    return Promise.all(
-      reminderTimes(reminder).map((time) => {
-        const parts = timeParts(time);
-        return Notifications.scheduleNotificationAsync({
-          content,
-          trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.DAILY,
-            hour: parts.hour,
-            minute: parts.minute,
-          },
-        });
-      }),
-    );
-  }
-  const days = reminder.weekdays.length
-    ? reminder.weekdays
-    : [new Date().getDay()];
-  return Promise.all(
-    days.map((day) =>
-      Notifications.scheduleNotificationAsync({
-        content,
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
-          weekday: day + 1,
-          hour,
-          minute,
-        },
-      }),
-    ),
-  );
+  return reminders.map((reminder) => ({
+    ...reminder,
+    notificationIds: idsByReminder.get(reminder.id) ?? [],
+  }));
 }
 
 export async function cancelReminderNotifications(ids: string[]) {
   await Promise.all(
     ids.map((id) => Notifications.cancelScheduledNotificationAsync(id)),
+  );
+}
+
+export async function dismissCompletedReminderNotification(
+  reminder: Reminder,
+  completion: ReminderCompletion,
+): Promise<void> {
+  const presented = await Notifications.getPresentedNotificationsAsync();
+  await Promise.all(
+    presented.flatMap((notification) => {
+      const data = notification.request.content.data;
+      if (data?.reminderId !== reminder.id) return [];
+      const deliveredAt = new Date(notification.date);
+      const occurrence = {
+        localDay:
+          typeof data.occurrenceDay === "string"
+            ? data.occurrenceDay
+            : localDay(deliveredAt),
+        scheduledTime:
+          typeof data.occurrenceTime === "string"
+            ? data.occurrenceTime
+            : timeFromDate(deliveredAt),
+      };
+      return completionAppliesToOccurrence(reminder, completion, occurrence)
+        ? [
+            Notifications.dismissNotificationAsync(
+              notification.request.identifier,
+            ),
+          ]
+        : [];
+    }),
   );
 }
 

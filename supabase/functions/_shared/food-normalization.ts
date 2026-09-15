@@ -19,6 +19,7 @@ export type NormalizedFoodProduct = {
     householdQuantity: number | null;
     householdUnit: string | null;
   };
+  servingsPerContainer: number | null;
   nutrients: NormalizedNutrients;
 };
 
@@ -471,6 +472,26 @@ export function normalizeFoodProduct(
   };
   const foodName = [product.product_name, product.product_name_en]
     .find((value) => typeof value === "string" && value.trim()) as string | undefined;
+  const productQuantity = positiveFinite(product.product_quantity);
+  const productUnit = typeof product.product_quantity_unit === "string"
+    ? product.product_quantity_unit.toLocaleLowerCase()
+    : "";
+  let servingsPerContainer: number | null = null;
+  if (productQuantity !== null && serving.weightGrams) {
+    const packageGrams = productUnit === "kg"
+      ? productQuantity * 1000
+      : productUnit === "g"
+      ? productQuantity
+      : null;
+    if (packageGrams) servingsPerContainer = packageGrams / serving.weightGrams;
+  } else if (productQuantity !== null && serving.volumeMl) {
+    const packageMl = productUnit === "l"
+      ? productQuantity * 1000
+      : productUnit === "ml"
+      ? productQuantity
+      : null;
+    if (packageMl) servingsPerContainer = packageMl / serving.volumeMl;
+  }
   return {
     providerId: String(product.code ?? providerBarcode),
     foodName: sentenceCaseFoodName(foodName ?? "Scanned product"),
@@ -478,6 +499,7 @@ export function normalizeFoodProduct(
       ? product.brands.split(",")[0].trim()
       : null,
     serving,
+    servingsPerContainer,
     nutrients,
   };
 }

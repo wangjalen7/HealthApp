@@ -18,10 +18,13 @@ import {
 import { useAuth } from "../../src/features/auth/auth-provider";
 import { Icon } from "../../src/ui/icon";
 import {
+  createReminderCompletion,
   createReminder,
+  currentReminderCompletion,
   dateFromLocalDay,
+  formatReminderTime,
   localDay,
-  reminderIsComplete,
+  reminderCompletionTargetTime,
   reminderKindLabel,
   reminderKinds,
   reminderTitle,
@@ -30,13 +33,15 @@ import {
   repeatSummary,
   timeFromDate,
   type Reminder,
+  type ReminderCompletion,
   type ReminderKind,
   type ReminderRepeat,
   weekdayLabels,
 } from "../../src/features/reminders/model";
 import {
   cancelReminderNotifications,
-  scheduleReminderNotifications,
+  dismissCompletedReminderNotification,
+  synchronizeReminderNotifications,
 } from "../../src/features/reminders/notifications";
 import {
   listReminderCompletions,
@@ -89,9 +94,7 @@ function kindNeedsName(kind: ReminderKind) {
 export default function RemindersScreen() {
   const { session } = useAuth();
   const [reminders, setReminders] = useState<Reminder[]>([]);
-  const [completions, setCompletions] = useState<
-    { reminderId: string; localDay: string; completedAt: string }[]
-  >([]);
+  const [completions, setCompletions] = useState<ReminderCompletion[]>([]);
   const [editing, setEditing] = useState<Reminder>();
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState<ReminderDraft>(blankDraft);
@@ -99,6 +102,7 @@ export default function RemindersScreen() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [currentTime, setCurrentTime] = useState(() => new Date());
 
   const load = useCallback(async () => {
     const userId = session?.user.id;
@@ -122,6 +126,13 @@ export default function RemindersScreen() {
     useCallback(() => {
       void load();
     }, [load]),
+  );
+  useFocusEffect(
+    useCallback(() => {
+      setCurrentTime(new Date());
+      const interval = setInterval(() => setCurrentTime(new Date()), 30_000);
+      return () => clearInterval(interval);
+    }, []),
   );
   const selectedDate = useMemo(
     () => dateFromLocalDay(draft.startDate, draft.time),
@@ -209,11 +220,17 @@ export default function RemindersScreen() {
       setError("Choose at least one day.");
       return;
     }
+    if (draft.repeat === "once" && selectedDate <= new Date()) {
+      setError("Choose a future date and time for a one-time reminder.");
+      return;
+    }
     setSaving(true);
     setError("");
     try {
       const normalizedDraft = {
         ...draft,
+        additionalTimes:
+          draft.repeat === "multiple_daily" ? draft.additionalTimes : [],
         name: name || undefined,
         weekdays:
           draft.repeat === "weekly" ? [draft.weekdays[0]] : draft.weekdays,
@@ -223,21 +240,21 @@ export default function RemindersScreen() {
             ...editing,
             ...normalizedDraft,
             updatedAt: new Date().toISOString(),
-            notificationIds: [],
           }
         : createReminder({ userId, ...normalizedDraft });
-      const notificationIds = await scheduleReminderNotifications(base);
-      const saved: Reminder = { ...base, notificationIds };
       const next = editing
         ? reminders.map((reminder) =>
-            reminder.id === editing.id ? saved : reminder,
+            reminder.id === editing.id ? base : reminder,
           )
-        : [...reminders, saved];
-      await saveReminders(userId, next);
-      if (editing?.notificationIds.length)
-        await cancelReminderNotifications(editing.notificationIds);
+        : [...reminders, base];
+      const scheduled = await synchronizeReminderNotifications(
+        next,
+        completions,
+        { requestPermission: true },
+      );
+      await saveReminders(userId, scheduled);
       setReminders(
-        next.sort((left, right) => left.time.localeCompare(right.time)),
+        scheduled.sort((left, right) => left.time.localeCompare(right.time)),
       );
       setEditing(undefined);
       setAdding(false);
@@ -261,11 +278,15 @@ export default function RemindersScreen() {
       const nextCompletions = completions.filter(
         (completion) => completion.reminderId !== reminder.id,
       );
+      const scheduled = await synchronizeReminderNotifications(
+        next,
+        nextCompletions,
+      );
       await Promise.all([
-        saveReminders(userId, next),
+        saveReminders(userId, scheduled),
         saveReminderCompletions(userId, nextCompletions),
       ]);
-      setReminders(next);
+      setReminders(scheduled);
       setCompletions(nextCompletions);
       setEditing(undefined);
       setAdding(false);
@@ -282,29 +303,39 @@ export default function RemindersScreen() {
   async function toggleCompleted(reminder: Reminder) {
     const userId = session?.user.id;
     if (!userId || saving) return;
-    const completed = reminderIsComplete(reminder.id, completions);
+    const now = new Date();
+    const completed = currentReminderCompletion(reminder, completions, now);
+    const addedCompletion = completed
+      ? undefined
+      : createReminderCompletion(reminder, now);
     const next = completed
-      ? completions.filter(
-          (completion) =>
-            !(
-              completion.reminderId === reminder.id &&
-              completion.localDay === localDay()
-            ),
-        )
-      : [
-          ...completions,
-          {
-            reminderId: reminder.id,
-            localDay: localDay(),
-            completedAt: new Date().toISOString(),
-          },
-        ];
-    setCompletions(next);
+      ? completions.filter((completion) => completion !== completed)
+      : [...completions, addedCompletion!];
+    setSaving(true);
+    setError("");
     try {
-      await saveReminderCompletions(userId, next);
+      const scheduled = await synchronizeReminderNotifications(
+        reminders,
+        next,
+        { now },
+      );
+      await Promise.all([
+        saveReminderCompletions(userId, next),
+        saveReminders(userId, scheduled),
+      ]);
+      if (addedCompletion) {
+        await dismissCompletedReminderNotification(
+          reminder,
+          addedCompletion,
+        ).catch(() => undefined);
+      }
+      setCompletions(next);
+      setReminders(scheduled);
     } catch {
       setCompletions(completions);
-      setError("Could not update today's completion.");
+      setError("Could not update this completion or its notification.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -558,7 +589,13 @@ export default function RemindersScreen() {
         <>
           <Text style={styles.section}>Today</Text>
           {reminders.map((reminder) => {
-            const complete = reminderIsComplete(reminder.id, completions);
+            const complete = Boolean(
+              currentReminderCompletion(reminder, completions, currentTime),
+            );
+            const completionTime = reminderCompletionTargetTime(
+              reminder,
+              currentTime,
+            );
             return (
               <View key={reminder.id} style={styles.card}>
                 <Pressable
@@ -591,7 +628,9 @@ export default function RemindersScreen() {
                   <Text style={styles.cardCopy}>{repeatSummary(reminder)}</Text>
                   <Text style={complete ? styles.done : styles.active}>
                     {complete
-                      ? "Completed today"
+                      ? completionTime
+                        ? `${formatReminderTime(completionTime)} completed`
+                        : "Completed today"
                       : reminder.notificationIds.length
                         ? "Notifications on"
                         : "Notifications unavailable"}

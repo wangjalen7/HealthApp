@@ -32,6 +32,7 @@ const barcodeProductSchema = z.object({
   servingVolumeMl: nullableNumber,
   householdQuantityPerServing: nullableNumber,
   householdUnit: z.string().nullable(),
+  servingsPerContainer: nullableNumber,
   nutrientsPerServing: z.object({
     calories: nullableNumber,
     proteinGrams: nullableNumber,
@@ -142,12 +143,13 @@ function rowBasis(row: Record<string, unknown>): FoodBasis {
       row.household_quantity_per_serving,
     ),
     householdUnit: row.household_unit ? String(row.household_unit) : undefined,
+    servingsPerContainer: optionalNumber(row.servings_per_container),
     nutrientsPerServing: rowNutrients(row),
   });
 }
 
 const profileSelect =
-  "id, catalog_product_id, food_name, description, brand, barcode, source, is_user_corrected, serving_label, serving_weight_grams, serving_volume_ml, household_quantity_per_serving, household_unit, calories_per_serving, protein_grams_per_serving, carbohydrate_grams_per_serving, fat_grams_per_serving, fiber_grams_per_serving, sugar_grams_per_serving, sodium_mg_per_serving, archived_at, updated_at" as const;
+  "id, catalog_product_id, food_name, description, brand, barcode, source, is_user_corrected, serving_label, serving_weight_grams, serving_volume_ml, household_quantity_per_serving, household_unit, servings_per_container, calories_per_serving, protein_grams_per_serving, carbohydrate_grams_per_serving, fat_grams_per_serving, fiber_grams_per_serving, sugar_grams_per_serving, sodium_mg_per_serving, archived_at, updated_at" as const;
 
 export async function getFoodProfilesByIds(
   userId: string,
@@ -180,6 +182,7 @@ function profileFields(userId: string, basis: FoodBasis) {
     serving_volume_ml: basis.servingVolumeMl ?? null,
     household_quantity_per_serving: basis.householdQuantityPerServing ?? null,
     household_unit: basis.householdUnit?.trim() || null,
+    servings_per_container: basis.servingsPerContainer ?? null,
     calories_per_serving: basis.nutrientsPerServing.calories,
     protein_grams_per_serving: basis.nutrientsPerServing.proteinGrams,
     carbohydrate_grams_per_serving:

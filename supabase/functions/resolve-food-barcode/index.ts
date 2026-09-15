@@ -25,6 +25,7 @@ type CatalogProduct = {
   serving_volume_ml: number | null;
   household_quantity_per_serving: number | null;
   household_unit: string | null;
+  servings_per_container: number | null;
   calories_per_serving: number | null;
   protein_grams_per_serving: number | null;
   carbohydrate_grams_per_serving: number | null;
@@ -37,7 +38,7 @@ type CatalogProduct = {
   expires_at: string;
 };
 
-const NORMALIZATION_VERSION = 4;
+const NORMALIZATION_VERSION = 5;
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -76,6 +77,7 @@ function responseProduct(product: CatalogProduct, cache: "fresh" | "refreshed" |
     servingVolumeMl: positiveFinite(product.serving_volume_ml),
     householdQuantityPerServing: positiveFinite(product.household_quantity_per_serving),
     householdUnit: product.household_unit,
+    servingsPerContainer: positiveFinite(product.servings_per_container),
     nutrientsPerServing: {
       calories: finite(product.calories_per_serving),
       proteinGrams: finite(product.protein_grams_per_serving),
@@ -225,6 +227,7 @@ Deno.serve(async (request) => {
         serving_volume_ml: value.serving.volumeMl,
         household_quantity_per_serving: value.serving.householdQuantity,
         household_unit: value.serving.householdUnit,
+        servings_per_container: value.servingsPerContainer,
         calories_per_serving: value.nutrients.calories,
         protein_grams_per_serving: value.nutrients.proteinGrams,
         carbohydrate_grams_per_serving: value.nutrients.carbohydrateGrams,

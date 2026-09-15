@@ -10,13 +10,28 @@ import {
 import { rankSavedNames, suggestGymLocations } from "./catalog";
 import { muscleGroupSchema, type MuscleGroup } from "./workout-draft";
 
-const workoutSetSchema = z.object({
-  exerciseName: z.string().trim().min(1).max(120),
-  exerciseOrder: z.number().int().min(1).max(100),
-  muscleGroup: muscleGroupSchema,
-  weight: z.number().min(0).max(5000),
-  reps: z.number().int().min(1).max(500),
-});
+const workoutSetSchema = z
+  .object({
+    exerciseName: z.string().trim().min(1).max(120),
+    exerciseOrder: z.number().int().min(1).max(100),
+    muscleGroup: muscleGroupSchema,
+    weight: z.number().min(0).max(5000),
+    reps: z.number().int().min(1).max(500),
+    sideMode: z.enum(["bilateral", "unilateral"]).optional(),
+    rightWeight: z.number().min(0).max(5000).optional(),
+    rightReps: z.number().int().min(1).max(500).optional(),
+  })
+  .superRefine((set, context) => {
+    if (
+      set.sideMode === "unilateral" &&
+      (set.rightWeight === undefined || set.rightReps === undefined)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Enter reps and weight for both sides.",
+      });
+    }
+  });
 export type WorkoutSetInput = z.infer<typeof workoutSetSchema>;
 export type { ExerciseGuidance, ExerciseMemory } from "./progression";
 
@@ -68,6 +83,9 @@ export async function saveWorkout(
         weight: set.weight,
         weight_unit: "lb",
         reps: set.reps,
+        side_mode: set.sideMode ?? "bilateral",
+        right_weight: set.rightWeight ?? null,
+        right_reps: set.rightReps ?? null,
       };
     }),
   );
@@ -114,6 +132,9 @@ export async function replaceWorkout(
       weight: set.weight,
       weight_unit: "lb",
       reps: set.reps,
+      side_mode: set.sideMode ?? "bilateral",
+      right_weight: set.rightWeight ?? null,
+      right_reps: set.rightReps ?? null,
     };
   });
   const { error } = await supabase.rpc("replace_workout_session", {
@@ -200,6 +221,9 @@ export type WorkoutHistorySet = {
   weight: number;
   unit: string;
   reps: number;
+  sideMode: "bilateral" | "unilateral";
+  rightWeight?: number;
+  rightReps?: number;
 };
 export type WorkoutHistorySession = {
   id: string;
@@ -225,7 +249,7 @@ export async function getWorkoutHistory(
   const { data: sets, error: setError } = await supabase
     .from("workout_sets")
     .select(
-      "session_id, exercise_name, exercise_order, muscle_group, set_number, weight, weight_unit, reps",
+      "session_id, exercise_name, exercise_order, muscle_group, set_number, weight, weight_unit, reps, side_mode, right_weight, right_reps",
     )
     .eq("user_id", userId)
     .in("session_id", ids)
@@ -245,6 +269,10 @@ export async function getWorkoutHistory(
       weight: Number(set.weight),
       unit: set.weight_unit,
       reps: Number(set.reps),
+      sideMode: set.side_mode === "unilateral" ? "unilateral" : "bilateral",
+      rightWeight:
+        set.right_weight === null ? undefined : Number(set.right_weight),
+      rightReps: set.right_reps === null ? undefined : Number(set.right_reps),
     });
     bySession.set(set.session_id, current);
   }
@@ -289,7 +317,7 @@ export async function getWorkoutById(
   const { data: sets, error: setError } = await supabase
     .from("workout_sets")
     .select(
-      "exercise_name, exercise_order, muscle_group, set_number, weight, weight_unit, reps",
+      "exercise_name, exercise_order, muscle_group, set_number, weight, weight_unit, reps, side_mode, right_weight, right_reps",
     )
     .eq("user_id", userId)
     .eq("session_id", sessionId)
@@ -315,6 +343,10 @@ export async function getWorkoutById(
       weight: Number(set.weight),
       unit: set.weight_unit,
       reps: Number(set.reps),
+      sideMode: set.side_mode === "unilateral" ? "unilateral" : "bilateral",
+      rightWeight:
+        set.right_weight === null ? undefined : Number(set.right_weight),
+      rightReps: set.right_reps === null ? undefined : Number(set.right_reps),
     })),
   };
 }

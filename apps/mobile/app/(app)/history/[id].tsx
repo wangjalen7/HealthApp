@@ -19,6 +19,7 @@ import {
   type WorkoutSetInput,
 } from "../../../src/features/training/repository";
 import {
+  isUnilateralExerciseName,
   muscleGroupLabel,
   muscleGroups,
   moveWorkoutEntry,
@@ -32,12 +33,17 @@ type Entry = {
   muscleGroup?: MuscleGroup;
   reps: number[];
   weight?: number;
+  sideMode: "bilateral" | "unilateral";
+  rightReps: number[];
+  rightWeight?: number;
 };
 const blank = (selectedGroups: MuscleGroup[]): Entry => ({
   id: createId(),
   name: "",
   muscleGroup: selectedGroups.length === 1 ? selectedGroups[0] : undefined,
   reps: [],
+  sideMode: "bilateral",
+  rightReps: [],
 });
 function groupedEntries(sets: WorkoutHistorySet[]): Entry[] {
   const byExercise = new Map<string, WorkoutHistorySet[]>();
@@ -51,9 +57,18 @@ function groupedEntries(sets: WorkoutHistorySet[]): Entry[] {
     name,
     muscleGroup: values[0].muscleGroup,
     weight: values[0].weight,
+    sideMode: values[0].sideMode,
+    rightWeight: values[0].rightWeight,
     reps: values
       .sort((left, right) => left.setNumber - right.setNumber)
       .map((set) => set.reps),
+    rightReps: values
+      .sort((left, right) => left.setNumber - right.setNumber)
+      .flatMap((set) =>
+        set.sideMode === "unilateral" && set.rightReps !== undefined
+          ? [set.rightReps]
+          : [],
+      ),
   }));
 }
 function legacyGroups(title: string): MuscleGroup[] {
@@ -156,6 +171,10 @@ export default function EditWorkoutScreen() {
                 { length: safeCount },
                 (_, index) => entry.reps[index] ?? 0,
               ),
+              rightReps: Array.from(
+                { length: safeCount },
+                (_, index) => entry.rightReps[index] ?? entry.reps[index] ?? 0,
+              ),
             }
           : entry,
       ),
@@ -183,6 +202,28 @@ export default function EditWorkoutScreen() {
       weight: Number.isFinite(value) ? value : undefined,
     });
   }
+  function updateRightRep(entryId: string, index: number, raw: string) {
+    const value = Number(raw);
+    setEntries((current) =>
+      current.map((entry) =>
+        entry.id === entryId
+          ? {
+              ...entry,
+              rightReps: entry.rightReps.map((rep, repIndex) =>
+                repIndex === index ? (Number.isFinite(value) ? value : 0) : rep,
+              ),
+            }
+          : entry,
+      ),
+    );
+  }
+  function updateRightWeight(entryId: string, raw: string) {
+    if (!raw.trim()) return updateEntry(entryId, { rightWeight: undefined });
+    const value = Number(raw.replace(",", "."));
+    updateEntry(entryId, {
+      rightWeight: Number.isFinite(value) ? value : undefined,
+    });
+  }
   async function save() {
     if (!session || !id) return;
     if (!selectedGroups.length)
@@ -195,19 +236,33 @@ export default function EditWorkoutScreen() {
         entry.reps.length &&
         entry.reps.every((reps) => Number.isInteger(reps) && reps > 0) &&
         entry.weight !== undefined &&
-        entry.weight >= 0,
+        entry.weight >= 0 &&
+        (entry.sideMode !== "unilateral" ||
+          (entry.rightReps.length === entry.reps.length &&
+            entry.rightReps.every(
+              (reps) => Number.isInteger(reps) && reps > 0,
+            ) &&
+            entry.rightWeight !== undefined &&
+            entry.rightWeight >= 0)),
     );
     if (!valid.length || valid.length !== entries.length)
       return setFeedback(
         "Finish each exercise and choose its muscle group, or remove it.",
       );
     const sets: WorkoutSetInput[] = valid.flatMap((entry, exerciseIndex) =>
-      entry.reps.map((reps) => ({
+      entry.reps.map((reps, setIndex) => ({
         exerciseName: entry.name.trim(),
         exerciseOrder: exerciseIndex + 1,
         muscleGroup: entry.muscleGroup!,
         weight: entry.weight!,
         reps,
+        sideMode: entry.sideMode,
+        rightReps:
+          entry.sideMode === "unilateral"
+            ? entry.rightReps[setIndex]
+            : undefined,
+        rightWeight:
+          entry.sideMode === "unilateral" ? entry.rightWeight : undefined,
       })),
     );
     setSaving(true);
@@ -331,7 +386,21 @@ export default function EditWorkoutScreen() {
             placeholderTextColor="#9FB3C8"
             style={styles.input}
             value={entry.name}
-            onChangeText={(name) => updateEntry(entry.id, { name })}
+            onChangeText={(name) => {
+              const unilateral = isUnilateralExerciseName(name);
+              updateEntry(entry.id, {
+                name,
+                sideMode: unilateral ? "unilateral" : "bilateral",
+                rightReps: unilateral
+                  ? entry.reps.map(
+                      (reps, setIndex) => entry.rightReps[setIndex] ?? reps,
+                    )
+                  : [],
+                rightWeight: unilateral
+                  ? (entry.rightWeight ?? entry.weight)
+                  : undefined,
+              });
+            }}
           />
           {selectedGroups.length > 1 ? (
             <>
@@ -368,6 +437,9 @@ export default function EditWorkoutScreen() {
             </>
           ) : null}
           <View style={styles.row}>
+            {entry.sideMode === "unilateral" ? (
+              <Text style={styles.side}>L</Text>
+            ) : null}
             <TextInput
               keyboardType="number-pad"
               placeholder="# sets"
@@ -400,6 +472,43 @@ export default function EditWorkoutScreen() {
             />
             <Text style={styles.lb}>lb</Text>
           </View>
+          {entry.sideMode === "unilateral" ? (
+            <View style={styles.row}>
+              <Text style={styles.side}>R</Text>
+              <View style={styles.countPlaceholder} />
+              <Text style={styles.times}>x</Text>
+              <View style={styles.reps}>
+                {entry.rightReps.map((reps, setIndex) => (
+                  <TextInput
+                    key={setIndex}
+                    accessibilityLabel={`Right side set ${setIndex + 1} reps`}
+                    keyboardType="number-pad"
+                    placeholder="_"
+                    placeholderTextColor="#9FB3C8"
+                    style={styles.rep}
+                    value={reps ? String(reps) : ""}
+                    onChangeText={(value) =>
+                      updateRightRep(entry.id, setIndex, value)
+                    }
+                  />
+                ))}
+              </View>
+              <TextInput
+                accessibilityLabel="Right side working weight in pounds"
+                keyboardType="decimal-pad"
+                placeholder="lb"
+                placeholderTextColor="#9FB3C8"
+                style={styles.weight}
+                value={
+                  entry.rightWeight === undefined
+                    ? ""
+                    : String(entry.rightWeight)
+                }
+                onChangeText={(value) => updateRightWeight(entry.id, value)}
+              />
+              <Text style={styles.lb}>lb</Text>
+            </View>
+          ) : null}
         </View>
       ))}
       <Pressable
@@ -553,6 +662,14 @@ const styles = StyleSheet.create({
     padding: 9,
     textAlign: "center",
     width: 47,
+  },
+  countPlaceholder: { width: 47 },
+  side: {
+    color: colors.blue,
+    fontSize: 14,
+    fontWeight: "800",
+    textAlign: "center",
+    width: 20,
   },
   times: { color: colors.secondary, fontSize: 18, fontWeight: "600" },
   reps: { flex: 1, flexDirection: "row", flexWrap: "wrap", gap: 5 },

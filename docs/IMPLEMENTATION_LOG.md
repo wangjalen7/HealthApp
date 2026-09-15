@@ -1,5 +1,32 @@
 # Implementation log
 
+## 2026-09-13 - Suppress completed reminder occurrences
+
+- Changed reminder completions to distinguish a whole-day daily/weekly occurrence from an individual multiple-daily time. Completion after one multi-daily alert targets the latest due slot; completion before the first slot targets that first upcoming slot, and later same-day times remain active.
+- Replaced indivisible repeating notification requests with a rolling chronological queue of up to 60 dated iOS notifications. The queue is rebuilt after reminder/completion changes and replenished whenever the signed-in app launches or returns to the foreground.
+- Completing an occurrence also dismisses its matching delivered notification from Notification Center. Daily completion skips only that local day, and marking a still-upcoming occurrence incomplete schedules it again.
+- Verified focused reminder behavior, lint, strict TypeScript, 113 app tests, 42 Edge tests, and the development iOS/Hermes bundle. Exact delivery and dismissal remain physical-iPhone checks.
+
+## 2026-09-13 - Add side-by-side standalone and development iPhone variants
+
+- Kept preview/production as **HealthApp** with `com.jalen.healthapp` and added **HealthApp Dev** with `com.jalen.healthapp.dev` for the development profile, allowing both binaries to remain installed on the same iPhone.
+- Added a distinct `healthapp-dev` URL scheme, build-aware signup/recovery redirects, automatic development-variant selection in the Metro startup command, and documented all required Supabase redirect allow-list entries.
+- Verified standalone and development Expo identities, Expo flag forwarding through the development startup wrapper, lint, strict TypeScript, 110 app tests, and 42 Edge tests. EAS signing/building and physical-device installation remain user-run steps.
+
+## 2026-09-12 - History shortcuts and native workout edge scrolling
+
+- Added post-save actions that take Food directly to Food History and lifting directly to Workout History.
+- Strengthened long-list exercise reordering with a larger edge trigger, held-card overflow, and non-animated incremental scroll targets in the pinned draggable-list patch so iOS can keep scrolling while the finger remains at the top or bottom.
+- Removed the previous-workout template lookup, interface, confirmation, mapping code, and test coverage at the user's request.
+- Verified lint, strict TypeScript, 107 app tests, 42 Edge tests, post-save history navigation, held-card edge auto-scroll, clean `patch-package` reapplication, and the production iOS/Hermes bundle. Physical-iPhone drag feel remains a hands-on validation item.
+
+## 2026-09-12 - Portable Profile data export
+
+- Replaced the uncommitted Strava work with an on-device data export in Profile. The records action packages every user-owned cloud record plus local reminders, completions, drafts, HealthKit state, and cached vitals into category CSV files and one complete JSON document.
+- Added a separate photo-inclusive action that streams the ZIP to cache and adds each private original JPEG without recompressing it. Profile displays the photo count and stored size before export; Apple sharing lets the user choose Mail, AirDrop, Save to Files, or another destination, and the temporary archive is deleted afterward.
+- Added browser download support, archive/CSV tests, and Profile browser coverage for the generated ZIP filename. Direct email composition was avoided because provider attachment limits vary and photo archives can be large.
+- Verified lint, strict TypeScript, 107 app tests, 42 Edge tests, the focused Profile export browser flow, and a production iOS/Hermes bundle. Native sharing and a large photo export remain physical-iPhone checks, and the added native sharing module requires a replacement development build.
+
 - Summary and History now keep their existing foreground refresh behavior without presenting the native pull-to-refresh control whenever a tab opens. The spinner and content shift appear only after an intentional pull down.
 - Corrected the continuous W/M Blood Pressure timeline to aggregate a complete calendar-day bucket before filtering it into the visible window. An individual day therefore retains its exact averaged reading while it moves across the graph instead of changing at either viewport edge. Added the regression test; lint, strict TypeScript, 83/83 mobile tests, and `git diff --check` pass.
 - Preserved the true time coordinate of the adjacent off-screen line buckets and clipped only their rendering. This keeps the continuous trend line's visible angle stable while a user drags the timeline; the regression test brings the mobile suite to 84/84 passing tests.
@@ -114,7 +141,7 @@
 ## 2026-08-29 — Training, cardio, nutrition, and dashboard core
 
 - Applied `202608290002_training_nutrition.sql` to the linked hosted Supabase project. It creates workout sessions/sets, cardio entries, and nutrition entries with explicit per-user RLS.
-- Added a clean lifting workflow: templates, exercise search, editable sets/reps/weights, workout notes, and last-session exercise memory to support progressive overload.
+- Added a clean lifting workflow with exercise search, editable sets/reps/weights, workout notes, and last-session exercise memory to support progressive overload.
 - Added manual cardio logging for walking, running, swimming, tennis, cycling, and other activities.
 - Added meal logging with calorie/protein targets and a searchable quick-food list.
 - Extended Today with nutrition/activity summaries, a weight trend, and a single combined systolic/diastolic blood-pressure chart with averages.
@@ -392,3 +419,14 @@
 - Deployed JWT-protected `coach-chat` and set the hosted `AI_COACH_ENABLED=true` secret at the user's request.
 - Diagnosed the first live failure with a synthetic request through the exact production handler. OpenAI rejected Zod's generated `uri` format and nested `oneOf` keywords. The handler now removes unsupported format annotations and maps nested `oneOf` to supported `anyOf`, while still parsing every returned response and action through the original strict Zod contracts.
 - Verification: lint, strict TypeScript, 104 app tests, 42 Edge tests, Deno entry-point check, and all 7 Coach browser flows pass. The Coach home now has a compact, uncluttered layout with conversation history hidden until requested and is visually covered at a 320 px phone width. The workout flow applies a Coach plan, removes an intentionally incomplete prior exercise, finishes the generated workout, and verifies all generated sets were saved. Production-shaped meal, workout, and progress-review requests receive OpenAI HTTP 200 and valid Coach responses. The remote migration list includes `202609110005`; `coach-chat` v11 is ACTIVE with JWT verification. Failure telemetry and client errors separate provider capacity, model formatting, action validation, and conversation persistence. After authenticated testing isolated conversation persistence, `save_coach_turn` replaced three separate writes with one owner-checked transaction so partial turns roll back. Failed requests now refund quota reservations, today's rollout counters were reconciled to saved assistant turns, and malformed optional model items no longer discard an otherwise valid answer.
+
+## 2026-09-15 - Preserve password unlock route and improve workout/food entry
+
+- Carried the current authenticated pathname into the password sign-in fallback and validated the destination before restoring it. Both password submission and the Face ID option on that sign-in screen use the saved route. Added route-preservation coverage alongside the existing privacy-boundary tests.
+- Added explicit unilateral-name recognition and draft validation. The lifting form shows left/right rep and weight rows, stores right-side values on the same logical workout set, and keeps them intact in history editing. Added a reviewed migration and replaced the workout-edit RPC to accept the additional fields.
+- Disabled held-card edge autoscroll so page headers, location, notes, and actions do not race away while reordering. Increased the hold delay, softened the lift spring, and added visible one-step arrow controls for predictable positioning.
+- Reflowed serving measurement inputs and unit chips across the available width. Added optional total servings per product to manual/saved/provider labels and the Open Food Facts cache. Provider serving-size edits scale calories and nutrients from their original basis by default; users can turn scaling off and edit incorrect nutrition independently. Removed the provider source notice.
+- Applied both new migrations to the linked HealthHub project after a clean dry run, then deployed `resolve-food-barcode` normalization v5. Workspace lint and strict TypeScript pass; 115 app tests, 43 Edge tests, and the production iOS/Hermes export pass. Physical iPhone checks remain for password navigation, unilateral input ergonomics, drag feel, narrow food layout, and keyboard behavior.
+- Follow-up: increased the serving-scaling control contrast with a bordered surface, solid gray/blue track, white thumb, and visible ON/OFF state. Weight and volume label inputs now use an iPhone keyboard containing `/` and accept strict decimals, simple fractions (`1/3`, `3/4`, `1/2`), and mixed fractions (`1 1/2`). Invalid and zero-denominator fractions remain blocked. Lint, strict TypeScript, and all 116 mobile tests pass.
+- Follow-up: when an existing label supplies both weight and volume, changing either measurement with scaling enabled now applies the same ratio to the paired measurement and nutrients. This preserves the product's explicit weight-to-volume relationship without guessing density when only one measurement exists. The toggle copy now describes serving details and nutrition, and turning it off keeps every field independently editable.
+- Restored the food-editor UI after that file was overwritten with its earlier implementation while the model and database changes remained. Paired scaling now also establishes its baseline after both measurements are filled or whenever scaling is switched on. Added direct ratio coverage; lint, strict TypeScript, and all 117 mobile tests pass.

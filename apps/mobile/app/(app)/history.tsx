@@ -614,11 +614,26 @@ function WorkoutHistoryCard({
               )}
             </Text>
           </View>
-          <Text style={styles.detail}>
-            {exercise.sets.length} x{" "}
-            {exercise.sets.map((set) => set.reps).join(", ")} at{" "}
-            {exercise.sets[0].weight} {exercise.sets[0].unit}
-          </Text>
+          {exercise.sets[0].sideMode === "unilateral" ? (
+            <>
+              <Text style={styles.detail}>
+                L: {exercise.sets.length} x{" "}
+                {exercise.sets.map((set) => set.reps).join(", ")} at{" "}
+                {exercise.sets[0].weight} {exercise.sets[0].unit}
+              </Text>
+              <Text style={styles.detail}>
+                R: {exercise.sets.length} x{" "}
+                {exercise.sets.map((set) => set.rightReps).join(", ")} at{" "}
+                {exercise.sets[0].rightWeight} {exercise.sets[0].unit}
+              </Text>
+            </>
+          ) : (
+            <Text style={styles.detail}>
+              {exercise.sets.length} x{" "}
+              {exercise.sets.map((set) => set.reps).join(", ")} at{" "}
+              {exercise.sets[0].weight} {exercise.sets[0].unit}
+            </Text>
+          )}
         </View>
       ))}
       {session.notes ? (

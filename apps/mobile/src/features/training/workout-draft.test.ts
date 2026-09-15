@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  isUnilateralExerciseName,
   muscleGroupLabel,
   moveWorkoutEntry,
   normalizeWorkoutDraftStructure,
@@ -9,6 +10,20 @@ import {
   workoutEntryCompletionIssue,
   workoutDraftSchema,
 } from "./workout-draft";
+
+test("detects explicit single-side exercise names", () => {
+  for (const name of [
+    "Single-arm row",
+    "one leg press",
+    "Unilateral cable fly",
+    "Curl per arm",
+    "Left / right split squat",
+    "L/R lateral raise",
+  ]) {
+    assert.equal(isUnilateralExerciseName(name), true, name);
+  }
+  assert.equal(isUnilateralExerciseName("Barbell bench press"), false);
+});
 
 test("expands abbreviated muscle-group labels for display", () => {
   assert.equal(muscleGroupLabel("Bi"), "Bicep");
@@ -100,7 +115,11 @@ test("normalizes hidden rep slots and exercise muscle groups in restored drafts"
   assert.deepEqual(normalized.muscleGroups, ["Chest", "Delt"]);
   assert.deepEqual(normalized.entries[0].reps, [10, 9, 0]);
   assert.equal(
-    workoutEntryCompletionIssue(normalized.entries[0], normalized.muscleGroups, 0),
+    workoutEntryCompletionIssue(
+      normalized.entries[0],
+      normalized.muscleGroups,
+      0,
+    ),
     "Shoulder press: enter reps for all 3 sets.",
   );
 });

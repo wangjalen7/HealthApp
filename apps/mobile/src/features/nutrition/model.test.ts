@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   availableFoodUnits,
   buildServingLabel,
+  calculateServingScale,
   calculateFoodAmount,
   convertVolumeAmount,
   convertWeightAmount,
@@ -18,10 +19,33 @@ import {
   isSpecificHouseholdUnit,
   shouldPreferSavedFoodProfile,
   normalizeHouseholdUnit,
+  parseFoodMeasurementAmount,
   preferredVolumeUnitFromServingLabel,
   preferredWeightUnitFromServingLabel,
   type FoodBasis,
 } from "./model";
+
+test("parses decimal, fraction, and mixed-fraction serving measurements", () => {
+  assert.equal(parseFoodMeasurementAmount("0.5"), 0.5);
+  assert.equal(parseFoodMeasurementAmount("1/3"), 1 / 3);
+  assert.equal(parseFoodMeasurementAmount("3 / 4"), 0.75);
+  assert.equal(parseFoodMeasurementAmount("1 1/2"), 1.5);
+  assert.equal(parseFoodMeasurementAmount("0,25"), 0.25);
+  assert.equal(parseFoodMeasurementAmount("1/0"), undefined);
+  assert.equal(parseFoodMeasurementAmount("1/2/3"), undefined);
+});
+
+test("scales an existing paired serving measurement by the same ratio", () => {
+  assert.deepEqual(calculateServingScale(100, 50, 200), {
+    ratio: 0.5,
+    paired: 100,
+  });
+  assert.deepEqual(calculateServingScale(100, 30, undefined), {
+    ratio: 0.3,
+    paired: undefined,
+  });
+  assert.deepEqual(calculateServingScale(undefined, 30, 200), { ratio: 1 });
+});
 
 test("reconstructs a per-serving basis for editing historical amounts", () => {
   const basis = foodBasisFromHistorySnapshot({

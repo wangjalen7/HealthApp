@@ -41,6 +41,7 @@ export const foodBasisSchema = z.object({
   servingVolumeMl: z.number().positive().max(100000).optional(),
   householdQuantityPerServing: z.number().positive().max(100000).optional(),
   householdUnit: z.string().trim().min(1).max(40).optional(),
+  servingsPerContainer: z.number().positive().max(100000).optional(),
   nutrientsPerServing: nutrientValuesSchema,
 });
 export type FoodBasis = z.infer<typeof foodBasisSchema>;
@@ -66,6 +67,7 @@ export function foodProfileContentKey(input: FoodBasis) {
     basis.servingVolumeMl ?? null,
     basis.householdQuantityPerServing ?? null,
     normalizedProfileText(basis.householdUnit),
+    basis.servingsPerContainer ?? null,
     basis.nutrientsPerServing.calories,
     basis.nutrientsPerServing.proteinGrams,
     basis.nutrientsPerServing.carbohydrateGrams ?? null,
@@ -168,6 +170,42 @@ export function convertVolumeAmount(
   to: VolumeUnit,
 ) {
   return volumeAmountToMl(amount, from) / VOLUME_TO_ML[to]!;
+}
+
+/** Parse a food-label measurement entered as a decimal or common fraction. */
+export function parseFoodMeasurementAmount(value: string): number | undefined {
+  const normalized = value.trim().replace(",", ".");
+  if (!normalized) return undefined;
+
+  const mixed = normalized.match(/^(\d+)\s+(\d+)\s*\/\s*(\d+)$/);
+  if (mixed) {
+    const denominator = Number(mixed[3]);
+    if (!denominator) return undefined;
+    return Number(mixed[1]) + Number(mixed[2]) / denominator;
+  }
+
+  const fraction = normalized.match(/^(\d+)\s*\/\s*(\d+)$/);
+  if (fraction) {
+    const denominator = Number(fraction[2]);
+    return denominator ? Number(fraction[1]) / denominator : undefined;
+  }
+
+  if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized)) return undefined;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+}
+
+export function calculateServingScale(
+  baseline: number | undefined,
+  next: number | undefined,
+  paired: number | undefined,
+): { paired?: number; ratio: number } {
+  if (!baseline || !next || baseline <= 0 || next <= 0) return { ratio: 1 };
+  const ratio = next / baseline;
+  return {
+    ratio,
+    paired: paired && paired > 0 ? paired * ratio : undefined,
+  };
 }
 
 export function formatFoodMeasurementAmount(amount: number) {

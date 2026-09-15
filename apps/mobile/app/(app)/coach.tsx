@@ -578,9 +578,6 @@ export default function CoachScreen() {
             <Text style={styles.link}>Estimate a meal</Text>
           </Pressable>
         </View>
-        <Text style={styles.disclaimer}>
-          Wellness guidance only. Review plans before saving.
-        </Text>
       </ScreenScrollView>
       <CoachActionReview
         userId={userId}

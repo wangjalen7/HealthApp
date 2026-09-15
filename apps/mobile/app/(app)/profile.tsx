@@ -25,6 +25,12 @@ import {
   healthKitAvailability,
   loadHealthKitSyncState,
 } from "../../src/features/healthkit/sync";
+import { shareHealthDataExport } from "../../src/features/data-export/archive";
+import { formatBytes } from "../../src/features/data-export/model";
+import {
+  collectHealthDataExport,
+  getProgressPhotoExportSummary,
+} from "../../src/features/data-export/repository";
 import type {
   HealthKitAvailability,
   HealthKitSyncState,
@@ -79,6 +85,13 @@ export default function ProfileScreen() {
   });
   const [healthKitBusy, setHealthKitBusy] = useState(false);
   const [healthKitFeedback, setHealthKitFeedback] = useState("");
+  const [exportBusy, setExportBusy] = useState<"records" | "photos">();
+  const [exportFeedback, setExportFeedback] = useState("");
+  const [exportFailed, setExportFailed] = useState(false);
+  const [photoExportSummary, setPhotoExportSummary] = useState<{
+    count: number;
+    bytes: number;
+  }>();
   const loadName = useCallback(async () => {
     if (!session) return;
     setLoadingName(true);
@@ -140,13 +153,30 @@ export default function ProfileScreen() {
       setHealthKitState(await loadHealthKitSyncState(session.user.id));
     }
   }, [session]);
+  const loadPhotoExportSummary = useCallback(async () => {
+    if (!session) return;
+    try {
+      setPhotoExportSummary(
+        await getProgressPhotoExportSummary(session.user.id),
+      );
+    } catch {
+      setPhotoExportSummary(undefined);
+    }
+  }, [session]);
   useFocusEffect(
     useCallback(() => {
       void loadName();
       void loadGoals();
       void loadAppleHealth();
+      void loadPhotoExportSummary();
       void refreshFaceIdAvailability();
-    }, [loadAppleHealth, loadGoals, loadName, refreshFaceIdAvailability]),
+    }, [
+      loadAppleHealth,
+      loadGoals,
+      loadName,
+      loadPhotoExportSummary,
+      refreshFaceIdAvailability,
+    ]),
   );
   const cleanFirstName = firstName.trim();
   const cleanLastName = lastName.trim();
@@ -255,6 +285,29 @@ export default function ProfileScreen() {
       );
     } finally {
       setSavingGoals(false);
+    }
+  }
+  async function exportData(includePhotos: boolean) {
+    if (!session || exportBusy) return;
+    setExportBusy(includePhotos ? "photos" : "records");
+    setExportFailed(false);
+    setExportFeedback("Collecting your data...");
+    try {
+      const data = await collectHealthDataExport(session.user);
+      await shareHealthDataExport(data, includePhotos, (progress) => {
+        if (!progress.totalPhotos) return;
+        setExportFeedback(
+          `Adding photo ${progress.completedPhotos} of ${progress.totalPhotos}...`,
+        );
+      });
+      setExportFeedback("Export finished.");
+    } catch (error) {
+      setExportFailed(true);
+      setExportFeedback(
+        error instanceof Error ? error.message : "Could not export your data.",
+      );
+    } finally {
+      setExportBusy(undefined);
     }
   }
   function changeGoal(setter: (value: string) => void, value: string) {
@@ -557,6 +610,61 @@ export default function ProfileScreen() {
             </Pressable>
           ) : null}
         </View>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Export your data</Text>
+          <Text style={styles.exportDescription}>
+            Create a private ZIP with CSV files for each category and a complete
+            JSON copy. Choose Mail, AirDrop, Save to Files, or another app from
+            the share sheet.
+          </Text>
+          <Text style={styles.exportPhotoNote}>
+            {photoExportSummary
+              ? photoExportSummary.count
+                ? `${photoExportSummary.count} progress ${photoExportSummary.count === 1 ? "photo" : "photos"} use about ${formatBytes(photoExportSummary.bytes)}. Large photo exports may exceed your email provider's attachment limit.`
+                : "You have no progress photos, so both exports will be about the same size."
+              : "Progress photos can make the archive too large for some email providers."}
+          </Text>
+          <View style={styles.exportActions}>
+            <Pressable
+              accessibilityRole="button"
+              disabled={Boolean(exportBusy)}
+              onPress={() => void exportData(false)}
+              style={[
+                styles.exportSecondaryButton,
+                exportBusy && styles.disabledButton,
+              ]}
+            >
+              {exportBusy === "records" ? (
+                <ActivityIndicator color={colors.blue} />
+              ) : (
+                <Text style={styles.exportSecondaryText}>Export records</Text>
+              )}
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              disabled={Boolean(exportBusy)}
+              onPress={() => void exportData(true)}
+              style={[
+                styles.exportPrimaryButton,
+                exportBusy && styles.disabledButton,
+              ]}
+            >
+              {exportBusy === "photos" ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.saveText}>Export with photos</Text>
+              )}
+            </Pressable>
+          </View>
+          {exportFeedback ? (
+            <Text
+              accessibilityLiveRegion="polite"
+              style={exportFailed ? styles.inlineError : styles.inlineSuccess}
+            >
+              {exportFeedback}
+            </Text>
+          ) : null}
+        </View>
         {status ? <Text style={styles.error}>{status}</Text> : null}
         <Pressable
           disabled={busy}
@@ -803,6 +911,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: 12,
     marginTop: 10,
+  },
+  exportDescription: {
+    color: colors.secondary,
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 10,
+  },
+  exportPhotoNote: {
+    color: colors.tertiary,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 8,
+  },
+  exportActions: { flexDirection: "row", gap: 10, marginTop: 14 },
+  exportSecondaryButton: {
+    alignItems: "center",
+    borderColor: colors.blue,
+    borderRadius: 10,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: "center",
+    minHeight: 48,
+  },
+  exportSecondaryText: { color: colors.blue, fontWeight: "600" },
+  exportPrimaryButton: {
+    alignItems: "center",
+    backgroundColor: colors.blue,
+    borderRadius: 10,
+    flex: 1,
+    justifyContent: "center",
+    minHeight: 48,
   },
   securityTitle: {
     color: "#1C1C1E",

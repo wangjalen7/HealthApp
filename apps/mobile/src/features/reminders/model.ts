@@ -53,9 +53,20 @@ export type Reminder = z.infer<typeof reminderSchema>;
 export const reminderCompletionSchema = z.object({
   reminderId: z.string().min(1),
   localDay: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  scheduledTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+    .optional(),
   completedAt: z.string().datetime(),
 });
 export type ReminderCompletion = z.infer<typeof reminderCompletionSchema>;
+
+export type ReminderOccurrence = {
+  reminderId: string;
+  localDay: string;
+  scheduledTime: string;
+  date: Date;
+};
 
 export function localDay(date = new Date()): string {
   const year = date.getFullYear();
@@ -112,13 +123,23 @@ export function reminderTimes(
   return [...new Set([reminder.time, ...reminder.additionalTimes])].sort();
 }
 
+export function activeReminderTimes(
+  reminder: Pick<Reminder, "repeat" | "time" | "additionalTimes">,
+): string[] {
+  return reminder.repeat === "multiple_daily"
+    ? reminderTimes(reminder)
+    : [reminder.time];
+}
+
 export function repeatSummary(
   reminder: Pick<
     Reminder,
     "repeat" | "weekdays" | "startDate" | "time" | "additionalTimes"
   >,
 ): string {
-  const times = reminderTimes(reminder).map(formatReminderTime).join(", ");
+  const times = activeReminderTimes(reminder)
+    .map(formatReminderTime)
+    .join(", ");
   if (reminder.repeat === "once") {
     return `${new Intl.DateTimeFormat(undefined, {
       month: "short",
@@ -166,4 +187,143 @@ export function reminderIsComplete(
     (completion) =>
       completion.reminderId === reminderId && completion.localDay === day,
   );
+}
+
+export function reminderCompletionTargetTime(
+  reminder: Pick<Reminder, "repeat" | "time" | "additionalTimes">,
+  at = new Date(),
+): string | undefined {
+  if (reminder.repeat !== "multiple_daily") return undefined;
+  const times = activeReminderTimes(reminder);
+  const currentTime = timeFromDate(at);
+  return times.filter((time) => time <= currentTime).at(-1) ?? times[0];
+}
+
+function completionScheduledTime(
+  reminder: Pick<Reminder, "repeat" | "time" | "additionalTimes">,
+  completion: ReminderCompletion,
+): string | undefined {
+  if (reminder.repeat !== "multiple_daily") return undefined;
+  return (
+    completion.scheduledTime ??
+    reminderCompletionTargetTime(reminder, new Date(completion.completedAt))
+  );
+}
+
+export function currentReminderCompletion(
+  reminder: Pick<Reminder, "id" | "repeat" | "time" | "additionalTimes">,
+  completions: ReminderCompletion[],
+  at = new Date(),
+): ReminderCompletion | undefined {
+  const day = localDay(at);
+  const targetTime = reminderCompletionTargetTime(reminder, at);
+  return completions.find(
+    (completion) =>
+      completion.reminderId === reminder.id &&
+      completion.localDay === day &&
+      (reminder.repeat !== "multiple_daily" ||
+        completionScheduledTime(reminder, completion) === targetTime),
+  );
+}
+
+export function createReminderCompletion(
+  reminder: Pick<Reminder, "id" | "repeat" | "time" | "additionalTimes">,
+  at = new Date(),
+): ReminderCompletion {
+  return reminderCompletionSchema.parse({
+    reminderId: reminder.id,
+    localDay: localDay(at),
+    scheduledTime: reminderCompletionTargetTime(reminder, at),
+    completedAt: at.toISOString(),
+  });
+}
+
+export function completionAppliesToOccurrence(
+  reminder: Pick<Reminder, "id" | "repeat" | "time" | "additionalTimes">,
+  completion: ReminderCompletion,
+  occurrence: Pick<ReminderOccurrence, "localDay" | "scheduledTime">,
+): boolean {
+  return (
+    completion.reminderId === reminder.id &&
+    completion.localDay === occurrence.localDay &&
+    (reminder.repeat !== "multiple_daily" ||
+      completionScheduledTime(reminder, completion) ===
+        occurrence.scheduledTime)
+  );
+}
+
+function reminderOccursOnDay(reminder: Reminder, day: Date): boolean {
+  if (reminder.repeat === "daily" || reminder.repeat === "multiple_daily") {
+    return true;
+  }
+  if (reminder.repeat === "weekdays" || reminder.repeat === "weekly") {
+    return reminder.weekdays.includes(day.getDay());
+  }
+  return false;
+}
+
+export function upcomingReminderOccurrences(
+  reminders: Reminder[],
+  completions: ReminderCompletion[],
+  now = new Date(),
+  limit = 60,
+): ReminderOccurrence[] {
+  const occurrences: ReminderOccurrence[] = [];
+  const horizon = new Date(now);
+  horizon.setDate(horizon.getDate() + 400);
+
+  for (const reminder of reminders) {
+    if (!reminder.enabled) continue;
+    if (reminder.repeat === "once") {
+      const date = dateFromLocalDay(reminder.startDate, reminder.time);
+      const occurrence = {
+        reminderId: reminder.id,
+        localDay: reminder.startDate,
+        scheduledTime: reminder.time,
+        date,
+      };
+      if (
+        date > now &&
+        !completions.some((completion) =>
+          completionAppliesToOccurrence(reminder, completion, occurrence),
+        )
+      ) {
+        occurrences.push(occurrence);
+      }
+      continue;
+    }
+
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const configuredStart = dateFromLocalDay(reminder.startDate, "00:00");
+    if (configuredStart > firstDay) firstDay.setTime(configuredStart.getTime());
+    for (
+      const day = new Date(firstDay);
+      day <= horizon;
+      day.setDate(day.getDate() + 1)
+    ) {
+      if (!reminderOccursOnDay(reminder, day)) continue;
+      const dayKey = localDay(day);
+      for (const scheduledTime of activeReminderTimes(reminder)) {
+        const date = dateFromLocalDay(dayKey, scheduledTime);
+        const occurrence = {
+          reminderId: reminder.id,
+          localDay: dayKey,
+          scheduledTime,
+          date,
+        };
+        if (
+          date > now &&
+          !completions.some((completion) =>
+            completionAppliesToOccurrence(reminder, completion, occurrence),
+          )
+        ) {
+          occurrences.push(occurrence);
+        }
+      }
+    }
+  }
+
+  return occurrences
+    .sort((left, right) => left.date.getTime() - right.date.getTime())
+    .slice(0, Math.max(0, limit));
 }

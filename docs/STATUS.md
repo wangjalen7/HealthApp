@@ -3,7 +3,44 @@
 **Active release:** Release 3 — nutrition and tracking expansion
 **Active item:** Fund the OpenAI API project, validate live AI meal estimates and Coach grounding, and continue the registered-iPhone validation backlog
 **Verification state:** HealthHub has a funded `OPENAI_API_KEY`; live Luna and Terra requests complete, and authenticated user testing reaches response generation. `coach-chat` is deployed and enabled. Grounding against a representative history, citations, and physical-iPhone behavior remain hands-on checks.
-**Last updated:** 2026-09-11
+**Last updated:** 2026-09-15
+
+## Password unlock continuity, unilateral sets, controlled reordering, and food-label corrections - 2026-09-15
+
+- Password fallback from the Face ID privacy lock now carries the current authenticated route through sign-in and returns to it after successful password authentication or after selecting Face ID from that sign-in screen. Face ID on the lock itself continues to reveal the still-mounted screen directly.
+- Exercise names with explicit single-side wording (including single/one arm or leg, unilateral, per/each side, and L/R wording) now expose separate left and right reps and weights. Both sides persist in one logical set and remain editable in workout history.
+- Exercise drag now requires a more deliberate hold, uses a calmer spring, and cannot autoscroll the surrounding header/footer. Visible up/down controls provide exact one-position moves.
+- Food-label measurement inputs now use full-width unit rows so weight and volume units align and `tsp` remains on-screen. Weight and volume accept decimals, simple fractions such as `1/3`, and mixed fractions such as `1 1/2`. Labels store optional total servings per product. Provider labels default to scaling all nutrient values from the original basis when serving weight or volume changes; when the label already contains both measurements, changing either also scales the other from that product-specific relationship. The control uses a bordered white card, solid high-contrast tracks, and an explicit ON/OFF label. Turning it off permits independent package corrections. The Open Food Facts source notice was removed.
+- Added and remotely applied migrations `202609150001_unilateral_workout_sets.sql` and `202609150002_food_servings_per_container.sql`; deployed `resolve-food-barcode` normalization v5 to derive package servings when Open Food Facts supplies compatible package and serving measurements.
+- Verification: lint, strict TypeScript, 117 app tests, 43 Edge tests, and the production iOS/Hermes bundle pass. Both migrations are linked remotely and the updated barcode function is deployed. Physical-iPhone interaction/layout checks remain required.
+
+## Completion-aware reminder notifications - 2026-09-13
+
+- Marking a daily, weekday, weekly, or one-time reminder complete now removes that day's pending alert while preserving later eligible days. Marking a multiple-daily reminder complete targets only the latest due time, or the first upcoming time when completed before the day's first slot; later times remain scheduled.
+- Reminder completions now retain an optional scheduled time. Existing day-only completion records remain readable. Presented notifications for the completed occurrence are dismissed, and marking an upcoming occurrence incomplete adds its alert back.
+- Replaced indivisible repeating iOS requests with a chronological rolling queue of up to 60 one-time occurrences, refreshed on app launch/foreground and after reminder or completion changes. This permits one occurrence to be skipped without canceling the whole repeating series.
+- Verification: focused reminder tests, lint, strict TypeScript, 113 app tests, 42 Edge tests, and the development iOS/Hermes bundle pass. Delivery, dismissal, multi-daily rollover, and queue replenishment remain physical-iPhone checks.
+
+## Side-by-side standalone and development iPhone apps - 2026-09-13
+
+- Preview/production retain the installed **HealthApp** identity (`com.jalen.healthapp`, `healthapp`), while the EAS development profile now builds **HealthApp Dev** (`com.jalen.healthapp.dev`, `healthapp-dev`) so both can remain installed on one iPhone.
+- The root development command automatically selects the development variant. Signup confirmation and password recovery choose the matching build scheme; Supabase must allow both standalone and development sign-in/reset URLs.
+- Verification: standalone and development Expo config resolve to distinct identities; the startup wrapper forwards Expo flags; lint, strict TypeScript, 110 app tests, and 42 Edge tests pass. A new EAS development build and physical-iPhone installation remain hands-on steps.
+
+## Post-save history shortcuts and exercise edge scrolling - 2026-09-12
+
+- Food and Workout now show a direct history action after a successful save. Each action opens History with the relevant Food or Workout category already selected.
+- Exercise dragging now uses a larger top/bottom edge zone, allows the held card to follow the finger beyond the list bounds, and applies immediate incremental scrolling so a held item continues moving on iOS instead of stalling behind repeated scroll animations. The dependency patch remains reproducible through `patch-package`.
+- Removed the previous-workout template feature, including its lookup, UI, confirmation, mapping code, and tests.
+- Verification: lint, strict TypeScript, 107 app tests, 42 Edge tests, post-save history navigation, pointer reordering, draft restoration, held-card edge auto-scroll, clean `patch-package` reapplication, and the production iOS/Hermes bundle pass. Physical-iPhone gesture feel remains a hands-on check.
+
+## Portable health-data export - 2026-09-12
+
+- Added Profile actions for a compact records export and a complete export with original progress-photo files. Both create a private ZIP locally and open the system share sheet for Mail, AirDrop, Save to Files, or another installed app; the temporary cache file is removed after sharing.
+- Each archive includes a readable CSV for every category, a lossless `full-data.json`, a manifest with row counts, and a privacy/readme note. The export covers account/profile data, vitals, lifting sessions and sets, cardio, nutrition, hydration, reusable food labels, progress-photo metadata, Coach profile/conversations/actions, reminders and completions, unfinished drafts, HealthKit sync state, and the device vitals cache. Operational quota counters and biometric credentials are intentionally outside logged-health-data export scope.
+- Profile shows the progress-photo count and approximate total before export because photo archives can exceed an email provider's attachment limit. Structured records can still be sent as the much smaller archive.
+- Removed the uncommitted Strava integration and its setup artifacts. No Strava connection, webhook, migration, route map, or app dependency remains.
+- Verification: lint, strict TypeScript, 107 app tests, 42 Edge tests, the focused Profile/download browser flow, and the production iOS/Hermes bundle pass. The native share sheet and a photo-heavy archive still need a physical-iPhone check; `expo-sharing` requires a replacement development build.
 
 ## Private AI health, fitness, and bodybuilding Coach - 2026-09-11
 
@@ -159,8 +196,8 @@
 | Supabase project and app credentials | Configured locally in ignored `apps/mobile/.env`                                                                                                                                                                         |
 | EAS / Apple signing                  | Camera/HealthKit development client is installed; a new iOS development build is required to include Face ID, native SF Symbols, progress-photo camera/library support, and local reminder notifications                 |
 | Local checks                         | Lint, strict TypeScript, 104/104 app tests, 42/42 Edge tests, and all 22 browser flows pass. Deno checks the Coach entry point; prior iPhone bundle and production web exports pass. See `docs/APP_REVIEW.md` for scope. |
-| Hosted migrations                    | All migrations through `202609110005_coach_quota_refunds.sql` are applied to HealthHub and linked database lint reports no schema errors                                                                                           |
-| Edge Functions                       | JWT-protected `coach-chat` v11 and `estimate-meal` v15 are ACTIVE; `coach-chat` is rollout-enabled. `resolve-food-barcode` v12 and `biometric-auth` v5 are also ACTIVE.                                             |
+| Hosted migrations                    | All migrations through `202609110005_coach_quota_refunds.sql` are applied to HealthHub and linked database lint reports no schema errors                                                                                 |
+| Edge Functions                       | JWT-protected `coach-chat` v11 and `estimate-meal` v15 are ACTIVE; `coach-chat` is rollout-enabled. `resolve-food-barcode` v12 and `biometric-auth` v5 are also ACTIVE.                                                  |
 | Remote RLS check                     | Basic read isolation observed with a second account; direct cross-user update/delete verification remains                                                                                                                |
 
 ## Context handoff

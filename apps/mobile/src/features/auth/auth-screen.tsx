@@ -15,9 +15,11 @@ import {
   View,
 } from "react-native";
 
+import { authRedirectUrl } from "../../lib/app-links";
 import { supabaseConfig } from "../../lib/config";
 import { supabase } from "../../lib/supabase";
 import { isDuplicateSignUpResponse } from "./auth-callback";
+import { biometricPasswordReturnPath } from "./biometric-lock-navigation";
 import { validateAuthInput } from "./validation";
 import {
   getFaceIdAvailability,
@@ -35,7 +37,7 @@ type Mode = "signIn" | "signUp" | "reset";
 
 export function AuthScreen({ mode }: { mode: Mode }) {
   const router = useRouter();
-  const params = useLocalSearchParams<{ reset?: string }>();
+  const params = useLocalSearchParams<{ reset?: string; returnTo?: string }>();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -110,7 +112,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
         );
         return;
       }
-      router.replace("/(app)");
+      router.replace(biometricPasswordReturnPath(params.returnTo ?? ""));
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       if (/cancel|user interaction is not allowed/i.test(message)) {
@@ -187,7 +189,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
           }
           await removeRememberedLoginAccount();
         }
-        router.replace("/(app)");
+        router.replace(biometricPasswordReturnPath(params.returnTo ?? ""));
         return;
       }
       if (mode === "signUp") {
@@ -200,7 +202,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
               first_name: cleanFirstName,
               last_name: cleanLastName,
             },
-            emailRedirectTo: "healthapp://sign-in",
+            emailRedirectTo: authRedirectUrl("sign-in"),
           },
         });
         if (error) {
@@ -231,7 +233,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
       const { error } = await supabase.auth.resetPasswordForEmail(
         email.trim(),
         {
-          redirectTo: "healthapp://reset-password",
+          redirectTo: authRedirectUrl("reset-password"),
         },
       );
       if (error) {

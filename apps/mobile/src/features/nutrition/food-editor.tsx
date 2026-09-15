@@ -12,6 +12,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -22,6 +23,7 @@ import { createId } from "../vitals/storage";
 import {
   availableFoodUnits,
   buildServingLabel,
+  calculateServingScale,
   calculateFoodAmount,
   convertVolumeAmount,
   convertWeightAmount,
@@ -32,6 +34,7 @@ import {
   isSpecificHouseholdUnit,
   mealDraftEntrySchema,
   normalizeHouseholdUnit,
+  parseFoodMeasurementAmount,
   preferredVolumeUnitFromServingLabel,
   preferredWeightUnitFromServingLabel,
   shouldPreferSavedFoodProfile,
@@ -63,6 +66,7 @@ type LabelForm = {
   fallbackServingLabel: string;
   householdAmount: string;
   householdUnit: string;
+  totalServings: string;
   weightAmount: string;
   weightUnit: WeightUnit;
   volumeAmount: string;
@@ -83,6 +87,7 @@ const blankLabel = (): LabelForm => ({
   fallbackServingLabel: "",
   householdAmount: "",
   householdUnit: "",
+  totalServings: "",
   weightAmount: "",
   weightUnit: "g",
   volumeAmount: "",
@@ -134,6 +139,7 @@ function productForm(product: BarcodeProduct): LabelForm {
       : (product.servingLabel ?? ""),
     householdAmount: positiveValueOrBlank(product.householdQuantityPerServing),
     householdUnit: product.householdUnit ?? "",
+    totalServings: positiveValueOrBlank(product.servingsPerContainer),
     weightAmount: measurementValueOrBlank(
       product.servingWeightGrams
         ? convertWeightAmount(product.servingWeightGrams, "g", weightUnit)
@@ -173,6 +179,7 @@ function basisForm(basis: FoodBasis): LabelForm {
       : (basis.servingLabel ?? ""),
     householdAmount: positiveValueOrBlank(basis.householdQuantityPerServing),
     householdUnit: basis.householdUnit ?? "",
+    totalServings: positiveValueOrBlank(basis.servingsPerContainer),
     weightAmount: measurementValueOrBlank(
       basis.servingWeightGrams
         ? convertWeightAmount(basis.servingWeightGrams, "g", weightUnit)
@@ -293,6 +300,7 @@ export function FoodEditor({
       servingVolumeMl: initial.servingVolumeMl,
       householdQuantityPerServing: initial.householdQuantityPerServing,
       householdUnit: initial.householdUnit,
+      servingsPerContainer: initial.servingsPerContainer,
       nutrientsPerServing: initial.nutrientsPerServing,
     };
     setBasis(nextBasis);
@@ -373,16 +381,21 @@ export function FoodEditor({
       setFeedback("Enter the food name, calories, and protein per serving.");
       return undefined;
     }
-    const weight = numberOrUndefined(label.weightAmount);
-    const volume = numberOrUndefined(label.volumeAmount);
+    const weight = parseFoodMeasurementAmount(label.weightAmount);
+    const volume = parseFoodMeasurementAmount(label.volumeAmount);
     const householdAmount = numberOrUndefined(label.householdAmount);
     const householdUnit = normalizeHouseholdUnit(label.householdUnit);
+    const totalServings = numberOrUndefined(label.totalServings);
     if (label.weightAmount.trim() && (!weight || weight <= 0)) {
-      setFeedback("Serving weight must be greater than zero or left blank.");
+      setFeedback(
+        "Serving weight must be a decimal or fraction greater than zero, or left blank.",
+      );
       return undefined;
     }
     if (label.volumeAmount.trim() && (!volume || volume <= 0)) {
-      setFeedback("Serving volume must be greater than zero or left blank.");
+      setFeedback(
+        "Serving volume must be a decimal or fraction greater than zero, or left blank.",
+      );
       return undefined;
     }
     if (Boolean(label.householdAmount.trim()) !== Boolean(householdUnit)) {
@@ -402,6 +415,10 @@ export function FoodEditor({
       setFeedback(
         'Use a specific item unit such as "bottle", "package", or "piece". Put weights and volumes in their matching fields.',
       );
+      return undefined;
+    }
+    if (label.totalServings.trim() && (!totalServings || totalServings <= 0)) {
+      setFeedback("Total servings must be greater than zero or left blank.");
       return undefined;
     }
     if (
@@ -449,6 +466,7 @@ export function FoodEditor({
           : volumeAmountToMl(volume, label.volumeUnit),
       householdQuantityPerServing: householdAmount,
       householdUnit: householdUnit || undefined,
+      servingsPerContainer: totalServings,
       nutrientsPerServing: {
         calories,
         proteinGrams: protein,
@@ -973,10 +991,141 @@ function LabelEditor({
   disabled: boolean;
   onContinue: () => void;
 }) {
+  const initialWeight = parseFoodMeasurementAmount(form.weightAmount);
+  const initialVolume = parseFoodMeasurementAmount(form.volumeAmount);
+  const [scaleNutrition, setScaleNutrition] = useState(provider);
+  const scaleBaseline = useRef({
+    weightGrams:
+      initialWeight === undefined
+        ? undefined
+        : weightAmountToGrams(initialWeight, form.weightUnit),
+    volumeMl:
+      initialVolume === undefined
+        ? undefined
+        : volumeAmountToMl(initialVolume, form.volumeUnit),
+    nutrition: {
+      calories: form.calories,
+      protein: form.protein,
+      carbohydrates: form.carbohydrates,
+      fat: form.fat,
+      fiber: form.fiber,
+      sugar: form.sugar,
+      sodium: form.sodium,
+    },
+  });
   const change = (patch: Partial<LabelForm>) =>
     setForm((current) => ({ ...current, ...patch }));
+  const scaledNutrition = (ratio: number): Partial<LabelForm> => {
+    if (!scaleNutrition || !Number.isFinite(ratio) || ratio <= 0) return {};
+    const scale = (value: string) => {
+      const parsed = numberOrUndefined(value);
+      return parsed === undefined
+        ? value
+        : String(Math.round(parsed * ratio * 1000) / 1000);
+    };
+    return {
+      calories: scale(scaleBaseline.current.nutrition.calories),
+      protein: scale(scaleBaseline.current.nutrition.protein),
+      carbohydrates: scale(scaleBaseline.current.nutrition.carbohydrates),
+      fat: scale(scaleBaseline.current.nutrition.fat),
+      fiber: scale(scaleBaseline.current.nutrition.fiber),
+      sugar: scale(scaleBaseline.current.nutrition.sugar),
+      sodium: scale(scaleBaseline.current.nutrition.sodium),
+    };
+  };
+  const captureScaleBaseline = () => {
+    const weight = parseFoodMeasurementAmount(form.weightAmount);
+    const volume = parseFoodMeasurementAmount(form.volumeAmount);
+    scaleBaseline.current = {
+      weightGrams:
+        weight === undefined
+          ? undefined
+          : weightAmountToGrams(weight, form.weightUnit),
+      volumeMl:
+        volume === undefined
+          ? undefined
+          : volumeAmountToMl(volume, form.volumeUnit),
+      nutrition: {
+        calories: form.calories,
+        protein: form.protein,
+        carbohydrates: form.carbohydrates,
+        fat: form.fat,
+        fiber: form.fiber,
+        sugar: form.sugar,
+        sodium: form.sodium,
+      },
+    };
+  };
+  const changeScaleNutrition = (enabled: boolean) => {
+    if (enabled) captureScaleBaseline();
+    setScaleNutrition(enabled);
+  };
+  const changeWeightAmount = (weightAmount: string) => {
+    const next = parseFoodMeasurementAmount(weightAmount);
+    const nextGrams =
+      next === undefined
+        ? undefined
+        : weightAmountToGrams(next, form.weightUnit);
+    let baseline = scaleBaseline.current.weightGrams;
+    let pairedVolume = scaleBaseline.current.volumeMl;
+    if (scaleNutrition && nextGrams !== undefined && baseline === undefined) {
+      const currentVolume = parseFoodMeasurementAmount(form.volumeAmount);
+      baseline = nextGrams;
+      pairedVolume =
+        currentVolume === undefined
+          ? undefined
+          : volumeAmountToMl(currentVolume, form.volumeUnit);
+      scaleBaseline.current.weightGrams = baseline;
+      scaleBaseline.current.volumeMl = pairedVolume;
+    }
+    const scaledServing = calculateServingScale(
+      baseline,
+      nextGrams,
+      pairedVolume,
+    );
+    change({
+      weightAmount,
+      ...(scaleNutrition && scaledServing.paired
+        ? {
+            volumeAmount: formatFoodMeasurementAmount(
+              convertVolumeAmount(scaledServing.paired, "ml", form.volumeUnit),
+            ),
+          }
+        : {}),
+      ...scaledNutrition(scaledServing.ratio),
+    });
+  };
+  const changeVolumeAmount = (volumeAmount: string) => {
+    const next = parseFoodMeasurementAmount(volumeAmount);
+    const nextMl =
+      next === undefined ? undefined : volumeAmountToMl(next, form.volumeUnit);
+    let baseline = scaleBaseline.current.volumeMl;
+    let pairedWeight = scaleBaseline.current.weightGrams;
+    if (scaleNutrition && nextMl !== undefined && baseline === undefined) {
+      const currentWeight = parseFoodMeasurementAmount(form.weightAmount);
+      baseline = nextMl;
+      pairedWeight =
+        currentWeight === undefined
+          ? undefined
+          : weightAmountToGrams(currentWeight, form.weightUnit);
+      scaleBaseline.current.volumeMl = baseline;
+      scaleBaseline.current.weightGrams = pairedWeight;
+    }
+    const scaledServing = calculateServingScale(baseline, nextMl, pairedWeight);
+    change({
+      volumeAmount,
+      ...(scaleNutrition && scaledServing.paired
+        ? {
+            weightAmount: formatFoodMeasurementAmount(
+              convertWeightAmount(scaledServing.paired, "g", form.weightUnit),
+            ),
+          }
+        : {}),
+      ...scaledNutrition(scaledServing.ratio),
+    });
+  };
   const selectWeightUnit = (weightUnit: WeightUnit) => {
-    const amount = numberOrUndefined(form.weightAmount);
+    const amount = parseFoodMeasurementAmount(form.weightAmount);
     change({
       weightUnit,
       weightAmount:
@@ -988,7 +1137,7 @@ function LabelEditor({
     });
   };
   const selectVolumeUnit = (volumeUnit: VolumeUnit) => {
-    const amount = numberOrUndefined(form.volumeAmount);
+    const amount = parseFoodMeasurementAmount(form.volumeAmount);
     change({
       volumeUnit,
       volumeAmount:
@@ -1001,14 +1150,7 @@ function LabelEditor({
   };
   return (
     <>
-      {provider ? (
-        <View style={styles.sourceNotice}>
-          <Text style={styles.sourceNoticeTitle}>Open Food Facts</Text>
-          <Text style={styles.sourceNoticeCopy}>
-            Verify against the package. Corrections stay in My Foods.
-          </Text>
-        </View>
-      ) : attachedBarcode ? (
+      {attachedBarcode ? (
         <View style={styles.sourceNotice}>
           <Text style={styles.sourceNoticeTitle}>Product not found</Text>
           <Text style={styles.sourceNoticeCopy}>
@@ -1056,17 +1198,26 @@ function LabelEditor({
           placeholder="piece, package, bar"
         />
       </View>
-      <View style={styles.formRow}>
-        <View style={styles.compactField}>
+      <FormField
+        label="Total servings in product (optional)"
+        value={form.totalServings}
+        onChangeText={(totalServings) => change({ totalServings })}
+        placeholder="Example: 8"
+        keyboard
+      />
+      <View style={styles.measurementBlock}>
+        <View>
           <Text style={styles.fieldLabel}>Weight per serving</Text>
           <TextInput
             accessibilityLabel="Weight per serving"
-            keyboardType="decimal-pad"
-            placeholder="Optional"
+            keyboardType={
+              Platform.OS === "ios" ? "numbers-and-punctuation" : "default"
+            }
+            placeholder="30, 0.5, or 1/2"
             placeholderTextColor="#9FB3C8"
             style={styles.input}
             value={form.weightAmount}
-            onChangeText={(weightAmount) => change({ weightAmount })}
+            onChangeText={changeWeightAmount}
           />
         </View>
         <UnitSelector
@@ -1075,17 +1226,19 @@ function LabelEditor({
           onSelect={(weightUnit) => selectWeightUnit(weightUnit as WeightUnit)}
         />
       </View>
-      <View style={styles.formRow}>
-        <View style={styles.compactField}>
+      <View style={styles.measurementBlock}>
+        <View>
           <Text style={styles.fieldLabel}>Volume per serving</Text>
           <TextInput
             accessibilityLabel="Volume per serving"
-            keyboardType="decimal-pad"
-            placeholder="Optional"
+            keyboardType={
+              Platform.OS === "ios" ? "numbers-and-punctuation" : "default"
+            }
+            placeholder="1, 0.75, or 3/4"
             placeholderTextColor="#9FB3C8"
             style={styles.input}
             value={form.volumeAmount}
-            onChangeText={(volumeAmount) => change({ volumeAmount })}
+            onChangeText={changeVolumeAmount}
           />
         </View>
         <UnitSelector
@@ -1093,6 +1246,36 @@ function LabelEditor({
           selected={form.volumeUnit}
           onSelect={(volumeUnit) => selectVolumeUnit(volumeUnit as VolumeUnit)}
         />
+      </View>
+      <View style={styles.scaleRow}>
+        <View style={styles.scaleCopy}>
+          <Text style={styles.scaleTitle}>
+            Scale serving details and nutrition
+          </Text>
+          <Text style={styles.helpInline}>
+            Updating weight/volume per serving will scale nutrition facts. Turn off to
+            correct each value independently.
+          </Text>
+        </View>
+        <View style={styles.scaleControl}>
+          <Text
+            style={[
+              styles.scaleState,
+              scaleNutrition && styles.scaleStateActive,
+            ]}
+          >
+            {scaleNutrition ? "ON" : "OFF"}
+          </Text>
+          <Switch
+            accessibilityLabel="Scale serving details and nutrition"
+            accessibilityState={{ checked: scaleNutrition }}
+            ios_backgroundColor={colors.secondary}
+            onValueChange={changeScaleNutrition}
+            trackColor={{ false: colors.secondary, true: colors.blue }}
+            thumbColor="#FFFFFF"
+            value={scaleNutrition}
+          />
+        </View>
       </View>
       <Text style={styles.sectionLabel}>Nutrition per serving</Text>
       <View style={styles.formRow}>
@@ -1704,6 +1887,34 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
     marginBottom: 14,
+  },
+  measurementBlock: { marginBottom: 14 },
+  scaleRow: {
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderColor: colors.blue,
+    borderRadius: 13,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 14,
+    padding: 12,
+  },
+  scaleCopy: { flex: 1 },
+  scaleControl: { alignItems: "center", gap: 4 },
+  scaleTitle: { color: colors.text, fontSize: 14, fontWeight: "600" },
+  scaleState: {
+    color: colors.secondary,
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  scaleStateActive: { color: colors.blue },
+  helpInline: {
+    color: colors.tertiary,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 3,
   },
   sectionLabel: { ...trackingStyles.section, marginTop: 8 },
   help: {
