@@ -1,3 +1,5 @@
+import { ConfirmationActions } from "../../ui/confirmation-actions";
+import { IconButton } from "../../ui/icon-button";
 import { trackingStyles } from "../../ui/tracking-styles";
 import { Modal } from "../../ui/modal";
 import { Pressable } from "../../ui/pressable";
@@ -1253,8 +1255,8 @@ function LabelEditor({
             Scale serving details and nutrition
           </Text>
           <Text style={styles.helpInline}>
-            Updating weight/volume per serving will scale nutrition facts. Turn off to
-            correct each value independently.
+            Updating weight/volume per serving will scale nutrition facts. Turn
+            off to correct each value independently.
           </Text>
         </View>
         <View style={styles.scaleControl}>
@@ -1472,29 +1474,12 @@ function DeleteLabelConfirmation({
         <Text style={styles.profileDeleteCopy}>
           Past food history will not change.
         </Text>
-        <View style={styles.profileDeleteActions}>
-          <Pressable
-            accessibilityRole="button"
-            disabled={deleting}
-            onPress={onCancel}
-            style={styles.profileDeleteCancel}
-          >
-            <Text style={styles.profileDeleteCancelText}>Cancel</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            disabled={deleting}
-            onPress={onConfirm}
-            style={[
-              styles.profileDeleteConfirm,
-              deleting && styles.profileDeleteDisabled,
-            ]}
-          >
-            <Text style={styles.profileDeleteConfirmText}>
-              {deleting ? "Deleting..." : "Delete label"}
-            </Text>
-          </Pressable>
-        </View>
+        <ConfirmationActions
+          onCancel={onCancel}
+          onConfirm={onConfirm}
+          busy={deleting}
+          confirmAccessibilityLabel="Delete label"
+        />
       </View>
     </View>
   );
@@ -1541,22 +1526,17 @@ function SuggestionSection({
           </Pressable>
           {showActions && item.basis.profileId ? (
             <View style={styles.profileActions}>
-              <Pressable
-                accessibilityLabel={`Edit ${item.basis.name} food label`}
-                accessibilityRole="button"
+              <IconButton
+                name="edit"
+                label={`Edit ${item.basis.name} food label`}
                 onPress={() => edit(item)}
-                style={styles.profileActionButton}
-              >
-                <Text style={styles.profileEditText}>Edit label</Text>
-              </Pressable>
-              <Pressable
-                accessibilityLabel={`Delete ${item.basis.name} food label`}
-                accessibilityRole="button"
+              />
+              <IconButton
+                name="delete"
+                label={`Delete ${item.basis.name} food label`}
                 onPress={() => requestDelete(item)}
-                style={[styles.profileActionButton, styles.profileDeleteAction]}
-              >
-                <Text style={styles.profileDeleteText}>Delete label</Text>
-              </Pressable>
+                destructive
+              />
             </View>
           ) : null}
         </View>

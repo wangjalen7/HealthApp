@@ -1,18 +1,19 @@
+import {
+  colors,
+  surfaces,
+  typography,
+  spacing,
+  radii,
+} from "../../src/ui/profile-theme";
 import { Modal } from "../../src/ui/modal";
 import { Icon } from "../../src/ui/icon";
 import { ScreenScrollView } from "../../src/ui/screen-scroll-view";
 import { Pressable } from "../../src/ui/pressable";
-import { colors } from "../../src/ui/theme";
 import { useCallback, useState } from "react";
 import { useFocusEffect, useRouter } from "expo-router";
 import { SymbolView } from "expo-symbols";
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { TextInput } from "../../src/ui/text-input";
 
 import { useAuth } from "../../src/features/auth/auth-provider";
 import {
@@ -338,7 +339,9 @@ export default function ProfileScreen() {
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.page}
       >
-        <Text style={styles.title}>Profile</Text>
+        <Text accessibilityRole="header" style={styles.title}>
+          Profile
+        </Text>
         <View style={styles.profileHero}>
           <View style={styles.avatar}>
             <Icon name="person" size={29} color={colors.blue} />
@@ -461,7 +464,7 @@ export default function ProfileScreen() {
                 fallback={<Text style={styles.faceIdFallback}>ID</Text>}
                 name="faceid"
                 size={28}
-                tintColor="#007AFF"
+                tintColor={colors.blue}
                 weight="regular"
               />
             </View>
@@ -469,7 +472,7 @@ export default function ProfileScreen() {
               <Text style={styles.securityTitle}>Face ID</Text>
             </View>
             {faceIdBusy ? (
-              <ActivityIndicator color="#007AFF" />
+              <ActivityIndicator color={colors.blue} />
             ) : (
               <Text
                 style={[
@@ -528,7 +531,7 @@ export default function ProfileScreen() {
               </View>
               <View style={styles.fullGoal}>
                 <GoalField
-                  label="Weight goal (lb)"
+                  label="Weight (lb)"
                   value={weightGoal}
                   onChangeText={(value) => changeGoal(setWeightGoal, value)}
                 />
@@ -829,10 +832,10 @@ const styles = StyleSheet.create({
   avatar: {
     height: 64,
     width: 64,
-    borderRadius: 22,
     backgroundColor: colors.blueSoft,
     alignItems: "center",
     justifyContent: "center",
+    borderRadius: radii.card,
   },
   profileName: {
     color: colors.text,
@@ -840,30 +843,52 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     letterSpacing: -0.5,
   },
-  profileCaption: { color: colors.secondary, fontSize: 13, marginTop: 5 },
-  page: { backgroundColor: colors.background, flexGrow: 1, padding: 20 },
+  profileCaption: {
+    color: colors.secondary,
+    fontSize: 13,
+    marginTop: 5,
+  },
+  page: {
+    backgroundColor: colors.background,
+    flexGrow: 1,
+    padding: spacing.page,
+  },
   title: {
-    color: colors.text,
-    fontSize: 34,
-    fontWeight: "700",
-    letterSpacing: -1,
+    ...typography.largeTitle,
     marginBottom: 20,
   },
   card: {
-    backgroundColor: "#fff",
-    borderColor: colors.fill,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 22,
-    borderCurve: "continuous",
+    ...surfaces.card,
     marginBottom: 14,
-    padding: 16,
+    padding: spacing.lg,
   },
-  label: { color: colors.secondary, fontSize: 13, marginTop: 10 },
-  email: { color: colors.text, fontSize: 16, fontWeight: "700", marginTop: 5 },
-  cardTitle: { color: colors.text, fontSize: 16, fontWeight: "600" },
-  row: { flexDirection: "row", gap: 10 },
-  nameRow: { flexDirection: "row", gap: 10, marginTop: 16 },
-  nameLoading: { marginTop: 16 },
+  label: {
+    ...typography.label,
+    marginTop: 10,
+  },
+  email: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "700",
+    marginTop: 5,
+  },
+  cardTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  row: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  nameRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 16,
+  },
+  nameLoading: {
+    marginTop: 16,
+  },
   nameStatus: {
     borderRadius: 9,
     marginBottom: 10,
@@ -871,46 +896,63 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
     paddingVertical: 8,
   },
-  nameStatusSaved: { backgroundColor: "#E7F4F1" },
-  nameStatusUnsaved: { backgroundColor: "#FFF3D6" },
-  nameStatusRequired: { backgroundColor: "#EEF2F6" },
-  nameStatusError: { backgroundColor: "#FDECEC" },
-  nameStatusText: { fontSize: 13, fontWeight: "600" },
-  nameStatusSavedText: { color: colors.blue },
-  nameStatusUnsavedText: { color: "#8A4B00" },
-  nameStatusRequiredText: { color: "#52606D" },
-  nameStatusErrorText: { color: "#B42318" },
-  fullGoal: { marginBottom: 0 },
-  goalsBody: { marginTop: 14 },
-  goalField: { flex: 1 },
-  goalLabel: {
+  nameStatusSaved: {
+    backgroundColor: colors.greenSoft,
+  },
+  nameStatusUnsaved: {
+    backgroundColor: colors.orangeSoft,
+  },
+  nameStatusRequired: {
+    backgroundColor: "#EEF2F6",
+  },
+  nameStatusError: {
+    backgroundColor: colors.dangerSoft,
+  },
+  nameStatusText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  nameStatusSavedText: {
+    color: colors.green,
+  },
+  nameStatusUnsavedText: {
+    color: colors.orange,
+  },
+  nameStatusRequiredText: {
     color: colors.secondary,
-    fontSize: 12,
-    fontWeight: "700",
+  },
+  nameStatusErrorText: {
+    color: colors.danger,
+  },
+  fullGoal: {
+    marginBottom: 0,
+  },
+  goalsBody: {
+    marginTop: 14,
+  },
+  goalField: {
+    flex: 1,
+  },
+  goalLabel: {
+    ...typography.label,
     marginBottom: 5,
   },
   input: {
-    backgroundColor: colors.background,
-    borderColor: colors.separator,
-    borderRadius: 9,
-    borderWidth: 1,
-    color: colors.text,
+    ...surfaces.input,
     marginBottom: 11,
-    padding: 10,
   },
   saveButton: {
-    alignItems: "center",
-    backgroundColor: colors.blue,
-    borderRadius: 10,
-    minHeight: 48,
-    justifyContent: "center",
+    ...surfaces.button,
   },
-  saveText: { color: "#fff", fontWeight: "600" },
+  saveText: {
+    color: "#fff",
+    fontWeight: "600",
+  },
   healthKitStatus: {
     color: colors.tertiary,
-    fontSize: 12,
     marginBottom: 12,
     marginTop: 10,
+    fontSize: typography.footnote.fontSize,
   },
   exportDescription: {
     color: colors.secondary,
@@ -920,11 +962,15 @@ const styles = StyleSheet.create({
   },
   exportPhotoNote: {
     color: colors.tertiary,
-    fontSize: 12,
     lineHeight: 17,
     marginTop: 8,
+    fontSize: typography.footnote.fontSize,
   },
-  exportActions: { flexDirection: "row", gap: 10, marginTop: 14 },
+  exportActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 14,
+  },
   exportSecondaryButton: {
     alignItems: "center",
     borderColor: colors.blue,
@@ -934,17 +980,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     minHeight: 48,
   },
-  exportSecondaryText: { color: colors.blue, fontWeight: "600" },
+  exportSecondaryText: {
+    color: colors.blue,
+    fontWeight: "600",
+  },
   exportPrimaryButton: {
-    alignItems: "center",
-    backgroundColor: colors.blue,
-    borderRadius: 10,
+    ...surfaces.button,
     flex: 1,
-    justifyContent: "center",
-    minHeight: 48,
   },
   securityTitle: {
-    color: "#1C1C1E",
+    color: colors.text,
     fontSize: 15,
     fontWeight: "600",
   },
@@ -955,44 +1000,69 @@ const styles = StyleSheet.create({
   },
   faceIdSettingsIcon: {
     alignItems: "center",
-    backgroundColor: "#F2F2F7",
+    backgroundColor: colors.background,
     borderRadius: 10,
     height: 42,
     justifyContent: "center",
     marginRight: 12,
     width: 42,
   },
-  faceIdSettingsContent: { flex: 1 },
-  faceIdStatus: { color: "#8E8E93", fontSize: 12, marginTop: 10 },
-  faceIdFallback: { color: "#007AFF", fontSize: 12, fontWeight: "700" },
-  faceIdActionPressed: { opacity: 0.45 },
-  faceIdActionText: { color: "#007AFF", fontSize: 15, fontWeight: "600" },
-  faceIdDisableText: { color: "#FF3B30" },
-  disabledButton: { opacity: 0.65 },
-  success: { color: colors.blue, fontWeight: "700", marginBottom: 6 },
-  error: { color: "#B42318", marginBottom: 6 },
-  inlineSuccess: {
+  faceIdSettingsContent: {
+    flex: 1,
+  },
+  faceIdStatus: {
+    color: colors.tertiary,
+    marginTop: 10,
+    fontSize: typography.footnote.fontSize,
+  },
+  faceIdFallback: {
     color: colors.blue,
+    fontWeight: "700",
+    fontSize: typography.footnote.fontSize,
+  },
+  faceIdActionPressed: {
+    opacity: 0.45,
+  },
+  faceIdActionText: {
+    color: colors.blue,
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  faceIdDisableText: {
+    color: colors.danger,
+  },
+  disabledButton: {
+    opacity: 0.65,
+    minHeight: 44,
+    justifyContent: "center",
+  },
+  success: {
+    color: colors.green,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  error: {
+    color: colors.danger,
+    marginBottom: 6,
+  },
+  inlineSuccess: {
+    color: colors.green,
     fontWeight: "700",
     marginTop: 10,
     textAlign: "center",
   },
-  inlineError: { color: "#B42318", marginTop: 10, textAlign: "center" },
+  inlineError: {
+    color: colors.danger,
+    marginTop: 10,
+    textAlign: "center",
+  },
   modalBackdrop: {
-    alignItems: "center",
-    backgroundColor: "rgba(15, 35, 48, 0.42)",
-    flex: 1,
-    justifyContent: "center",
-    padding: 24,
+    ...surfaces.backdrop,
   },
   modalCard: {
+    ...surfaces.dialog,
+    ...surfaces.card,
     alignSelf: "center",
-    backgroundColor: "#fff",
-    borderRadius: 22,
-    borderCurve: "continuous",
-    maxWidth: 380,
-    padding: 18,
-    width: "100%",
   },
   modalTitle: {
     color: colors.text,
@@ -1002,14 +1072,13 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   modalInput: {
-    backgroundColor: colors.background,
-    borderColor: colors.separator,
-    borderRadius: 10,
-    borderWidth: 1,
-    color: colors.text,
-    padding: 12,
+    ...surfaces.input,
   },
-  modalActions: { flexDirection: "row", gap: 10, marginTop: 16 },
+  modalActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 16,
+  },
   modalCancel: {
     alignItems: "center",
     borderColor: colors.separator,
@@ -1019,24 +1088,29 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     minHeight: 44,
   },
-  modalCancelText: { color: colors.secondary, fontWeight: "700" },
-  modalEnable: {
-    alignItems: "center",
-    backgroundColor: "#007AFF",
-    borderRadius: 10,
-    flex: 1,
-    justifyContent: "center",
-    minHeight: 44,
+  modalCancelText: {
+    color: colors.secondary,
+    fontWeight: "700",
   },
-  modalEnableText: { color: "#fff", fontWeight: "600" },
+  modalEnable: {
+    ...surfaces.button,
+    flex: 1,
+  },
+  modalEnableText: {
+    color: "#fff",
+    fontWeight: "600",
+  },
   button: {
     alignItems: "center",
-    borderColor: "#D64545",
+    borderColor: colors.danger,
     borderRadius: 12,
     borderWidth: 1,
     marginTop: 12,
     minHeight: 50,
     justifyContent: "center",
   },
-  buttonText: { color: "#B42318", fontWeight: "600" },
+  buttonText: {
+    color: colors.danger,
+    fontWeight: "600",
+  },
 });

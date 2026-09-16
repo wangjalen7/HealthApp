@@ -1,3 +1,4 @@
+import { IconButton } from "../../src/ui/icon-button";
 import { trackingStyles } from "../../src/ui/tracking-styles";
 import { ScreenScrollView } from "../../src/ui/screen-scroll-view";
 import { Pressable } from "../../src/ui/pressable";
@@ -522,9 +523,9 @@ export default function RemindersScreen() {
                     }
                     value={dateFromLocalDay(draft.startDate, time)}
                   />
-                  <Pressable
-                    accessibilityLabel={`Remove reminder time ${index + 2}`}
-                    accessibilityRole="button"
+                  <IconButton
+                    name="delete"
+                    label={`Remove reminder time ${index + 2}`}
                     onPress={() =>
                       updateDraft({
                         additionalTimes: draft.additionalTimes.filter(
@@ -532,10 +533,8 @@ export default function RemindersScreen() {
                         ),
                       })
                     }
-                    style={styles.removeTimeButton}
-                  >
-                    <Text style={styles.removeTimeText}>Remove</Text>
-                  </Pressable>
+                    destructive
+                  />
                 </View>
               ))
             : null}
@@ -556,15 +555,13 @@ export default function RemindersScreen() {
           {error ? <Text style={styles.error}>{error}</Text> : null}
           <View style={styles.editorActions}>
             {editing ? (
-              <Pressable
-                accessibilityLabel="Delete reminder"
-                accessibilityRole="button"
+              <IconButton
+                name="delete"
+                label="Delete reminder"
                 disabled={saving}
                 onPress={() => void remove(editing)}
-                style={[styles.deleteButton, saving && styles.disabled]}
-              >
-                <Text style={styles.deleteText}>Delete</Text>
-              </Pressable>
+                destructive
+              />
             ) : null}
             <Pressable
               accessibilityLabel="Save reminder"
@@ -636,14 +633,11 @@ export default function RemindersScreen() {
                         : "Notifications unavailable"}
                   </Text>
                 </View>
-                <Pressable
-                  accessibilityLabel={`Edit ${reminderTitle(reminder)} reminder`}
-                  accessibilityRole="button"
+                <IconButton
+                  name="edit"
+                  label={`Edit ${reminderTitle(reminder)} reminder`}
                   onPress={() => openEdit(reminder)}
-                  style={styles.editButton}
-                >
-                  <Text style={styles.editText}>Edit</Text>
-                </Pressable>
+                />
               </View>
             );
           })}

@@ -1,3 +1,5 @@
+import { ConfirmationActions } from "../../src/ui/confirmation-actions";
+import { IconButton } from "../../src/ui/icon-button";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import {
@@ -32,7 +34,7 @@ import { createId } from "../../src/features/vitals/storage";
 import { Icon } from "../../src/ui/icon";
 import { Pressable } from "../../src/ui/pressable";
 import { ScreenScrollView } from "../../src/ui/screen-scroll-view";
-import { colors } from "../../src/ui/theme";
+import { colors } from "../../src/ui/profile-theme";
 import { trackingStyles as shared } from "../../src/ui/tracking-styles";
 
 const quickPrompts = [
@@ -322,17 +324,20 @@ export default function CoachScreen() {
 
   return (
     <>
-      <ScreenScrollView contentContainerStyle={shared.page}>
+      <ScreenScrollView
+        style={{ backgroundColor: "#F7F8FA" }}
+        contentContainerStyle={shared.page}
+      >
         <View style={styles.topRow}>
           <View style={styles.brand}>
             <View style={styles.brandIcon}>
-              <Icon name="sparkles" size={20} color={colors.purple} />
+              <Icon name="sparkles" size={20} color="#FFFFFF" />
             </View>
             <View style={styles.headingWrap}>
-              <Text style={styles.title}>Coach</Text>
-              <Text style={styles.subtitle}>
-                Your health and training history
+              <Text accessibilityRole="header" style={styles.title}>
+                Coach
               </Text>
+              <Text style={styles.subtitle}>Personal guidance</Text>
             </View>
           </View>
           <View style={styles.headerActions}>
@@ -425,31 +430,23 @@ export default function CoachScreen() {
                 <Text style={styles.activeThreadText}>
                   Delete this conversation?
                 </Text>
-                <Pressable
-                  onPress={() => void removeThread()}
-                  style={styles.textButton}
-                >
-                  <Text style={styles.deleteText}>Delete</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => setConfirmDelete(false)}
-                  style={styles.textButton}
-                >
-                  <Text style={styles.link}>Cancel</Text>
-                </Pressable>
+                <ConfirmationActions
+                  onCancel={() => setConfirmDelete(false)}
+                  onConfirm={() => void removeThread()}
+                  busy={loadingThread}
+                />
               </View>
             ) : (
               <>
                 <Text numberOfLines={1} style={styles.activeThreadText}>
                   {activeThread?.title ?? "Conversation"}
                 </Text>
-                <Pressable
-                  accessibilityLabel="Delete current conversation"
+                <IconButton
+                  name="delete"
+                  label="Delete current conversation"
                   onPress={() => setConfirmDelete(true)}
-                  style={styles.compactDelete}
-                >
-                  <Text style={styles.mutedLink}>Delete</Text>
-                </Pressable>
+                  destructive
+                />
               </>
             )}
           </View>
@@ -457,12 +454,11 @@ export default function CoachScreen() {
 
         {!messages.length && !loadingThread ? (
           <View style={styles.hero}>
-            <View style={styles.heroIcon}>
-              <Icon name="sparkles" size={26} color={colors.purple} />
-            </View>
+            <Text style={styles.eyebrow}>BUILT AROUND YOUR ROUTINE</Text>
             <Text style={styles.heroTitle}>How can I help today?</Text>
             <Text style={styles.heroCopy}>
-              Ask about your next meal, workout, or recent progress.
+              Make your next step a little clearer. Start with your meals,
+              training, or progress.
             </Text>
             <View style={styles.quickGrid}>
               {quickPrompts.map((prompt) => (
@@ -471,8 +467,11 @@ export default function CoachScreen() {
                   onPress={() => void submit(prompt.title)}
                   style={styles.quickCard}
                 >
-                  <Icon name={prompt.icon} size={18} color={colors.blue} />
+                  <View style={styles.promptIcon}>
+                    <Icon name={prompt.icon} size={20} color={colors.blue} />
+                  </View>
                   <Text style={styles.quickTitle}>{prompt.title}</Text>
+                  <Icon name="chevron" size={16} color={colors.tertiary} />
                 </Pressable>
               ))}
             </View>
@@ -534,7 +533,7 @@ export default function CoachScreen() {
             maxLength={4000}
             multiline
             onChangeText={setText}
-            placeholder="Ask about meals, training, recovery, or progress"
+            placeholder="Ask your coach..."
             placeholderTextColor={colors.tertiary}
             style={styles.composerInput}
             value={text}
@@ -552,9 +551,9 @@ export default function CoachScreen() {
               accessibilityLabel="Send message to AI Coach"
               disabled={!text.trim()}
               onPress={() => void submit()}
-              style={styles.sendButton}
+              style={[styles.sendButton, !text.trim() && { opacity: 0.35 }]}
             >
-              <Icon name="chevron" color={colors.surface} size={20} />
+              <Icon name="arrow-up" color={colors.surface} size={20} />
             </Pressable>
           )}
         </View>
@@ -705,8 +704,25 @@ function MessageBubble({
 }
 
 const styles = StyleSheet.create({
+  eyebrow: {
+    color: colors.tertiary,
+    fontSize: 11,
+    fontWeight: "600",
+    letterSpacing: 1.2,
+    marginBottom: 8,
+  },
+  promptIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: colors.blueSoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   center: { alignItems: "center", justifyContent: "center" },
   topRow: {
+    flexWrap: "wrap",
+    rowGap: 8,
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
@@ -715,7 +731,7 @@ const styles = StyleSheet.create({
   brand: { alignItems: "center", flex: 1, flexDirection: "row", gap: 10 },
   brandIcon: {
     alignItems: "center",
-    backgroundColor: "#F3ECFC",
+    backgroundColor: "#183D68",
     borderRadius: 12,
     height: 38,
     justifyContent: "center",
@@ -724,7 +740,7 @@ const styles = StyleSheet.create({
   headingWrap: { flex: 1, gap: 1 },
   title: {
     color: colors.text,
-    fontSize: 27,
+    fontSize: 24,
     fontWeight: "700",
     letterSpacing: -0.7,
   },
@@ -733,13 +749,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
   },
-  headerActions: { alignItems: "center", flexDirection: "row", gap: 2 },
+  headerActions: { alignItems: "center", flexDirection: "row", gap: 0 },
   iconButton: {
     alignItems: "center",
     borderRadius: 11,
     justifyContent: "center",
-    minHeight: 40,
-    width: 40,
+    minHeight: 44,
+    width: 44,
   },
   iconButtonActive: { backgroundColor: colors.blueSoft },
   threadBadge: {
@@ -817,13 +833,7 @@ const styles = StyleSheet.create({
     minHeight: 38,
     paddingLeft: 12,
   },
-  deleteConfirm: {
-    alignItems: "center",
-    flex: 1,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 9,
-  },
+  deleteConfirm: { flex: 1, paddingVertical: 12 },
   textButton: {
     justifyContent: "center",
     minHeight: 40,
@@ -834,10 +844,10 @@ const styles = StyleSheet.create({
   mutedLink: { color: colors.secondary, fontSize: 13 },
   link: { color: colors.blue, fontSize: 14, fontWeight: "600" },
   hero: {
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 8,
     paddingBottom: 10,
-    paddingTop: 22,
+    paddingTop: 26,
   },
   heroIcon: {
     alignItems: "center",
@@ -849,17 +859,18 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     color: colors.text,
-    fontSize: 25,
+    fontSize: 30,
+    lineHeight: 37,
     fontWeight: "700",
     letterSpacing: -0.4,
-    textAlign: "center",
+    textAlign: "left",
   },
   heroCopy: {
     color: colors.secondary,
     fontSize: 14,
     lineHeight: 20,
     maxWidth: 420,
-    textAlign: "center",
+    textAlign: "left",
   },
   quickGrid: {
     flexDirection: "row",
@@ -875,11 +886,11 @@ const styles = StyleSheet.create({
     borderColor: colors.separator,
     borderRadius: 13,
     borderWidth: StyleSheet.hairlineWidth,
-    flexBasis: 160,
+    flexBasis: "100%",
     flexGrow: 1,
     flexDirection: "row",
     gap: 8,
-    minHeight: 52,
+    minHeight: 68,
     paddingHorizontal: 12,
     paddingVertical: 9,
   },
@@ -973,8 +984,8 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     backgroundColor: colors.surface,
     borderColor: colors.separator,
-    borderRadius: 20,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 16,
+    borderWidth: 1,
     flexDirection: "row",
     gap: 6,
     marginTop: 16,
@@ -986,7 +997,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     maxHeight: 150,
-    minHeight: 42,
+    minHeight: 64,
     paddingHorizontal: 10,
     paddingVertical: 9,
     textAlignVertical: "top",
@@ -994,10 +1005,10 @@ const styles = StyleSheet.create({
   sendButton: {
     alignItems: "center",
     backgroundColor: colors.blue,
-    borderRadius: 19,
-    height: 38,
+    borderRadius: 14,
+    height: 44,
     justifyContent: "center",
-    width: 38,
+    width: 44,
   },
   footerRow: {
     alignItems: "center",
@@ -1019,6 +1030,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     paddingBottom: 4,
-    textAlign: "center",
+    textAlign: "left",
   },
 });

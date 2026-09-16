@@ -1,3 +1,5 @@
+import { ConfirmationActions } from "../../src/ui/confirmation-actions";
+import { IconButton } from "../../src/ui/icon-button";
 import { trackingStyles } from "../../src/ui/tracking-styles";
 import { Modal } from "../../src/ui/modal";
 import { ScreenScrollView } from "../../src/ui/screen-scroll-view";
@@ -308,28 +310,25 @@ export default function NutritionScreen() {
               <Text style={styles.note}>Note: {entry.note}</Text>
             ) : null}
             <View style={styles.actions}>
-              <Pressable
-                accessibilityRole="button"
+              <IconButton
+                name="edit"
+                label="Edit amount"
                 onPress={() => {
                   setEditing(entry);
                   setEditorPurpose("add");
                   setEditorOpen(true);
                 }}
-                style={styles.editButton}
-              >
-                <Text style={styles.editText}>Edit amount</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
+              />
+              <IconButton
+                name="delete"
+                label="Remove"
                 onPress={() =>
                   setEntries((current) =>
                     current.filter((item) => item.id !== entry.id),
                   )
                 }
-                style={styles.removeButton}
-              >
-                <Text style={styles.removeText}>Remove</Text>
-              </Pressable>
+                destructive
+              />
             </View>
           </View>
         ))}
@@ -440,20 +439,12 @@ export default function NutritionScreen() {
               This clears the meal saved on this device. Completed food history
               is not affected.
             </Text>
-            <View style={styles.modalActions}>
-              <Pressable
-                onPress={() => setDiscardOpen(false)}
-                style={styles.modalCancel}
-              >
-                <Text style={styles.modalCancelText}>Keep meal</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => void discard()}
-                style={styles.modalDelete}
-              >
-                <Text style={styles.modalDeleteText}>Discard</Text>
-              </Pressable>
-            </View>
+            <ConfirmationActions
+              onCancel={() => setDiscardOpen(false)}
+              onConfirm={() => void discard()}
+              cancelLabel="Keep meal"
+              confirmLabel="Discard"
+            />
           </View>
         </View>
       </Modal>

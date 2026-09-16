@@ -5,18 +5,11 @@ import {
   approximateBase64Bytes,
   isProgressPhotoStorageFullError,
   localPhotoDay,
-  nextDailyPhotoSlot,
 } from "./model";
 
-test("uses local calendar dates for progress-photo limits", () => {
+test("uses local calendar dates for progress-photo storage paths", () => {
   const date = new Date(2026, 8, 4, 23, 30);
   assert.equal(localPhotoDay(date), "2026-09-04");
-});
-
-test("allocates one of three unique photo slots per day", () => {
-  assert.equal(nextDailyPhotoSlot([]), 1);
-  assert.equal(nextDailyPhotoSlot([1, 3]), 2);
-  assert.equal(nextDailyPhotoSlot([1, 2, 3]), undefined);
 });
 
 test("estimates decoded base64 size without counting padding", () => {

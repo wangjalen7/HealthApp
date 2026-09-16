@@ -6,7 +6,9 @@ test("authentication validation and protected Quick Log", async ({
 }) => {
   void backend;
   await page.goto("/create");
-  await expect(page.getByText("Welcome back")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Sign in", exact: true }),
+  ).toBeVisible();
   await page.getByText("Forgot password?", { exact: true }).click();
   await page.getByRole("button", { name: "Send reset link" }).click();
   await expect(page.getByText("Enter a valid email address.")).toBeVisible();
@@ -32,7 +34,10 @@ test("review all screens at phone and desktop widths", async ({
   });
   await signIn(page);
   for (const width of [320, 390, 430, 1280]) {
-    await page.setViewportSize({ width, height: 844 });
+    await page.setViewportSize({
+      width,
+      height: width === 320 ? 568 : width === 430 ? 932 : 844,
+    });
     await page.getByRole("tab", { name: "Summary" }).click();
     await page.screenshot({
       path: testInfo.outputPath(`summary-${width}.png`),
@@ -47,7 +52,10 @@ test("review all screens at phone and desktop widths", async ({
     ]) {
       await quickLog(page, title);
       await expect(
-        page.getByRole("progressbar").filter({ visible: true }),
+        page
+          .getByRole("progressbar")
+          .filter({ visible: true })
+          .filter({ hasNot: page.locator("[data-testid=water-glass-fill]") }),
       ).toHaveCount(0);
       await page.screenshot({
         path: testInfo.outputPath(`${title}-${width}.png`),
@@ -352,10 +360,10 @@ test("lifting and cardio saves, history and delete", async ({
   ).toHaveCount(0);
 });
 
-test("exercise cards follow the pointer and preserve reordered workout data", async ({
+test("exercise arrows preserve reordered workout data without drag controls", async ({
   page,
   backend,
-}, testInfo) => {
+}) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.setViewportSize({ width: 390, height: 1000 });
   await signIn(page);
@@ -386,32 +394,14 @@ test("exercise cards follow the pointer and preserve reordered workout data", as
   await expect(
     page.getByText(/Select a saved exercise or finish typing/),
   ).toHaveCount(0);
-  const firstId = await page
-    .getByTestId(/^exercise-card-/)
-    .first()
-    .getAttribute("data-testid");
-  const dragged = page.getByTestId(firstId!);
-  await dragged.scrollIntoViewIfNeeded();
-  const handle = dragged.getByLabel("Reorder exercise 1", { exact: true });
-  const handleBox = (await handle.boundingBox())!;
-  const before = (await dragged.boundingBox())!;
-  const secondBefore = (await page
-    .getByTestId(/^exercise-card-/)
-    .nth(1)
-    .boundingBox())!;
-  const x = handleBox.x + handleBox.width / 2;
-  const y = handleBox.y + handleBox.height / 2;
-  await page.mouse.move(x, y);
-  await page.mouse.down();
-  await expect(dragged).toHaveCSS("border-top-color", "rgb(0, 122, 255)");
-  await page.mouse.move(x, y + 24, { steps: 6 });
-  await expect
-    .poll(async () => (await dragged.boundingBox())!.y - before.y)
-    .toBeGreaterThan(14);
-  expect((await dragged.boundingBox())!.y - before.y).toBeLessThan(38);
-  await page.screenshot({ path: testInfo.outputPath("exercise-mid-drag.png") });
-  await page.mouse.move(x, y + secondBefore.height * 0.8, { steps: 20 });
-  await page.mouse.up();
+  await expect(page.getByText("Drag", { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByLabel("Move exercise up", { exact: true }).first(),
+  ).toBeDisabled();
+  await expect(
+    page.getByLabel("Move exercise down", { exact: true }).last(),
+  ).toBeDisabled();
+  await page.getByLabel("Move exercise down", { exact: true }).first().click();
   const names = () =>
     page
       .getByLabel("Exercise name", { exact: true })
@@ -420,34 +410,30 @@ test("exercise cards follow the pointer and preserve reordered workout data", as
         inputs.map((input) => (input as HTMLInputElement).value),
       );
   await expect.poll(names).toEqual(["Second lift", "First lift", "Third lift"]);
-  await page.getByLabel("Reorder exercise 2", { exact: true }).press("ArrowUp");
+  await page
+    .getByLabel("Move exercise up", { exact: true })
+    .nth(1)
+    .press("Enter");
   await expect.poll(names).toEqual(["First lift", "Second lift", "Third lift"]);
   await page
-    .getByLabel("Reorder exercise 1", { exact: true })
-    .press("ArrowDown");
+    .getByLabel("Move exercise down", { exact: true })
+    .first()
+    .press("Enter");
   await expect.poll(names).toEqual(["Second lift", "First lift", "Third lift"]);
 
-  // A phone-height viewport must scroll while the held card approaches its edge.
+  // Controlled reordering intentionally disables automatic scrolling. The
+  // explicit arrows must still permit exact moves in a phone-height viewport.
   await page.setViewportSize({ width: 390, height: 844 });
   const edgeCard = page.getByTestId(/^exercise-card-/).first();
-  const edgeHandle = edgeCard.getByLabel("Reorder exercise 1", { exact: true });
-  await edgeHandle.scrollIntoViewIfNeeded();
-  const edgeBox = (await edgeHandle.boundingBox())!;
-  const scrollView = page.getByTestId("workout-exercise-list");
-  const scrollBefore = await scrollView.evaluate(
-    (element) => element.scrollTop,
-  );
-  await page.mouse.move(
-    edgeBox.x + edgeBox.width / 2,
-    edgeBox.y + edgeBox.height / 2,
-  );
-  await page.mouse.down();
-  await expect(edgeCard).toHaveCSS("border-top-color", "rgb(0, 122, 255)");
-  await page.mouse.move(edgeBox.x + edgeBox.width / 2, 758, { steps: 25 });
-  await expect
-    .poll(() => scrollView.evaluate((element) => element.scrollTop))
-    .toBeGreaterThan(scrollBefore + 150);
-  await page.mouse.up();
+  await edgeCard
+    .getByRole("button", { name: "Move exercise down", exact: true })
+    .click();
+  await expect.poll(names).toEqual(["First lift", "Second lift", "Third lift"]);
+  await page
+    .getByTestId(/^exercise-card-/)
+    .nth(1)
+    .getByRole("button", { name: "Move exercise down", exact: true })
+    .click();
   await expect.poll(names).toEqual(["First lift", "Third lift", "Second lift"]);
   await page.getByRole("tab", { name: "Summary", exact: true }).click();
   await quickLog(page, "Workout");
@@ -516,7 +502,9 @@ test("profile name persistence and browser reminder guidance", async ({
   );
   await page.getByRole("tab", { name: "Profile", exact: true }).click();
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
-  await expect(page.getByText("Welcome back", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Sign in", exact: true }),
+  ).toBeVisible();
 });
 
 test("populated Summary, calendar and chart ranges link to matching history", async ({

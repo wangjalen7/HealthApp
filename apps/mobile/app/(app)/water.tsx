@@ -18,6 +18,9 @@ import {
   saveHydration,
 } from "../../src/features/hydration/repository";
 
+import { getDailyGoals } from "../../src/features/goals/repository";
+import { WaterGlass } from "../../src/features/hydration/water-glass";
+
 const units: HydrationUnit[] = ["fl_oz", "ml", "cup"];
 const quickOunces = [8, 12, 16, 20, 24, 40];
 
@@ -27,13 +30,19 @@ export default function WaterScreen() {
   const [amount, setAmount] = useState("");
   const [unit, setUnit] = useState<HydrationUnit>("fl_oz");
   const [todayMl, setTodayMl] = useState(0);
+  const [goalMl, setGoalMl] = useState<number>();
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState("");
 
   const load = useCallback(async () => {
     if (!session) return;
     try {
-      setTodayMl(await getTodayHydrationMl(session.user.id));
+      const [total, goals] = await Promise.all([
+        getTodayHydrationMl(session.user.id),
+        getDailyGoals(session.user.id),
+      ]);
+      setTodayMl(total);
+      setGoalMl(goals.waterGoalMl);
     } catch (error) {
       setFeedback(
         error instanceof Error ? error.message : "Could not load hydration.",
@@ -76,9 +85,22 @@ export default function WaterScreen() {
     >
       <Text style={styles.title}>Water</Text>
       <View style={styles.todayCard}>
-        <Text style={styles.todayLabel}>TODAY</Text>
-        <Text style={styles.todayValue}>{mlToFluidOunces(todayMl)} fl oz</Text>
-        <Text style={styles.todayDetail}>{Math.round(todayMl)} mL</Text>
+        <WaterGlass value={todayMl} goal={goalMl} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.todayLabel}>TODAY</Text>
+          <Text style={styles.todayValue}>
+            {mlToFluidOunces(todayMl)} fl oz
+          </Text>
+          <Text style={styles.todayDetail}>{Math.round(todayMl)} mL</Text>
+          <Text style={styles.todayDetail}>
+            {goalMl
+              ? `of ${mlToFluidOunces(goalMl)} fl oz goal`
+              : "Set a daily water goal in Profile"}
+          </Text>
+          {goalMl && todayMl >= goalMl ? (
+            <Text style={styles.goalReached}>Daily goal reached</Text>
+          ) : null}
+        </View>
       </View>
       <Text style={styles.label}>Quick water amount</Text>
       <View style={styles.chips}>
@@ -188,7 +210,19 @@ export default function WaterScreen() {
 const styles = StyleSheet.create({
   page: trackingStyles.page,
   title: trackingStyles.title,
-  todayCard: { ...trackingStyles.card, marginBottom: 20 },
+  goalReached: {
+    color: colors.blue,
+    fontSize: 13,
+    fontWeight: "600",
+    marginTop: 8,
+  },
+  todayCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 20,
+    ...trackingStyles.card,
+    marginBottom: 20,
+  },
   todayLabel: {
     color: colors.blue,
     fontSize: 11,

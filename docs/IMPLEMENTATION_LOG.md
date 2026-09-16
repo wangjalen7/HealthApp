@@ -430,3 +430,72 @@
 - Follow-up: increased the serving-scaling control contrast with a bordered surface, solid gray/blue track, white thumb, and visible ON/OFF state. Weight and volume label inputs now use an iPhone keyboard containing `/` and accept strict decimals, simple fractions (`1/3`, `3/4`, `1/2`), and mixed fractions (`1 1/2`). Invalid and zero-denominator fractions remain blocked. Lint, strict TypeScript, and all 116 mobile tests pass.
 - Follow-up: when an existing label supplies both weight and volume, changing either measurement with scaling enabled now applies the same ratio to the paired measurement and nutrients. This preserves the product's explicit weight-to-volume relationship without guessing density when only one measurement exists. The toggle copy now describes serving details and nutrition, and turning it off keeps every field independently editable.
 - Restored the food-editor UI after that file was overwritten with its earlier implementation while the model and database changes remained. Paired scaling now also establishes its baseline after both measurements are filled or whenever scaling is switched on. Added direct ratio coverage; lint, strict TypeScript, and all 117 mobile tests pass.
+
+## 2026-09-16 - App-wide iOS visual redesign
+
+- Audited every route and shared visual module. Established a restrained light palette, readable type hierarchy, 16-point content surfaces, 10-point form controls, semantic feedback, and shared motion durations. Consolidated fields, actions, editor toolbars, dialogs, and section headings across the existing Expo Router architecture.
+- Refined Summary readings/units/categories and grouped nutrition; replaced SVG progress numerals with native text and a large-text layout. Flattened the center tab, turned Quick Log into one grouped list, and applied SF Symbols on iOS with vector fallbacks. Updated auth, History/detail editors, Food/AI/label sheets, water/vitals/photos, lifting/cardio, reminders, Coach/setup/review, and Profile.
+- Preserved data/integrations and existing drag behavior. Added keyboard adjustment to the food editor, keyboard avoidance to transparent dialogs, shared input focus/disabled feedback, and reduced-motion-aware press timing. Fixed narrow signup field overflow and tab-label clipping found in rendered QA.
+- Verification: lint and strict TypeScript pass; 117 app tests and 43 Edge tests pass; all 23 isolated browser flows pass, with an additional targeted compact-form pass after the signup sizing correction. The production iOS/Hermes bundle exports successfully. Reviewed synthetic screenshots at 320 x 568, 390 x 844, 430 x 932, and desktop widths, plus populated charts, Coach, authentication, and modal states. Updated the privacy test native mock for keyboard avoidance/platform selection and aligned stale drag assertions with the already-existing activation threshold and disabled autoscroll.
+- No backend changes, deployment, or user-data writes. Native keyboard/VoiceOver/Dynamic Type, SF Symbols, sheet gestures, Face ID, camera/photos, notifications, and HealthKit still need the registered iPhone. Light-only appearance remains as configured. Design notes and QA scope are in docs/DESIGN_SYSTEM.md.
+
+## 2026-09-16 - Preferred UI restoration and targeted interaction revisions
+
+- Restored the pre-redesign global theme, navigation, Summary, trackers, sheet and press styles at the user's request. Preserved Profile using isolated profile-theme tokens and its native input wrapper. Reworked login with a compact brand, visible field labels and clear authentication hierarchy; Coach has a quieter toolbar, stacked suggestions, composer and grouped consent/setup sections.
+- Charts now acquire every touch at its start, including diagonal re-grips, and release parent scrolling on completion/cancellation. Native tap selection uses measured SVG coordinates so inspection survives responder capture; web keyboard/click inspection remains available.
+- Removed drag controls, the draggable FlatList dependency, its compatibility patch and unused drop helpers/tests. A normal FlatList and 44-point up/down icon actions retain exact order and drafts. Unilateral exercises use just L/R, two aligned rows, shared column widths and horizontally scrollable reps; removed the Side heading and detection message. Both-side values continue to persist in one logical set and are editable in history.
+- Added a reduced-motion-aware animated water glass driven by saved totals and the Profile hydration goal, with goal completion and unset-goal states. Protein now has a distinct food outline. Edit/delete/remove actions use labeled 44-point icons, preserving existing confirmations and callbacks.
+- Verified lint, TypeScript, 115 app tests, 43 Edge tests, all 26 browser flows, clean postinstall with no active patches, and iOS/Hermes production export. Browser coverage includes vertical-leading diagonal repeated touches on both graphs, cancellation/page-scroll recovery, arrow ordering and persistence, 320px L/R alignment and both-side saved values, water failed-save/retry plus changed/unset goals, and icon edit/delete paths. Updated obsolete visible-text test selectors for icon actions. Inspected synthetic login, Coach, water and workout screenshots; broader screen captures cover 320/390/430/1280px.
+- Browser plugin discovery returned no connected browsers, so repository Playwright fixtures provided isolated visual and flow verification. Physical-iPhone gesture feel and reading taps, Dynamic Type, VoiceOver, keyboards and existing Face ID/HealthKit/photo/notification integrations remain device checks. No backend deployment or user records were changed.
+
+## 2026-09-16 - L/R alignment correction
+
+- User reported remaining L/R misalignment. Each side previously had an independent horizontal ScrollView, allowing input focus or scrolling to shift only one row; the original two-set browser assertion did not exercise that condition.
+- Added shared ExerciseSetFields for workout entry and saved-workout editing. Each set is a single column containing its L/R inputs inside one horizontal scroll viewport. All side labels, rep inputs, weights and units use the same explicit row height, including font scaling. Removed duplicated row/spacer styles.
+- Extended the browser regression to overflow with six sets, alternate focus across sides, assert matching columns and field heights, and edit/save right-side history reps without changing the left side. Focused lifting, arrow ordering and save flows pass; the final extended alignment test passes. Reviewed the synthetic 320px screenshot. Lint, TypeScript, 115 app tests and 43 Edge tests pass; device visual confirmation remains outstanding.
+
+## 2026-09-16 - Weight photo isolation, daily count and balanced confirmations
+
+- Traced photo leakage to an unfiltered global gallery query: the weight ID selected a starting index but did not restrict the records. Made the weight ID required for gallery reads and filter it before paging/signing; History mounts a separate gallery per selected weight. Uploads continue using that exact weight ID. No metadata migration or guessed reassignment is needed.
+- Replaced the loaded-gallery-derived daily counter with an independent user/local-day metadata query. It refreshes after upload and deletion, counts photos from all weight entries, and distinguishes loading/unavailable from zero. Limited the viewer height and made details scrollable so the daily limit remains reachable and fully visible at short phone heights.
+- Added shared ConfirmationActions: equal-width, minimum-48-point Cancel/Delete text buttons with the same typography, padding and corner radius. Applied to History, progress photos, saved food-label deletion, Coach conversation deletion, and meal discard; preserved icon entry points and existing handlers.
+- Added isolated browser coverage for three weight entries, scoped signed-URL requests, an empty entry, a real synthetic library upload associated to that entry, daily quota controls, cancel/confirm, deleting an older photo without reducing today's count, deleting today's photo with count refresh, and equal confirmation dimensions. Reviewed synthetic screenshots. Four focused photo/Coach/meal/fluid flows pass, plus the final short-screen photo run. Lint, TypeScript, 115 app tests and 43 Edge tests pass. Native camera/gallery confirmation remains a device check. No backend deployments or user data writes.
+
+## 2026-09-16 - Per-entry photo capacity and centered controls
+
+- User requested three photos per entry instead of per day. Replaced the daily counter and upload guard with entry-scoped queries and explicit per-entry copy. Removed the obsolete daily-slot allocator/test. Uploads now require a weight ID.
+- Applied migration 202609160001 to the linked hosted project. It drops daily uniqueness, preserves existing rows/objects and legacy metadata, and enforces the three-photo count in a trigger with a per-entry transaction lock. Existing over-limit groups remain readable/deletable and reject new uploads until below three.
+- Centered the two equal-sized Camera/Library buttons and moved the trash entry point beside photo details. Existing balanced text confirmation actions remain.
+- Lint, strict TypeScript, 114 app tests, 43 Edge tests and the revised focused browser flow pass. Browser coverage proves independent capacity with more than three uploads across the same day, accurate old/new attachment counts, delete/reuse, cancellation and centered controls at 320px. Waited for modal animation before measuring geometry; reviewed the resulting screenshot. Remote temporary-table SQL checks pass, database lint finds no errors, and dry-run confirms migrations are current. No existing user photo records or files changed; native picker/device layout confirmation remains open.
+
+## 2026-09-16 - Login refinements and visible Summary sync
+
+- Centered Face ID cancellation/error text on the privacy lock. Moved the login brand to top center, removed the welcome/subtitle and conditional Face ID-removal hint, added accessible eye/eye-off password visibility controls, and replaced Remember me checkbox with the native Switch while retaining persistence handlers. Shared sign-up password entry also supports visibility.
+- Existing pull-to-refresh already ran the combined sync/load. Set a safe-area offset, tint, refresh title and alwaysBounceVertical so its native indicator is visible; Sync now displays an activity indicator until loading finishes. Audited all sync call sites: Summary and History focus/refresh plus vital mutations, with Apple Health imports on Summary if connected. No timed or background HealthKit sync.
+- Lint, strict TypeScript, 114 app tests and 43 Edge tests pass; the compact forms browser regression passes. Added focused password-value retention, toggle persistence/clearing across logout and sync busy/failure/retry browser checks. Native Face ID, password keyboard/autofill and pull-to-refresh placement remain device checks. No backend changes.
+- Final focused browser checks pass (two new flows plus the earlier compact-form flow); reviewed the 320px login screenshot. The tests use the DOM text-input property and a non-retrying synthetic error to avoid mistaking default HTML attributes or backend retry delays for UI failures.
+
+## 2026-09-16 - Compact login options row
+
+- Moved the Remember switch/label to the left and the enrolled Face ID action to the right of one row below Password. Sign in remains immediately beneath it. Removed the older Face ID card, account subtitle and OR divider; kept accessible account labeling and authentication/busy behavior.
+- Lint, TypeScript, 114 app tests, 43 Edge tests and the existing login password/Remember browser flow pass. Reviewed the 320px web screenshot; enrolled native Face ID presentation remains an iPhone check.
+
+## 2026-09-16 - Remember toggle native alignment
+
+- The parent row was centered, but React Native on iOS supplies alignSelf flex-start on Switch. This placed its 31-point control at the top of the taller row while the label remained centered. Added an explicit alignSelf center to override that native default. No toggle behavior changed. Native iPhone visual confirmation remains open.
+- Verification: lint, strict TypeScript, 114 app tests and 43 Edge tests pass. Log: dist/remember-alignment-check.log. The fix targets the confirmed iOS-specific default; no redundant web layout test was added.
+
+## 2026-09-16 - Login secondary-link spacing
+
+- Increased the space below Sign in before Forgot password/New here from 18 to 36 points, keeping the spacing within the secondary section unchanged.
+- Verification: lint, TypeScript, 114 app tests and 43 Edge tests pass (dist/login-spacing-check.log).
+
+## 2026-09-16 - L/R labels before Sets
+
+- Moved side labels before the Sets column in ExerciseSetFields, used by workout entry and saved-workout editing. Regular exercises retain an empty matching gutter, keeping all data columns aligned. Shared row heights and synchronized rep scrolling are preserved.
+- Existing browser regression verifies L/R and regular alignment, overflow focus and saved-workout edits; it passes. Reviewed the 320px screenshot. Lint, TypeScript, 114 app tests and 43 Edge tests pass. Logs: dist/side-label-position-check.log and dist/side-label-position-browser.log.
+
+## 2026-09-16 - Restore regular exercise alignment
+
+- User clarified that only unilateral exercises should retain the leading side-label gutter. Regular exercises now use the original Sets/x/Reps order, starting at the original left edge. The accepted L/R layout and synchronized rep scrolling remain intact in both workout entry and history editing.
+- Existing alignment, overflow-focus, save and edit browser flow passes; reviewed the 320px screenshot. Lint, TypeScript, 114 app tests and 43 Edge tests pass. Logs: dist/regular-alignment-check.log and dist/regular-alignment-browser.log.

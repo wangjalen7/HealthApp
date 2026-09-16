@@ -266,6 +266,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   lockError: {
+    textAlign: "center",
     backgroundColor: "#FDECEC",
     borderRadius: 10,
     color: "#B42318",

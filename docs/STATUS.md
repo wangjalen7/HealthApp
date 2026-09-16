@@ -1,9 +1,78 @@
 # Current status
 
 **Active release:** Release 3 — nutrition and tracking expansion
-**Active item:** Fund the OpenAI API project, validate live AI meal estimates and Coach grounding, and continue the registered-iPhone validation backlog
-**Verification state:** HealthHub has a funded `OPENAI_API_KEY`; live Luna and Terra requests complete, and authenticated user testing reaches response generation. `coach-chat` is deployed and enabled. Grounding against a representative history, citations, and physical-iPhone behavior remain hands-on checks.
-**Last updated:** 2026-09-15
+**Active item:** Validate the revised interface and existing native integrations on the registered iPhone.
+**Verification state:** Login/lock-screen refinements and Summary refresh feedback are implemented. Lint, strict TypeScript, 114 app tests and 43 Edge tests pass; focused browser validation is recorded below. Native Face ID message alignment and pull-to-refresh placement remain physical-iPhone checks.
+**Last updated:** 2026-09-16
+
+## Regular exercise alignment restored - 2026-09-16
+
+- Kept L/R before Sets for unilateral exercises. Regular exercises again start with Sets at the original left edge, followed by the x separator and Reps; they no longer reserve a side-label gutter. This applies to workout entry and history editing.
+- Existing alignment/overflow-focus/save/edit browser flow passes; reviewed the 320px screenshot. Lint, TypeScript, 114 app tests and 43 Edge tests pass (dist/regular-alignment-check.log and dist/regular-alignment-browser.log).
+
+## L/R labels before Sets - 2026-09-16
+
+- Moved L/R into the leftmost gutter, before Sets, in the shared workout-entry/history-editor fields. Regular exercises reserve the same gutter so Sets, Reps and Weight remain aligned across exercise types. Both sides retain their common row heights and shared rep scroll viewport.
+- Verified the existing 320px L/R alignment, overflow-focus and save/edit browser flow and reviewed its screenshot. Lint, TypeScript, 114 app tests and 43 Edge tests pass. Logs: dist/side-label-position-browser.log and dist/side-label-position-check.log.
+
+## Login link spacing - 2026-09-16
+
+- Increased the gap between Sign in and the recovery/account-creation section from 18 to 36 points. The two secondary links retain their existing spacing. Lint, TypeScript, 114 app tests and 43 Edge tests pass (dist/login-spacing-check.log).
+
+## Remember toggle alignment - 2026-09-16
+
+- Traced the iPhone mismatch to the installed React Native Switch implementation: it defaults to alignSelf flex-start, overriding the parent row centering. Explicitly set the Remember switch to alignSelf center so its visual center matches the label in the 44-point row. Lint, TypeScript, 114 app tests and 43 Edge tests pass (dist/remember-alignment-check.log). Native device confirmation remains open.
+
+## Login options row - 2026-09-16
+
+- Placed the Remember me switch and label together on the left below Password, with a compact Face ID icon/action on the right when enrolled and Remember is enabled. The primary Sign in button sits beneath this row. Removed the separate Face ID card and OR divider; retained authentication handlers, busy state and account accessibility label.
+- Verification: lint, TypeScript, 114 app tests, 43 Edge tests and the existing login password/Remember browser flow pass. Reviewed the 320px screenshot; enrolled Face ID layout remains an iPhone check. Logs: dist/login-options-check.log and dist/login-options-browser.log.
+
+## Login controls and Summary refresh feedback - 2026-09-16
+
+- Centered the Face ID lock feedback text. Login now places the logo and HealthApp name at the top center, removes the welcome/subtitle and Face ID-removal hint, adds accessible Show/Hide password icons, and uses a native Remember me switch. Remembered-account and Face ID behavior remain intact.
+- Summary already synced on pull-down. Its native RefreshControl now has explicit blue tint, safe-area offset and Pull to sync/Syncing text; vertical bounce is enabled. The existing Sync button displays an activity indicator for the full operation and retains its disabled/busy state.
+- Sync is event-driven: Summary focus (including initial entry and returning to the tab), pull-down, and Sync now; History focus/refresh also syncs vitals, as do manual vital saves/edits/deletions. Summary additionally imports Apple Health when connected and reloads its nutrition, hydration, goals and calendar. No periodic data timer or background HealthKit delivery is configured. Foregrounding alone while the same tab stays focused does not have a dedicated data-sync handler.
+- Verification: lint, strict TypeScript, 114 app tests and 43 Edge tests pass. Three focused browser flows pass: compact forms, password visibility/Remember persistence across logout, and sync busy/failure/retry feedback. Reviewed the 320px login screenshot. Native biometrics, password keyboard/autofill behavior and pull-to-refresh spinner placement still require an iPhone check. Browser logs: dist/login-controls-check.log and dist/login-controls-final-browser.log.
+
+## Three photos per entry and centered upload controls - 2026-09-16
+
+- Replaced the daily quota with three attachments per weight entry in the app and hosted database. The counter reads "N of 3 photos attached to this entry" and refreshes after upload/deletion; photos on other entries or other dates do not change its capacity.
+- Applied migration 202609160001_progress_photos_per_entry.sql: removed the daily uniqueness constraint and added a per-entry counting trigger with transaction-scoped upload serialization. New uploads require a weight ID. Existing photos, including legacy unlinked or over-limit groups, are preserved; legacy groups cannot add photos while at or above three. The old daily_slot column remains inert export/older-client metadata with a default.
+- Camera and Library now form an equal-width centered pair. Moved the delete icon beside the selected photo details, retaining balanced text Cancel/Delete confirmation actions.
+- Verification: lint, TypeScript, 114 app tests and 43 Edge tests pass. The browser regression checks separate entries, three uploads despite other same-day photos, per-entry counts/caps, deletion/cancellation, centered buttons and short-screen visibility. Reviewed the 320px screenshot. Hosted SQL tests use temporary synthetic tables and rollback, covering independent entry capacity, date independence, a rejected fourth upload and slot reuse after deletion. Database lint is clean and migration dry-run reports up to date. Logs: dist/photo-entry-check.log and dist/photo-entry-browser.log; screenshots: apps/mobile/dist/photo-entry-limit/. No existing user photos or associations were changed.
+
+## Weight photo scope and deletion confirmations - 2026-09-16
+
+- Weight photo popups now query only the selected weight sample, including pagination and signed-URL requests. Previously the global gallery merely jumped to an anchor, displaying unrelated photos. Each entry gets a separate mounted gallery state; uploads retain the selected weight_sample_id. Existing metadata associations are used without rewriting records.
+- The three-per-day counter comes from an independent user/local-day metadata query across all weight entries and refreshes after upload/deletion. Loading/error states never pretend the count is zero. The photo area and scrollable details keep the counter fully visible on short screens.
+- History, photo, My Foods label and Coach delete confirmations use shared equal-width text Cancel/Delete actions with matching minimum height, type and padding. Meal discard uses the same balanced actions. Trash icons remain on the initial delete entry points.
+- Verified synthetic photo uploads, entry isolation and empty entries, shared quota/cap controls, deletion of yesterday's versus today's photos, cancellation, equal button dimensions and full counter visibility at 320x568. Existing Coach, meal and fluid deletion flows pass. Lint, TypeScript, 115 app tests and 43 Edge tests pass. Logs: dist/photo-fix-check.log, dist/photo-fix-browser.log and dist/photo-fix-final-browser.log; screenshots in apps/mobile/dist/photo-fix-final/. No hosted data or schema changes.
+
+## L/R alignment follow-up - 2026-09-16
+
+- Replaced independently scrolling left/right reps with one shared set-column grid in workout entry and history editing. A single horizontal viewport keeps both sides synchronized when focusing later inputs. Side labels, rep fields, weights and units share an explicit row height that scales with native text size.
+- The earlier two-set screenshot test did not cover independent scrolling. Extended it to six sets and alternate left/right focus, checking corresponding column positions and field heights; also verified editing and saving right-side reps in History preserves left-side values.
+- Verification: focused lifting/save/reorder browser flows and the extended L/R regression pass; reviewed the 320px screenshot. Lint, strict TypeScript, 115 app tests and 43 Edge tests pass. Logs: dist/side-alignment-check.log and dist/side-alignment-final-browser.log. Physical-iPhone visual confirmation remains open.
+
+## Preferred interface and interaction revisions - 2026-09-16
+
+- Restored the pre-redesign navigation, Summary, tracking screens, shared theme, cards, fields, sheets and press feedback. Kept the redesigned Profile in an isolated theme; login and Coach now have their own focused refinements.
+- Charts claim each touch immediately so repeated diagonal swipes stay within the timeline. Taps still inspect readings; scrolling resumes when the touch ends or is canceled.
+- Replaced exercise dragging with up/down icon controls and a normal FlatList. Removed the drag dependency, compatibility patch and unused drag helpers. Single-side exercises use aligned L/R rows, no detection message or Side heading, and horizontally scrollable reps for longer sets. Both sides retain their existing storage and history editing.
+- Water now displays an animated glass filled by the saved daily total relative to the Profile goal, with a capped full state and Reduce Motion support. Protein uses a distinct food icon. Edit/delete/remove controls use accessible 44-point icon buttons with existing confirmations.
+- Verification: lint, TypeScript, 115 app tests, 43 Edge tests, all 26 browser flows, postinstall and production iOS/Hermes export pass. Browser tests include vertical-leading diagonal re-grips on both charts, touch cancellation and restored page scrolling, exact arrow order/draft/save, aligned L/R persistence, hydration failed-save/retry and changed/unset goals, and icon-based edit/delete flows. Reviewed synthetic phone screenshots. Logs: ignored dist/ui-revision-check.log, dist/ui-revision-browser.log and apps/mobile/dist/ios-ui-revision-build.log. Screenshots: apps/mobile/dist/revision-final/. All browser data is synthetic; no hosted backend or user records changed.
+
+## App-wide iOS visual redesign - 2026-09-16
+
+Historical implementation, superseded by the preferred-interface revision above except for Profile.
+
+- Applied semantic colors, shared type/spacing/radius/motion tokens, quieter white surfaces, consistent fields/actions, editor toolbars, and confirmation panels throughout authentication, Summary, History/editors, all trackers, Coach/setup/reviews, Profile, reminders, and photo views. See [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md).
+- Summary separates measurement units, labels BP categories, groups nutrition, renders progress values with native text, and adapts metrics for larger native text. Quick Log is an inset list; the center tab is aligned with its neighbors. SF Symbols are used on iOS with vector fallbacks for other platforms.
+- Shared inputs retain native refs, focus, autofill and editing. Food sheets adjust for the keyboard; transparent dialogs use keyboard avoidance. Press feedback uses short timing instead of a spring and respects Reduce Motion. Light-only appearance remains intentional.
+- Reviewed synthetic screenshots at 320 x 568, 390 x 844, 430 x 932, and desktop widths; corrected narrow signup-field overflow and tab-label spacing. Browser tests cover field focus/text retention, sheet reachability, validation, discard cancellation, drafts, save/edit/delete, chart navigation, and Coach flows.
+- Kept the existing deliberate drag activation and disabled autoscroll behavior; updated stale browser assumptions and verified continuous pointer movement, keyboard/arrow reordering, restoration and saved order. No repositories, domain calculations, backend functions, migrations, credentials, or user records changed.
+- Verification logs: ignored `dist/redesign-check.log`, `dist/redesign-browser.log`, and `apps/mobile/dist/ios-redesign-build.log`. Synthetic screenshot sheets: ignored `dist/design-review/`; compact signup/editor/dialog captures: `apps/mobile/dist/compact-final/`. These browser checks do not certify native iPhone behavior.
 
 ## Password unlock continuity, unilateral sets, controlled reordering, and food-label corrections - 2026-09-15
 
@@ -209,6 +278,6 @@
 
 ## Next exact action
 
-Add API billing or prepaid credits to the OpenAI API project. Validate text-only, photo-only and combined estimates against a weighed meal using [AI_MEAL_SETUP.md](AI_MEAL_SETUP.md), then validate Coach grounding, safety, citations, quotas, and draft actions using [AI_COACH_SETUP.md](AI_COACH_SETUP.md). Only after that review, set `AI_COACH_ENABLED=true`. No mobile API secret is needed.
+Inspect the revised app in the registered iPhone development client: keyboard and safe areas, larger text, VoiceOver, sheet navigation, arrow workout reordering, repeated diagonal chart swipes, L/R fields and water animation, Food/AI/label editors, charts, and existing camera/photos, Face ID, reminders and HealthKit integrations. The browser preview cannot validate these native behaviors.
 
-Create/install a new EAS iOS development build. Verify the notification permission prompt, a one-time and repeating medication/tracking reminder, notification deep-link back to Reminders, and today's completion state alongside progress photos, Face ID, charts, workout, calendar, food/barcode, hydration, and Apple Health pulse association in Blood Pressure History.
+Resume live meal-estimate and Coach-grounding evaluation using AI_MEAL_SETUP.md and AI_COACH_SETUP.md. API funding and Coach rollout are already enabled; this design task made no backend or deployment changes.

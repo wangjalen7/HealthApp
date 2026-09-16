@@ -1,7 +1,8 @@
 import { ScreenScrollView } from "../../ui/screen-scroll-view";
 import { Icon } from "../../ui/icon";
 import { Pressable } from "../../ui/pressable";
-import { colors } from "../../ui/theme";
+import { colors } from "../../ui/profile-theme";
+import { TextInput } from "../../ui/text-input";
 import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import { useEffect, useState } from "react";
@@ -10,8 +11,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
+  Switch,
   Text,
-  TextInput,
   View,
 } from "react-native";
 
@@ -40,6 +41,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
   const params = useLocalSearchParams<{ reset?: string; returnTo?: string }>();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -49,7 +51,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
   const [feedback, setFeedback] = useState("");
   const title =
     mode === "signIn"
-      ? "Welcome back"
+      ? "Sign in"
       : mode === "signUp"
         ? "Create your account"
         : "Reset password";
@@ -259,15 +261,29 @@ export function AuthScreen({ mode }: { mode: Mode }) {
       style={{ flex: 1 }}
     >
       <ScreenScrollView
+        style={{ backgroundColor: "#FFFFFF" }}
         automaticallyAdjustKeyboardInsets={false}
         contentContainerStyle={styles.page}
       >
         <View style={styles.form}>
-          <View style={styles.appIcon}>
-            <Icon name="heart" size={38} color={colors.pink} />
+          <View style={styles.brandRow}>
+            <View style={styles.appIcon}>
+              <Icon name="heart" size={24} color="#FFFFFF" />
+            </View>
+            <Text style={styles.eyebrow}>HealthApp</Text>
           </View>
-          <Text style={styles.eyebrow}>HEALTHAPP</Text>
-          <Text style={styles.title}>{title}</Text>
+          {mode !== "signIn" ? (
+            <>
+              <Text accessibilityRole="header" style={styles.title}>
+                {title}
+              </Text>
+              <Text style={styles.subtitle}>
+                {mode === "signUp"
+                  ? "Make room for a healthier everyday."
+                  : "We will send a link to reset your password."}
+              </Text>
+            </>
+          ) : null}
           {!supabaseConfig.isConfigured && (
             <Text style={styles.warning}>
               Supabase is not configured yet. You can still explore the app
@@ -302,6 +318,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
               />
             </View>
           ) : null}
+          <Text style={styles.fieldLabel}>Email address</Text>
           <TextInput
             accessibilityLabel="Email"
             autoCorrect={false}
@@ -316,54 +333,83 @@ export function AuthScreen({ mode }: { mode: Mode }) {
             onChangeText={setEmail}
           />
           {mode !== "reset" && (
-            <TextInput
-              accessibilityLabel="Password"
-              onSubmitEditing={() => void submit()}
-              returnKeyType="go"
-              autoCapitalize="none"
-              autoComplete={
-                mode === "signUp" ? "new-password" : "current-password"
-              }
-              secureTextEntry
-              placeholder="Password"
-              placeholderTextColor="#718096"
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-            />
+            <>
+              <Text style={styles.fieldLabel}>Password</Text>
+              <View style={styles.passwordField}>
+                <TextInput
+                  accessibilityLabel="Password"
+                  onSubmitEditing={() => void submit()}
+                  returnKeyType="go"
+                  autoCapitalize="none"
+                  autoComplete={
+                    mode === "signUp" ? "new-password" : "current-password"
+                  }
+                  secureTextEntry={!passwordVisible}
+                  autoCorrect={false}
+                  placeholder="Password"
+                  placeholderTextColor="#718096"
+                  style={[styles.input, styles.passwordInput]}
+                  value={password}
+                  onChangeText={setPassword}
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    passwordVisible ? "Hide password" : "Show password"
+                  }
+                  onPress={() => setPasswordVisible((current) => !current)}
+                  style={styles.passwordReveal}
+                >
+                  <Icon
+                    name={passwordVisible ? "eye-off" : "eye"}
+                    size={22}
+                    color={colors.secondary}
+                  />
+                </Pressable>
+              </View>
+            </>
           )}
           {mode === "signIn" ? (
-            <>
-              <Pressable
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: rememberMe }}
-                onPress={() => setRememberMe((current) => !current)}
-                style={styles.rememberRow}
-              >
-                <View
-                  style={[
-                    styles.checkbox,
-                    rememberMe && styles.checkboxChecked,
+            <View style={styles.loginOptions}>
+              <View style={styles.rememberRow}>
+                <Switch
+                  accessibilityLabel="Remember me"
+                  style={styles.rememberSwitch}
+                  disabled={busy || faceIdBusy}
+                  value={rememberMe}
+                  onValueChange={setRememberMe}
+                  trackColor={{ false: colors.separator, true: colors.blue }}
+                  ios_backgroundColor={colors.separator}
+                />
+                <Text style={styles.rememberText}>Remember me</Text>
+              </View>
+              {faceIdAccount && rememberMe ? (
+                <Pressable
+                  accessibilityLabel={`Sign in as ${faceIdAccount.email} with Face ID`}
+                  accessibilityRole="button"
+                  disabled={busy || faceIdBusy}
+                  onPress={() => void signInWithFaceId()}
+                  style={({ pressed }) => [
+                    styles.faceIdButton,
+                    pressed && styles.faceIdButtonPressed,
+                    (busy || faceIdBusy) && { opacity: 0.55 },
                   ]}
                 >
-                  {rememberMe ? (
+                  {faceIdBusy ? (
+                    <ActivityIndicator color={colors.blue} size="small" />
+                  ) : (
                     <SymbolView
-                      fallback={<Text style={styles.checkboxFallback}>✓</Text>}
-                      name="checkmark"
-                      size={13}
-                      tintColor="#fff"
-                      weight="bold"
+                      fallback={<Text style={styles.faceIdFallback}>ID</Text>}
+                      name="faceid"
+                      size={23}
+                      tintColor={colors.blue}
+                      weight="regular"
                     />
-                  ) : null}
-                </View>
-                <Text style={styles.rememberText}>Remember me</Text>
-              </Pressable>
-              {faceIdAccount && !rememberMe ? (
-                <Text style={styles.rememberHint}>
-                  Signing in removes Face ID from this iPhone.
-                </Text>
+                  )}
+                  <Text style={styles.faceIdButtonText}>Face ID</Text>
+                </Pressable>
               ) : null}
-            </>
+            </View>
           ) : null}
           {feedback ? (
             <Text accessibilityLiveRegion="polite" style={styles.error}>
@@ -374,7 +420,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
             accessibilityRole="button"
             disabled={busy || faceIdBusy}
             onPress={submit}
-            style={styles.button}
+            style={[styles.button, (busy || faceIdBusy) && { opacity: 0.55 }]}
           >
             {busy ? (
               <ActivityIndicator color="#fff" />
@@ -388,61 +434,18 @@ export function AuthScreen({ mode }: { mode: Mode }) {
               </Text>
             )}
           </Pressable>
-          {mode === "signIn" && faceIdAccount && rememberMe ? (
-            <>
-              <View style={styles.dividerRow}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>OR</Text>
-                <View style={styles.dividerLine} />
-              </View>
-              <Pressable
-                accessibilityLabel={`Sign in as ${faceIdAccount.email} with Face ID`}
-                accessibilityRole="button"
-                disabled={busy || faceIdBusy}
-                onPress={() => void signInWithFaceId()}
-                style={({ pressed }) => [
-                  styles.faceIdButton,
-                  pressed && styles.faceIdButtonPressed,
-                  faceIdBusy && styles.faceIdButtonBusy,
-                ]}
-              >
-                {faceIdBusy ? (
-                  <ActivityIndicator color="#007AFF" />
-                ) : (
-                  <>
-                    <View style={styles.faceIdSymbolWrap}>
-                      <SymbolView
-                        fallback={<Text style={styles.faceIdFallback}>ID</Text>}
-                        name="faceid"
-                        size={28}
-                        tintColor="#007AFF"
-                        weight="regular"
-                      />
-                    </View>
-                    <View style={styles.faceIdContent}>
-                      <Text style={styles.faceIdButtonText}>Face ID</Text>
-                      <Text numberOfLines={1} style={styles.faceIdAccount}>
-                        Sign in as {faceIdAccount.email}
-                      </Text>
-                    </View>
-                    <SymbolView
-                      fallback={<Text style={styles.chevronFallback}>›</Text>}
-                      name="chevron.right"
-                      size={13}
-                      tintColor="#C7C7CC"
-                      weight="semibold"
-                    />
-                  </>
-                )}
-              </Pressable>
-            </>
-          ) : null}
           {mode === "signIn" && (
             <>
-              <Link href="/(auth)/forgot-password" style={styles.link}>
+              <Link
+                href="/(auth)/forgot-password"
+                style={[styles.link, styles.recoveryLink]}
+              >
                 Forgot password?
               </Link>
-              <Link href="/(auth)/sign-up" style={styles.link}>
+              <Link
+                href="/(auth)/sign-up"
+                style={[styles.link, styles.createLink]}
+              >
                 New here? Create an account
               </Link>
             </>
@@ -461,32 +464,59 @@ export function AuthScreen({ mode }: { mode: Mode }) {
 const styles = StyleSheet.create({
   page: {
     flexGrow: 1,
-    justifyContent: "center",
+    justifyContent: "flex-start",
     padding: 24,
-    backgroundColor: colors.background,
+    backgroundColor: "#FFFFFF",
   },
   form: { alignSelf: "center", maxWidth: 440, width: "100%" },
+  brandRow: {
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 28,
+    marginBottom: 36,
+  },
+  fieldLabel: {
+    color: colors.secondary,
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  subtitle: {
+    color: colors.secondary,
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 28,
+  },
+  createLink: {
+    borderWidth: 1,
+    borderColor: colors.separator,
+    borderRadius: 12,
+    paddingVertical: 15,
+    color: colors.text,
+    overflow: "hidden",
+    fontWeight: "600",
+  },
   appIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
-    backgroundColor: colors.surface,
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: "#183D68",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 26,
   },
   eyebrow: {
-    color: colors.blue,
-    fontWeight: "600",
-    letterSpacing: 2,
-    marginBottom: 8,
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: "700",
+    letterSpacing: -0.5,
   },
   title: {
     color: colors.text,
     fontSize: 34,
     letterSpacing: -1,
     fontWeight: "600",
-    marginBottom: 24,
+    marginBottom: 8,
   },
   warning: {
     color: "#8A4B00",
@@ -499,7 +529,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderColor: colors.separator,
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 12,
     color: colors.text,
     fontSize: 16,
     padding: 15,
@@ -512,75 +542,62 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     padding: 11,
   },
+  passwordField: { position: "relative", marginBottom: 12 },
+  passwordInput: { marginBottom: 0, paddingRight: 56 },
+  passwordReveal: {
+    position: "absolute",
+    right: 4,
+    top: 0,
+    bottom: 0,
+    width: 48,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loginOptions: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+    minHeight: 48,
+    marginBottom: 12,
+  },
   rememberRow: {
     alignItems: "center",
-    alignSelf: "flex-start",
     flexDirection: "row",
+    flexShrink: 1,
+    gap: 8,
     minHeight: 44,
-    paddingHorizontal: 2,
   },
-  checkbox: {
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderColor: "#8E8E93",
-    borderRadius: 5,
-    borderWidth: 1,
-    height: 21,
-    justifyContent: "center",
-    marginRight: 9,
-    width: 21,
-  },
-  checkboxChecked: { backgroundColor: "#007AFF", borderColor: "#007AFF" },
-  checkboxFallback: { color: "#fff", fontSize: 12, fontWeight: "600" },
-  rememberText: { color: "#1C1C1E", fontSize: 14 },
-  rememberHint: { color: "#8E8E93", fontSize: 11, marginBottom: 5 },
+  rememberText: { color: colors.text, fontSize: 14, flexShrink: 1 },
+  rememberSwitch: { alignSelf: "center" },
   button: {
     alignItems: "center",
-    backgroundColor: colors.blue,
+    backgroundColor: "#183D68",
     borderRadius: 12,
     minHeight: 52,
     justifyContent: "center",
     marginTop: 4,
   },
   buttonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
-  dividerRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 10,
-    marginVertical: 17,
-  },
-  dividerLine: { backgroundColor: colors.separator, flex: 1, height: 1 },
-  dividerText: { color: colors.tertiary, fontSize: 11, fontWeight: "600" },
   faceIdButton: {
     alignItems: "center",
-    backgroundColor: "#fff",
-    borderColor: "#E5E5EA",
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
     flexDirection: "row",
-    minHeight: 58,
-    paddingHorizontal: 13,
+    gap: 6,
+    minHeight: 44,
+    paddingHorizontal: 4,
   },
-  faceIdButtonPressed: { backgroundColor: "#F2F2F7" },
-  faceIdButtonBusy: { justifyContent: "center" },
-  faceIdSymbolWrap: {
-    alignItems: "center",
-    height: 34,
-    justifyContent: "center",
-    marginRight: 12,
-    width: 34,
-  },
-  faceIdFallback: { color: "#007AFF", fontSize: 13, fontWeight: "700" },
-  faceIdContent: { flex: 1 },
-  faceIdButtonText: { color: "#1C1C1E", fontSize: 15, fontWeight: "600" },
-  faceIdAccount: { color: "#8E8E93", fontSize: 12, marginTop: 2 },
-  chevronFallback: { color: "#C7C7CC", fontSize: 22, lineHeight: 22 },
+  faceIdButtonPressed: { backgroundColor: colors.fill },
+  faceIdFallback: { color: colors.blue, fontSize: 13, fontWeight: "700" },
+  faceIdButtonText: { color: colors.blue, fontSize: 14, fontWeight: "600" },
   link: {
     color: colors.blue,
     fontSize: 15,
     marginTop: 18,
     textAlign: "center",
   },
+  recoveryLink: { marginTop: 36 },
   nameRow: { flexDirection: "row", gap: 10 },
-  nameInput: { flex: 1 },
+  nameInput: { flex: 1, minWidth: 0 },
 });

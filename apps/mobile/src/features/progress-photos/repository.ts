@@ -7,7 +7,7 @@ import type { PreparedProgressPhoto } from "./image";
 import {
   isProgressPhotoStorageFullError,
   localPhotoDay,
-  nextDailyPhotoSlot,
+  progressPhotoEntryLimit,
   progressPhotoMaxBytes,
   progressPhotoStorageFullMessage,
 } from "./model";
@@ -20,7 +20,6 @@ const rowSchema = z.object({
   object_path: z.string().min(1),
   taken_at: z.string().min(1),
   local_day: z.string().min(1),
-  daily_slot: z.coerce.number().int().min(1).max(3),
   width: z.coerce.number().int().positive(),
   height: z.coerce.number().int().positive(),
   byte_size: z.coerce.number().int().positive(),
@@ -33,7 +32,6 @@ export type ProgressPhoto = {
   objectPath: string;
   takenAt: string;
   localDay: string;
-  dailySlot: number;
   width: number;
   height: number;
   byteSize: number;
@@ -55,7 +53,6 @@ function mapRow(
     objectPath: row.object_path,
     takenAt: row.taken_at,
     localDay: row.local_day,
-    dailySlot: row.daily_slot,
     width: row.width,
     height: row.height,
     byteSize: row.byte_size,
@@ -65,15 +62,17 @@ function mapRow(
 
 export async function getProgressPhotos(
   userId: string,
+  weightSampleId: string,
   offset = 0,
   limit = 250,
 ): Promise<ProgressPhoto[]> {
   const { data, error } = await supabase
     .from("progress_photos")
     .select(
-      "id, user_id, weight_sample_id, object_path, taken_at, local_day, daily_slot, width, height, byte_size",
+      "id, user_id, weight_sample_id, object_path, taken_at, local_day, width, height, byte_size",
     )
     .eq("user_id", userId)
+    .eq("weight_sample_id", weightSampleId)
     .order("taken_at", { ascending: false })
     .range(offset, offset + limit - 1);
   if (error) throw new Error(error.message);
@@ -94,6 +93,20 @@ export async function getProgressPhotos(
     if (!url) throw new Error("Could not open a progress photo.");
     return mapRow(row, url);
   });
+}
+
+/** Counts all attachments for this entry, independently of gallery paging. */
+export async function getEntryProgressPhotoCount(
+  userId: string,
+  weightSampleId: string,
+): Promise<number> {
+  const { data, error } = await supabase
+    .from("progress_photos")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("weight_sample_id", weightSampleId);
+  if (error) throw new Error(error.message);
+  return (data ?? []).length;
 }
 
 /** Fetches only metadata for the visible Weight History photo indicators. */
@@ -121,23 +134,17 @@ export async function getWeightSampleIdsWithProgressPhotos(
 export async function uploadProgressPhoto(
   userId: string,
   photo: PreparedProgressPhoto,
-  weightSampleId?: string,
+  weightSampleId: string,
 ): Promise<ProgressPhoto> {
   if (photo.byteSize > progressPhotoMaxBytes) {
     throw new Error("Progress photos must be 2 MB or smaller.");
   }
   const takenAt = new Date().toISOString();
   const localDay = localPhotoDay(takenAt);
-  const { data: existing, error: slotsError } = await supabase
-    .from("progress_photos")
-    .select("daily_slot")
-    .eq("user_id", userId)
-    .eq("local_day", localDay);
-  if (slotsError) throw new Error(slotsError.message);
-  const dailySlot = nextDailyPhotoSlot(
-    (existing ?? []).map((row) => Number(row.daily_slot)),
-  );
-  if (!dailySlot) throw new Error("Three progress photos are allowed per day.");
+  const count = await getEntryProgressPhotoCount(userId, weightSampleId);
+  if (count >= progressPhotoEntryLimit) {
+    throw new Error("Three progress photos are allowed per weight entry.");
+  }
 
   const id = createId();
   const objectPath = `${userId}/${localDay}/${id}.jpg`;
@@ -164,28 +171,24 @@ export async function uploadProgressPhoto(
 
   const row = {
     byte_size: photo.byteSize,
-    daily_slot: dailySlot,
     height: photo.height,
     id,
     local_day: localDay,
     object_path: objectPath,
     taken_at: takenAt,
     user_id: userId,
-    weight_sample_id: weightSampleId ?? null,
+    weight_sample_id: weightSampleId,
     width: photo.width,
   };
   const { data, error } = await supabase
     .from("progress_photos")
     .insert(row)
     .select(
-      "id, user_id, weight_sample_id, object_path, taken_at, local_day, daily_slot, width, height, byte_size",
+      "id, user_id, weight_sample_id, object_path, taken_at, local_day, width, height, byte_size",
     )
     .single();
   if (error) {
     await supabase.storage.from(bucket).remove([objectPath]);
-    if (error.code === "23505") {
-      throw new Error("Three progress photos are allowed per day.");
-    }
     throw new Error(error.message);
   }
   const parsed = rowSchema.parse(data);

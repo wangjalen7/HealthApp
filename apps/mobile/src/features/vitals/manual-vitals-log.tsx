@@ -1,3 +1,4 @@
+import { IconButton } from "../../ui/icon-button";
 import { trackingStyles } from "../../ui/tracking-styles";
 import { ScreenScrollView } from "../../ui/screen-scroll-view";
 import { Pressable } from "../../ui/pressable";
@@ -208,15 +209,13 @@ export function ManualVitalsLog({ mode }: { mode: ManualVitalsLogMode }) {
                 onPress={() => void choosePhoto("library")}
               />
               {selectedPhoto ? (
-                <Pressable
-                  accessibilityLabel="Remove selected progress photo"
-                  accessibilityRole="button"
+                <IconButton
+                  name="delete"
+                  label="Remove selected progress photo"
                   disabled={saving || photoBusy}
                   onPress={() => setSelectedPhoto(undefined)}
-                  style={styles.removePhotoButton}
-                >
-                  <Text style={styles.removePhotoText}>Remove</Text>
-                </Pressable>
+                  destructive
+                />
               ) : null}
             </View>
             {photoBusy ? <ActivityIndicator color={colors.blue} /> : null}

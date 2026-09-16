@@ -19,7 +19,13 @@ export type IconName =
   | "camera"
   | "image"
   | "scan"
-  | "edit";
+  | "edit"
+  | "delete"
+  | "protein"
+  | "arrow-up"
+  | "eye"
+  | "eye-off"
+  | "arrow-down";
 
 /** Consistent line icons on native and web, with no additional native dependency. */
 export function Icon({
@@ -91,6 +97,13 @@ export function Icon({
       )}
       {name === "chevron" && <Path d="m9 5 7 7-7 7" />}
       {name === "close" && <Path d="m6 6 12 12M18 6 6 18" />}
+      {(name === "eye" || name === "eye-off") && (
+        <>
+          <Path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+          <Circle cx={12} cy={12} r={3} />
+          {name === "eye-off" && <Path d="m3 3 18 18" />}
+        </>
+      )}
       {name === "camera" && (
         <>
           <Path d="M3 7h4l2-3h6l2 3h4v13H3Z" />
@@ -108,6 +121,14 @@ export function Icon({
         <Path d="M8 3H3v5m13-5h5v5M3 16v5h5m8 0h5v-5M7 7v10m4-10v10m3-10v10m3-10v10" />
       )}
       {name === "edit" && <Path d="m14 5 5 5M4 20l5-1L21 7l-5-5L4 14v6Z" />}
+      {name === "delete" && (
+        <Path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7" />
+      )}
+      {name === "arrow-up" && <Path d="M12 20V4m-6 6 6-6 6 6" />}
+      {name === "arrow-down" && <Path d="M12 4v16m-6-6 6 6 6-6" />}
+      {name === "protein" && (
+        <Path d="M19 14c-2 5-9 7-13 4C1 14 4 5 10 3c5-2 12 6 9 11ZM9 8c-2 1-3 5-1 6s5-1 5-3-2-4-4-3Z" />
+      )}
     </Svg>
   );
 }

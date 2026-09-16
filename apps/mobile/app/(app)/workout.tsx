@@ -1,22 +1,25 @@
+import { ExerciseSetFields } from "../../src/features/training/exercise-set-fields";
+import { IconButton } from "../../src/ui/icon-button";
 import { trackingStyles } from "../../src/ui/tracking-styles";
 import { SegmentedControl } from "../../src/ui/segmented-control";
-import DraggableFlatList, {
-  ScaleDecorator,
-} from "react-native-draggable-flatlist";
-import { ReduceMotion } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useReducedMotion } from "../../src/ui/motion";
-import { applyExerciseOrder } from "../../src/features/training/exercise-reorder";
 import { Pressable } from "../../src/ui/pressable";
 import { colors } from "../../src/ui/theme";
 import { Icon } from "../../src/ui/icon";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AppState, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  AppState,
+  FlatList,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { useAuth } from "../../src/features/auth/auth-provider";
 import { CardioLog } from "../../src/features/training/cardio-log";
-import { ExerciseDragHandle } from "../../src/features/training/exercise-drag-handle";
+import { ExerciseReorderControls } from "../../src/features/training/exercise-reorder-controls";
 import { suggestGymLocations } from "../../src/features/training/catalog";
 import {
   getExerciseGuidance,
@@ -80,7 +83,6 @@ export default function WorkoutScreen() {
     section?: string;
   }>();
   const insets = useSafeAreaInsets();
-  const reducedMotion = useReducedMotion();
   const { session } = useAuth();
   const userId = session?.user.id;
   const [section, setSection] = useState<"lifting" | "cardio">("lifting");
@@ -503,29 +505,10 @@ export default function WorkoutScreen() {
     }
   }
   return (
-    <DraggableFlatList
+    <FlatList
       testID="workout-exercise-list"
-      containerStyle={{ flex: 1 }}
       data={section === "lifting" && selectedGroups.length ? entries : []}
       keyExtractor={(entry) => entry.id}
-      onDragEnd={({ data }) =>
-        setEntries((current) =>
-          applyExerciseOrder(
-            current,
-            data.map((entry) => entry.id),
-          ),
-        )
-      }
-      activationDistance={12}
-      autoscrollThreshold={40}
-      autoscrollSpeed={0}
-      animationConfig={{
-        damping: 34,
-        stiffness: 190,
-        mass: 0.9,
-        overshootClamping: true,
-        reduceMotion: reducedMotion ? ReduceMotion.Always : ReduceMotion.System,
-      }}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
       automaticallyAdjustKeyboardInsets
@@ -670,242 +653,160 @@ export default function WorkoutScreen() {
           )}
         </>
       }
-      renderItem={({ item: entry, getIndex, drag, isActive }) => {
-        const index = getIndex() ?? 0;
+      renderItem={({ item: entry, index }) => {
         const unilateral = isUnilateralExerciseName(entry.name);
         return (
-          <ScaleDecorator activeScale={reducedMotion ? 1 : 1.015}>
-            <View
-              testID={`exercise-card-${entry.id}`}
-              style={[styles.exerciseCard, isActive && styles.activeExercise]}
-            >
-              <View style={styles.exerciseHeader}>
-                <Text style={styles.exerciseNumber}>EXERCISE {index + 1}</Text>
-                <View style={styles.exerciseHeaderActions}>
-                  <ExerciseDragHandle
-                    index={index}
-                    dragging={isActive}
-                    onDrag={drag}
-                    itemCount={entries.length}
-                    onMove={(direction) => moveExercise(entry.id, direction)}
-                  />
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => removeExercise(entry.id)}
-                    hitSlop={8}
-                  >
-                    <Text style={styles.remove}>Remove</Text>
-                  </Pressable>
-                </View>
-              </View>
-              <TextInput
-                accessibilityLabel="Exercise name"
-                placeholder="Enter exercise name"
-                placeholderTextColor={colors.tertiary}
-                style={styles.exerciseInput}
-                value={entry.name}
-                onFocus={() => {
-                  setActiveEntry(entry.id);
-                  void searchSavedExercises(entry.name);
-                }}
-                onBlur={() => {
-                  if (activeEntry === entry.id)
-                    setTimeout(() => {
-                      setActiveEntry(undefined);
-                      setSuggestions([]);
-                      void loadGuidance(
-                        entry.id,
-                        entryNames.current.get(entry.id) ?? entry.name,
-                      );
-                    }, 120);
-                }}
-                onChangeText={(name) => {
-                  entryNames.current.set(entry.id, name);
-                  guidanceRequests.current.set(
-                    entry.id,
-                    (guidanceRequests.current.get(entry.id) ?? 0) + 1,
-                  );
-                  const unilateral = isUnilateralExerciseName(name);
-                  updateEntry(entry.id, {
-                    name,
-                    guidance: undefined,
-                    guidanceState: "idle",
-                    rightReps: unilateral
-                      ? entry.reps.map(
-                          (reps, setIndex) => entry.rightReps[setIndex] ?? reps,
-                        )
-                      : [],
-                    rightWeight: unilateral
-                      ? (entry.rightWeight ?? entry.weight)
-                      : undefined,
-                  });
-                  setActiveEntry(entry.id);
-                  void searchSavedExercises(name);
-                }}
-              />
-              {activeEntry === entry.id &&
-                suggestions.map((name) => (
-                  <Pressable
-                    key={name}
-                    onPress={() => chooseExercise(entry.id, name)}
-                    style={styles.suggestion}
-                  >
-                    <Text style={styles.suggestionName}>{name}</Text>
-                  </Pressable>
-                ))}
-              {selectedGroups.length > 1 ? (
-                <>
-                  <Text style={styles.exerciseGroupLabel}>Muscle group</Text>
-                  <View style={styles.exerciseGroups}>
-                    {selectedGroups.map((group) => (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityState={{
-                          selected: entry.muscleGroup === group,
-                        }}
-                        key={group}
-                        onPress={() =>
-                          updateEntry(entry.id, { muscleGroup: group })
-                        }
-                        style={[
-                          styles.exerciseGroupChip,
-                          entry.muscleGroup === group &&
-                            styles.exerciseGroupChipActive,
-                        ]}
-                      >
-                        <Text
-                          style={
-                            entry.muscleGroup === group
-                              ? styles.exerciseGroupTextActive
-                              : styles.exerciseGroupText
-                          }
-                        >
-                          {muscleGroupLabel(group)}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                </>
-              ) : null}
-              {unilateral ? (
-                <Text style={styles.sideHint}>
-                  Single-side exercise detected. Log each side separately.
-                </Text>
-              ) : null}
-              <View style={styles.prescriptionLabel}>
-                {unilateral ? (
-                  <Text style={styles.sideLabelSpacer}>Side</Text>
-                ) : null}
-                <Text style={styles.subLabel}>Number of sets</Text>
-                <Text style={styles.subLabel}>Reps per set</Text>
-                <Text style={styles.subLabel}>Working weight</Text>
-              </View>
-              <View style={styles.prescription}>
-                {unilateral ? <Text style={styles.sideLabel}>L</Text> : null}
-                <TextInput
-                  accessibilityLabel="Number of sets"
-                  keyboardType="number-pad"
-                  placeholder="#"
-                  placeholderTextColor={colors.tertiary}
-                  style={styles.countInput}
-                  value={entry.setCount ? String(entry.setCount) : ""}
-                  onChangeText={(value) => updateSetCount(entry.id, value)}
+          <View
+            testID={`exercise-card-${entry.id}`}
+            style={styles.exerciseCard}
+          >
+            <View style={styles.exerciseHeader}>
+              <Text style={styles.exerciseNumber}>EXERCISE {index + 1}</Text>
+              <View style={styles.exerciseHeaderActions}>
+                <ExerciseReorderControls
+                  index={index}
+                  itemCount={entries.length}
+                  onMove={(direction) => moveExercise(entry.id, direction)}
                 />
-                <Text style={styles.times}>x</Text>
-                <View style={styles.repRow}>
-                  {entry.reps.map((reps, index) => (
-                    <TextInput
-                      key={index}
-                      accessibilityLabel={`Set ${index + 1} reps`}
-                      keyboardType="number-pad"
-                      placeholder="_"
-                      placeholderTextColor={colors.tertiary}
-                      style={styles.repInput}
-                      value={reps ? String(reps) : ""}
-                      onChangeText={(value) =>
-                        updateRep(entry.id, index, value)
+                <IconButton
+                  name="delete"
+                  label="Remove"
+                  onPress={() => removeExercise(entry.id)}
+                  destructive
+                />
+              </View>
+            </View>
+            <TextInput
+              accessibilityLabel="Exercise name"
+              placeholder="Enter exercise name"
+              placeholderTextColor={colors.tertiary}
+              style={styles.exerciseInput}
+              value={entry.name}
+              onFocus={() => {
+                setActiveEntry(entry.id);
+                void searchSavedExercises(entry.name);
+              }}
+              onBlur={() => {
+                if (activeEntry === entry.id)
+                  setTimeout(() => {
+                    setActiveEntry(undefined);
+                    setSuggestions([]);
+                    void loadGuidance(
+                      entry.id,
+                      entryNames.current.get(entry.id) ?? entry.name,
+                    );
+                  }, 120);
+              }}
+              onChangeText={(name) => {
+                entryNames.current.set(entry.id, name);
+                guidanceRequests.current.set(
+                  entry.id,
+                  (guidanceRequests.current.get(entry.id) ?? 0) + 1,
+                );
+                const unilateral = isUnilateralExerciseName(name);
+                updateEntry(entry.id, {
+                  name,
+                  guidance: undefined,
+                  guidanceState: "idle",
+                  rightReps: unilateral
+                    ? entry.reps.map(
+                        (reps, setIndex) => entry.rightReps[setIndex] ?? reps,
+                      )
+                    : [],
+                  rightWeight: unilateral
+                    ? (entry.rightWeight ?? entry.weight)
+                    : undefined,
+                });
+                setActiveEntry(entry.id);
+                void searchSavedExercises(name);
+              }}
+            />
+            {activeEntry === entry.id &&
+              suggestions.map((name) => (
+                <Pressable
+                  key={name}
+                  onPress={() => chooseExercise(entry.id, name)}
+                  style={styles.suggestion}
+                >
+                  <Text style={styles.suggestionName}>{name}</Text>
+                </Pressable>
+              ))}
+            {selectedGroups.length > 1 ? (
+              <>
+                <Text style={styles.exerciseGroupLabel}>Muscle group</Text>
+                <View style={styles.exerciseGroups}>
+                  {selectedGroups.map((group) => (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityState={{
+                        selected: entry.muscleGroup === group,
+                      }}
+                      key={group}
+                      onPress={() =>
+                        updateEntry(entry.id, { muscleGroup: group })
                       }
-                    />
+                      style={[
+                        styles.exerciseGroupChip,
+                        entry.muscleGroup === group &&
+                          styles.exerciseGroupChipActive,
+                      ]}
+                    >
+                      <Text
+                        style={
+                          entry.muscleGroup === group
+                            ? styles.exerciseGroupTextActive
+                            : styles.exerciseGroupText
+                        }
+                      >
+                        {muscleGroupLabel(group)}
+                      </Text>
+                    </Pressable>
                   ))}
                 </View>
-                <TextInput
-                  accessibilityLabel="Working weight in pounds"
-                  keyboardType="decimal-pad"
-                  placeholder="lb"
-                  placeholderTextColor={colors.tertiary}
-                  style={styles.weightInput}
-                  value={entry.weight === undefined ? "" : String(entry.weight)}
-                  onChangeText={(value) => updateWeight(entry.id, value)}
-                />
-                <Text style={styles.lb}>lb</Text>
-              </View>
-              {unilateral ? (
-                <View style={styles.prescription}>
-                  <Text style={styles.sideLabel}>R</Text>
-                  <View style={styles.countPlaceholder} />
-                  <Text style={styles.times}>x</Text>
-                  <View style={styles.repRow}>
-                    {entry.rightReps.map((reps, setIndex) => (
-                      <TextInput
-                        key={setIndex}
-                        accessibilityLabel={`Right side set ${setIndex + 1} reps`}
-                        keyboardType="number-pad"
-                        placeholder="_"
-                        placeholderTextColor={colors.tertiary}
-                        style={styles.repInput}
-                        value={reps ? String(reps) : ""}
-                        onChangeText={(value) =>
-                          updateRep(entry.id, setIndex, value, "right")
-                        }
-                      />
-                    ))}
-                  </View>
-                  <TextInput
-                    accessibilityLabel="Right side working weight in pounds"
-                    keyboardType="decimal-pad"
-                    placeholder="lb"
-                    placeholderTextColor={colors.tertiary}
-                    style={styles.weightInput}
-                    value={
-                      entry.rightWeight === undefined
-                        ? ""
-                        : String(entry.rightWeight)
-                    }
-                    onChangeText={(value) =>
-                      updateWeight(entry.id, value, "right")
-                    }
-                  />
-                  <Text style={styles.lb}>lb</Text>
-                </View>
-              ) : null}
-              {entry.guidanceState === "loading" ? (
-                <Text style={styles.memoryMuted}>
-                  Checking your last 90 days...
+              </>
+            ) : null}
+            <ExerciseSetFields
+              setCount={entry.setCount}
+              reps={entry.reps}
+              rightReps={entry.rightReps}
+              weight={entry.weight}
+              rightWeight={entry.rightWeight}
+              unilateral={unilateral}
+              onSetCountChange={(value) => updateSetCount(entry.id, value)}
+              onRepChange={(index, value, side) =>
+                updateRep(entry.id, index, value, side)
+              }
+              onWeightChange={(value, side) =>
+                updateWeight(entry.id, value, side)
+              }
+            />
+            {entry.guidanceState === "loading" ? (
+              <Text style={styles.memoryMuted}>
+                Checking your last 90 days...
+              </Text>
+            ) : entry.guidance ? (
+              <>
+                <Text style={styles.memory}>
+                  Best in last 90 days: {entry.guidance.memory.reps.length} x{" "}
+                  {entry.guidance.memory.reps.join(", ")} at{" "}
+                  {entry.guidance.memory.weight} {entry.guidance.memory.unit}
                 </Text>
-              ) : entry.guidance ? (
-                <>
-                  <Text style={styles.memory}>
-                    Best in last 90 days: {entry.guidance.memory.reps.length} x{" "}
-                    {entry.guidance.memory.reps.join(", ")} at{" "}
-                    {entry.guidance.memory.weight} {entry.guidance.memory.unit}
-                  </Text>
-                  <Text
-                    style={
-                      entry.guidance.shouldIncrease
-                        ? styles.progressFlag
-                        : styles.progressHold
-                    }
-                  >
-                    {entry.guidance.recommendation}
-                  </Text>
-                </>
-              ) : entry.guidanceState === "loaded" ? (
-                <Text style={styles.memoryMuted}>
-                  No saved performance in the last 90 days
+                <Text
+                  style={
+                    entry.guidance.shouldIncrease
+                      ? styles.progressFlag
+                      : styles.progressHold
+                  }
+                >
+                  {entry.guidance.recommendation}
                 </Text>
-              ) : null}
-            </View>
-          </ScaleDecorator>
+              </>
+            ) : entry.guidanceState === "loaded" ? (
+              <Text style={styles.memoryMuted}>
+                No saved performance in the last 90 days
+              </Text>
+            ) : null}
+          </View>
         );
       }}
       ListFooterComponent={
@@ -976,14 +877,6 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { color: colors.text, fontWeight: "600" },
   exerciseCard: { ...trackingStyles.card, marginBottom: 12 },
-  activeExercise: {
-    borderColor: colors.blue,
-    shadowColor: colors.text,
-    shadowOpacity: 0.14,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 6,
-  },
   exerciseHeader: {
     alignItems: "center",
     flexDirection: "row",
@@ -1054,61 +947,6 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   suggestionName: { color: colors.text, fontWeight: "700" },
-  prescriptionLabel: { flexDirection: "row", marginTop: 15 },
-  sideHint: {
-    color: colors.blue,
-    fontSize: 12,
-    fontWeight: "600",
-    marginTop: 12,
-  },
-  sideLabelSpacer: { width: 22 },
-  sideLabel: {
-    color: colors.blue,
-    fontSize: 14,
-    fontWeight: "800",
-    textAlign: "center",
-    width: 22,
-  },
-  subLabel: {
-    color: colors.tertiary,
-    flex: 1,
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  prescription: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 6,
-    marginTop: 5,
-  },
-  countInput: {
-    ...trackingStyles.input,
-    minHeight: 44,
-    paddingHorizontal: 6,
-    paddingVertical: 8,
-    textAlign: "center",
-    width: 44,
-  },
-  countPlaceholder: { width: 44 },
-  times: { color: colors.secondary, fontSize: 18, fontWeight: "600" },
-  repRow: { flex: 1, flexDirection: "row", flexWrap: "wrap", gap: 5 },
-  repInput: {
-    ...trackingStyles.input,
-    minHeight: 44,
-    paddingHorizontal: 6,
-    paddingVertical: 8,
-    textAlign: "center",
-    width: 45,
-  },
-  weightInput: {
-    ...trackingStyles.input,
-    minHeight: 44,
-    paddingHorizontal: 6,
-    paddingVertical: 8,
-    textAlign: "center",
-    width: 56,
-  },
-  lb: { color: colors.secondary, fontSize: 13, fontWeight: "600" },
   memory: {
     color: colors.blue,
     fontSize: 13,

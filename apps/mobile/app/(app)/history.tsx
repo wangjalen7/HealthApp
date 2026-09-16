@@ -1,3 +1,5 @@
+import { ConfirmationActions } from "../../src/ui/confirmation-actions";
+import { IconButton } from "../../src/ui/icon-button";
 import type { ScrollView } from "react-native";
 import { Modal } from "../../src/ui/modal";
 import { SegmentedControl } from "../../src/ui/segmented-control";
@@ -465,9 +467,10 @@ export default function HistoryScreen() {
           request?.confirm();
         }}
       />
-      {session ? (
+      {session && photoGalleryWeightId ? (
         <ProgressPhotoGallery
-          anchorWeightSampleId={photoGalleryWeightId}
+          key={`${session.user.id}/${photoGalleryWeightId}`}
+          weightSampleId={photoGalleryWeightId}
           onClose={() => setPhotoGalleryWeightId(undefined)}
           onPhotosChanged={() =>
             void refreshProgressPhotoIndicators(activeVitals)
@@ -500,22 +503,7 @@ function DeleteConfirmation({
         <View accessibilityViewIsModal style={styles.modalCard}>
           <Text style={styles.modalTitle}>{request?.title}</Text>
           <Text style={styles.modalCopy}>{request?.message}</Text>
-          <View style={styles.modalActions}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={onCancel}
-              style={styles.modalCancel}
-            >
-              <Text style={styles.modalCancelText}>Cancel</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={onConfirm}
-              style={styles.modalDelete}
-            >
-              <Text style={styles.modalDeleteText}>Delete</Text>
-            </Pressable>
-          </View>
+          <ConfirmationActions onCancel={onCancel} onConfirm={onConfirm} />
         </View>
       </View>
     </Modal>
@@ -643,24 +631,22 @@ function WorkoutHistoryCard({
         <Text style={styles.location}>Gym: {session.location}</Text>
       ) : null}
       <View style={styles.cardActions}>
-        <Pressable
+        <IconButton
+          name="edit"
+          label="Edit workout"
           onPress={() =>
             router.push({
               pathname: "/(app)/history/[id]",
               params: { id: session.id },
             })
           }
-          style={styles.editButton}
-        >
-          <Text style={styles.editText}>Edit workout</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
+        />
+        <IconButton
+          name="delete"
+          label="Delete workout"
           onPress={() => onDelete(session.id)}
-          style={[styles.deleteButton, styles.compactDeleteButton]}
-        >
-          <Text style={styles.deleteText}>Delete workout</Text>
-        </Pressable>
+          destructive
+        />
       </View>
     </View>
   );
@@ -699,30 +685,27 @@ function CardioHistoryCard({
       ) : null}
       <View style={styles.cardActions}>
         {entry.source === "manual" ? (
-          <Pressable
-            accessibilityRole="button"
+          <IconButton
+            name="edit"
+            label="Edit cardio"
             onPress={() =>
               router.push({
                 pathname: "/(app)/history/edit",
                 params: { id: entry.id, kind: "cardio" },
               })
             }
-            style={styles.editButton}
-          >
-            <Text style={styles.editText}>Edit cardio</Text>
-          </Pressable>
+          />
         ) : null}
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => onDelete(entry.id)}
-          style={[styles.deleteButton, styles.compactDeleteButton]}
-        >
-          <Text style={styles.deleteText}>
-            {entry.source === "healthkit"
+        <IconButton
+          name="delete"
+          label={
+            entry.source === "healthkit"
               ? "Remove from HealthApp"
-              : "Delete cardio"}
-          </Text>
-        </Pressable>
+              : "Delete cardio"
+          }
+          onPress={() => onDelete(entry.id)}
+          destructive
+        />
       </View>
     </View>
   );
@@ -783,26 +766,23 @@ function BloodPressureHistory({
             <View style={styles.cardActions}>
               {systolic.source === "manual" &&
               diastolic?.source === "manual" ? (
-                <Pressable
-                  accessibilityRole="button"
+                <IconButton
+                  name="edit"
+                  label="Edit reading"
                   onPress={() =>
                     router.push({
                       pathname: "/(app)/history/edit",
                       params: { id: systolic.id, kind: "blood_pressure" },
                     })
                   }
-                  style={styles.editButton}
-                >
-                  <Text style={styles.editText}>Edit reading</Text>
-                </Pressable>
+                />
               ) : null}
-              <Pressable
-                accessibilityRole="button"
+              <IconButton
+                name="delete"
+                label="Delete reading"
                 onPress={() => onDelete({ systolic, diastolic })}
-                style={[styles.deleteButton, styles.compactDeleteButton]}
-              >
-                <Text style={styles.deleteText}>Delete reading</Text>
-              </Pressable>
+                destructive
+              />
             </View>
           </View>
         );
@@ -875,26 +855,23 @@ function WeightHistory({
           </View>
           <View style={styles.cardActions}>
             {reading.source === "manual" ? (
-              <Pressable
-                accessibilityRole="button"
+              <IconButton
+                name="edit"
+                label="Edit reading"
                 onPress={() =>
                   router.push({
                     pathname: "/(app)/history/edit",
                     params: { id: reading.id, kind: "weight" },
                   })
                 }
-                style={styles.editButton}
-              >
-                <Text style={styles.editText}>Edit reading</Text>
-              </Pressable>
+              />
             ) : null}
-            <Pressable
-              accessibilityRole="button"
+            <IconButton
+              name="delete"
+              label="Delete reading"
               onPress={() => onDelete(reading)}
-              style={[styles.deleteButton, styles.compactDeleteButton]}
-            >
-              <Text style={styles.deleteText}>Delete reading</Text>
-            </Pressable>
+              destructive
+            />
           </View>
         </View>
       ))}
@@ -1059,31 +1036,23 @@ function FoodHistory({
                         ) : null}
                         <View style={styles.cardActions}>
                           {food.source !== "import" ? (
-                            <Pressable
-                              accessibilityLabel={`Edit ${food.foodName}`}
-                              accessibilityRole="button"
+                            <IconButton
+                              name="edit"
+                              label={`Edit ${food.foodName}`}
                               onPress={() =>
                                 router.push({
                                   pathname: "/(app)/history/edit",
                                   params: { id: food.id, kind: "food" },
                                 })
                               }
-                              style={styles.editButton}
-                            >
-                              <Text style={styles.editText}>Edit food</Text>
-                            </Pressable>
+                            />
                           ) : null}
-                          <Pressable
-                            accessibilityLabel={`Delete ${food.foodName}`}
-                            accessibilityRole="button"
+                          <IconButton
+                            name="delete"
+                            label={`Delete ${food.foodName}`}
                             onPress={() => onDelete(food.id)}
-                            style={[
-                              styles.deleteButton,
-                              styles.compactDeleteButton,
-                            ]}
-                          >
-                            <Text style={styles.deleteText}>Delete food</Text>
-                          </Pressable>
+                            destructive
+                          />
                         </View>
                       </View>
                     </View>
@@ -1113,16 +1082,12 @@ function FoodHistory({
                       {mlToFluidOunces(entry.volumeMl)} fl oz
                     </Text>
                     <View style={styles.cardActions}>
-                      <Pressable
-                        accessibilityLabel={`Delete ${entry.fluidName} entry`}
+                      <IconButton
+                        name="delete"
+                        label={`Delete ${entry.fluidName} entry`}
                         onPress={() => onDeleteHydration(entry)}
-                        style={[
-                          styles.deleteButton,
-                          styles.compactDeleteButton,
-                        ]}
-                      >
-                        <Text style={styles.deleteText}>Delete fluid</Text>
-                      </Pressable>
+                        destructive
+                      />
                     </View>
                   </View>
                 ))}

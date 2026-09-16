@@ -258,10 +258,16 @@ export default function SummaryScreen() {
     <ScreenScrollView
       contentInsetAdjustmentBehavior="never"
       contentContainerStyle={[styles.page, { paddingTop: insets.top + 20 }]}
+      alwaysBounceVertical
       directionalLockEnabled
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
+          tintColor={colors.blue}
+          colors={[colors.blue]}
+          progressViewOffset={insets.top + 12}
+          title={refreshing ? "Syncing..." : "Pull to sync"}
+          titleColor={colors.secondary}
           onRefresh={() => void load(true, true)}
         />
       }
@@ -294,23 +300,31 @@ export default function SummaryScreen() {
               syncing && styles.syncDisabled,
             ]}
           >
-            <Svg
-              {...(Platform.OS === "web"
-                ? { "aria-hidden": true }
-                : { accessibilityElementsHidden: true })}
-              height="16"
-              viewBox="0 0 24 24"
-              width="16"
-            >
-              <Path
-                d="M20 12a8 8 0 1 1-2.34-5.66M20 3v6h-6"
-                fill="none"
-                stroke={colors.blue}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
+            {syncing ? (
+              <ActivityIndicator
+                accessibilityLabel="Syncing summary"
+                color={colors.blue}
+                size="small"
               />
-            </Svg>
+            ) : (
+              <Svg
+                {...(Platform.OS === "web"
+                  ? { "aria-hidden": true }
+                  : { accessibilityElementsHidden: true })}
+                height="16"
+                viewBox="0 0 24 24"
+                width="16"
+              >
+                <Path
+                  d="M20 12a8 8 0 1 1-2.34-5.66M20 3v6h-6"
+                  fill="none"
+                  stroke={colors.blue}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                />
+              </Svg>
+            )}
             <Text style={styles.syncText}>Sync</Text>
           </Pressable>
           <Text style={styles.syncTime}>

@@ -272,7 +272,9 @@ function ChartPlot({
   window,
   onSelect,
   tooltip,
+  plotRef,
 }: {
+  plotRef: React.RefObject<View | null>;
   active: boolean;
   domain: ValueDomain;
   range: TrendRange;
@@ -315,113 +317,115 @@ function ChartPlot({
       <Text style={styles.windowLabel}>
         {formatWindow(window.start, window.end)}
       </Text>
-      <Svg width="100%" height="215" viewBox="0 0 360 195">
-        <ClipPath id="trend-plot-clip">
-          <Rect
-            x={plot.left}
-            y={plot.top}
-            width={plot.right - plot.left}
-            height={plot.bottom - plot.top}
-          />
-        </ClipPath>
-        {domain.ticks.map((tick, index) => {
-          const y = plot.top + (index / 2) * (plot.bottom - plot.top);
-          return (
-            <G key={tick}>
-              <Line
-                x1={plot.left}
-                y1={y}
-                x2={plot.right}
-                y2={y}
-                stroke={colors.fill}
-                strokeWidth="1"
-              />
-              <SvgText
-                x={plot.left - 5}
-                y={y + 3}
-                fill={colors.tertiary}
-                fontSize="9"
-                textAnchor="end"
-              >
-                {formatAxisValue(tick, domain.max - domain.min)}
-              </SvgText>
-            </G>
-          );
-        })}
-        {ticks.map((tick) => {
-          const x =
-            plot.left +
-            ((tick.getTime() - window.start.getTime()) / elapsed) *
-              (plot.right - plot.left);
-          return (
-            <G key={tick.toISOString()}>
-              <Line
-                x1={x}
-                y1={plot.top}
-                x2={x}
-                y2={plot.bottom}
-                stroke="#EDF2F7"
-                strokeWidth="1"
-              />
-              <SvgText
-                fill={colors.tertiary}
-                fontSize="8"
-                textAnchor="middle"
-                x={x}
-                y="185"
-              >
-                {formatAxisTick(range, tick)}
-              </SvgText>
-            </G>
-          );
-        })}
-        <G clipPath="url(#trend-plot-clip)">
-          {window.series.map((item) => (
-            <LinePlot
-              key={item.label}
-              item={item}
-              domain={domain}
-              start={window.start}
-              end={window.end}
-              onSelect={active ? onSelect : undefined}
-            />
-          ))}
-        </G>
-        {tooltip && tooltipPoint ? (
-          <G>
+      <View ref={plotRef} collapsable={false}>
+        <Svg width="100%" height="215" viewBox="0 0 360 195">
+          <ClipPath id="trend-plot-clip">
             <Rect
-              fill="#FFFFFF"
-              height={tooltipHeight}
-              rx="6"
-              stroke={tooltip.color}
-              strokeWidth="1.25"
-              width={tooltipWidth}
-              x={tooltipX}
-              y={tooltipY}
+              x={plot.left}
+              y={plot.top}
+              width={plot.right - plot.left}
+              height={plot.bottom - plot.top}
             />
-            <SvgText
-              fill={colors.secondary}
-              fontSize="8"
-              fontWeight="700"
-              textAnchor="middle"
-              x={tooltipX + tooltipWidth / 2}
-              y={tooltipY + 12}
-            >
-              {tooltip.label}
-            </SvgText>
-            <SvgText
-              fill={tooltip.color}
-              fontSize="10"
-              fontWeight="800"
-              textAnchor="middle"
-              x={tooltipX + tooltipWidth / 2}
-              y={tooltipY + 26}
-            >
-              {tooltip.value}
-            </SvgText>
+          </ClipPath>
+          {domain.ticks.map((tick, index) => {
+            const y = plot.top + (index / 2) * (plot.bottom - plot.top);
+            return (
+              <G key={tick}>
+                <Line
+                  x1={plot.left}
+                  y1={y}
+                  x2={plot.right}
+                  y2={y}
+                  stroke={colors.fill}
+                  strokeWidth="1"
+                />
+                <SvgText
+                  x={plot.left - 5}
+                  y={y + 3}
+                  fill={colors.tertiary}
+                  fontSize="9"
+                  textAnchor="end"
+                >
+                  {formatAxisValue(tick, domain.max - domain.min)}
+                </SvgText>
+              </G>
+            );
+          })}
+          {ticks.map((tick) => {
+            const x =
+              plot.left +
+              ((tick.getTime() - window.start.getTime()) / elapsed) *
+                (plot.right - plot.left);
+            return (
+              <G key={tick.toISOString()}>
+                <Line
+                  x1={x}
+                  y1={plot.top}
+                  x2={x}
+                  y2={plot.bottom}
+                  stroke="#EDF2F7"
+                  strokeWidth="1"
+                />
+                <SvgText
+                  fill={colors.tertiary}
+                  fontSize="8"
+                  textAnchor="middle"
+                  x={x}
+                  y="185"
+                >
+                  {formatAxisTick(range, tick)}
+                </SvgText>
+              </G>
+            );
+          })}
+          <G clipPath="url(#trend-plot-clip)">
+            {window.series.map((item) => (
+              <LinePlot
+                key={item.label}
+                item={item}
+                domain={domain}
+                start={window.start}
+                end={window.end}
+                onSelect={active ? onSelect : undefined}
+              />
+            ))}
           </G>
-        ) : null}
-      </Svg>
+          {tooltip && tooltipPoint ? (
+            <G>
+              <Rect
+                fill="#FFFFFF"
+                height={tooltipHeight}
+                rx="6"
+                stroke={tooltip.color}
+                strokeWidth="1.25"
+                width={tooltipWidth}
+                x={tooltipX}
+                y={tooltipY}
+              />
+              <SvgText
+                fill={colors.secondary}
+                fontSize="8"
+                fontWeight="700"
+                textAnchor="middle"
+                x={tooltipX + tooltipWidth / 2}
+                y={tooltipY + 12}
+              >
+                {tooltip.label}
+              </SvgText>
+              <SvgText
+                fill={tooltip.color}
+                fontSize="10"
+                fontWeight="800"
+                textAnchor="middle"
+                x={tooltipX + tooltipWidth / 2}
+                y={tooltipY + 26}
+              >
+                {tooltip.value}
+              </SvgText>
+            </G>
+          ) : null}
+        </Svg>
+      </View>
     </View>
   );
 }
@@ -447,6 +451,12 @@ function Chart({
   const [viewportWidth, setViewportWidth] = useState(0);
   const widthRef = useRef(340);
   const lastGestureDx = useRef(0);
+  const plotRef = useRef<View>(null);
+  const suppressClickUntil = useRef(0);
+  const selectTouch = useRef((pageX: number, pageY: number) => {
+    void pageX;
+    void pageY;
+  });
   const gestureChangeRef = useRef(onHorizontalGestureChange);
   const onMoveWindowRef = useRef(onMoveWindow);
   gestureChangeRef.current = onHorizontalGestureChange;
@@ -466,12 +476,10 @@ function Chart({
 
   const panResponder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gesture) =>
-        Math.abs(gesture.dx) > 8 &&
-        Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.15,
-      onMoveShouldSetPanResponderCapture: (_, gesture) =>
-        Math.abs(gesture.dx) > 8 &&
-        Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.15,
+      // Own every touch from its beginning, so diagonal re-grips cannot scroll the page.
+      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: () => {
         lastGestureDx.current = 0;
         gestureChangeRef.current?.(true);
@@ -479,13 +487,23 @@ function Chart({
       onPanResponderMove: (_, gesture) => {
         const delta = gesture.dx - lastGestureDx.current;
         lastGestureDx.current = gesture.dx;
-        if (!delta) return;
+        if (Math.abs(gesture.dx) > 4 || Math.abs(gesture.dy) > 4) {
+          suppressClickUntil.current = Date.now() + 300;
+        }
+        if (!delta || Math.abs(gesture.dx) < 4) return;
         onMoveWindowRef.current(
           delta > 0 ? -1 : 1,
           Math.abs(delta) / widthRef.current,
         );
       },
-      onPanResponderRelease: () => {
+      onPanResponderRelease: (event, gesture) => {
+        if (
+          Platform.OS !== "web" &&
+          Math.abs(gesture.dx) < 5 &&
+          Math.abs(gesture.dy) < 5
+        ) {
+          selectTouch.current(event.nativeEvent.pageX, event.nativeEvent.pageY);
+        }
         lastGestureDx.current = 0;
         gestureChangeRef.current?.(false);
       },
@@ -534,16 +552,54 @@ function Chart({
       : undefined;
   const width = viewportWidth || 340;
 
+  selectTouch.current = (pageX, pageY) => {
+    plotRef.current?.measureInWindow((x, y, measuredWidth, height) => {
+      // SVG uses xMidYMid meet: account for letterboxing on narrow phones.
+      const scale = Math.min(measuredWidth / 360, height / 195);
+      if (scale <= 0) return;
+      const localX = (pageX - x - (measuredWidth - 360 * scale) / 2) / scale;
+      const localY = (pageY - y - (height - 195 * scale) / 2) / scale;
+      const points = currentWindow.series.flatMap((item) =>
+        coordinates(
+          item.points,
+          domain,
+          currentWindow.start,
+          currentWindow.end,
+        ),
+      );
+      const closest = points.reduce<PositionedPoint | undefined>(
+        (best, point) =>
+          !best ||
+          Math.hypot(point.x - localX, point.y - localY) <
+            Math.hypot(best.x - localX, best.y - localY)
+            ? point
+            : best,
+        undefined,
+      );
+      if (
+        closest &&
+        Math.hypot(closest.x - localX, closest.y - localY) * scale <= 24
+      ) {
+        setSelectedAt((current) => toggleSelectedPoint(current, closest.at));
+      }
+    });
+  };
   return (
-    <View {...panResponder.panHandlers}>
+    <View
+      {...panResponder.panHandlers}
+      testID="vital-chart-gesture"
+      style={Platform.OS === "web" ? { touchAction: "none" } : undefined}
+    >
       <View
         onLayout={(event) => setViewportWidth(event.nativeEvent.layout.width)}
         style={styles.chartViewport}
       >
         <ChartPlot
           active
+          plotRef={plotRef}
           domain={domain}
           onSelect={(at) =>
+            Date.now() >= suppressClickUntil.current &&
             setSelectedAt((current) => toggleSelectedPoint(current, at))
           }
           range={range}

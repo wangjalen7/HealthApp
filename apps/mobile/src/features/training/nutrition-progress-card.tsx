@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Animated, Platform, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Text as SvgText } from "react-native-svg";
 import { Icon } from "../../ui/icon";
@@ -134,7 +134,7 @@ export function NutritionProgressCard({
       <View style={water ? styles.waterCopy : styles.heading}>
         <View style={styles.labelRow}>
           <Icon
-            name={water ? "water" : label === "Protein" ? "sparkles" : "food"}
+            name={water ? "water" : label === "Protein" ? "protein" : "food"}
             color={accent}
             size={17}
           />

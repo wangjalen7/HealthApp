@@ -335,7 +335,7 @@ test("Coach restores and permanently deletes a saved conversation", async ({
   await page
     .getByRole("button", { name: "Delete current conversation" })
     .click();
-  await page.getByText("Delete", { exact: true }).click();
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(
     page.getByText("How can I help today?", { exact: true }),
   ).toBeVisible();
@@ -425,7 +425,7 @@ test("Coach workout review defaults to cancel and can append to an existing draf
   await page
     .getByTestId(/^exercise-card-/)
     .first()
-    .getByText("Remove", { exact: true })
+    .getByRole("button", { name: "Remove", exact: true })
     .click();
   await page
     .getByRole("button", { name: "Finish workout", exact: true })

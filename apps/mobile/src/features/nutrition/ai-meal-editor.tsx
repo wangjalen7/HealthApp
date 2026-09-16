@@ -1,3 +1,4 @@
+import { IconButton } from "../../ui/icon-button";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -325,7 +326,9 @@ export function AiMealEditor({
                     style={styles.photo}
                     resizeMode="contain"
                   />
-                  <Action
+                  <IconButton
+                    name="delete"
+                    destructive
                     label="Remove photo"
                     disabled={disabled}
                     onPress={() => setPhoto(undefined)}
@@ -604,7 +607,9 @@ export function AiMealEditor({
                         </View>
                       ))}
                     </View>
-                    <Action
+                    <IconButton
+                      name="delete"
+                      destructive
                       label={`Remove food ${index + 1}`}
                       disabled={adding}
                       onPress={() =>

@@ -1,3 +1,5 @@
+import { ExerciseSetFields } from "../../../src/features/training/exercise-set-fields";
+import { IconButton } from "../../../src/ui/icon-button";
 import { ScreenScrollView } from "../../../src/ui/screen-scroll-view";
 import { Pressable } from "../../../src/ui/pressable";
 import { colors } from "../../../src/ui/theme";
@@ -370,15 +372,16 @@ export default function EditWorkoutScreen() {
                   <Text style={styles.reorderButtonText}>↓</Text>
                 </Pressable>
               </View>
-              <Pressable
+              <IconButton
+                name="delete"
+                label="Remove"
                 onPress={() =>
                   setEntries((current) =>
                     current.filter((item) => item.id !== entry.id),
                   )
                 }
-              >
-                <Text style={styles.remove}>Remove</Text>
-              </Pressable>
+                destructive
+              />
             </View>
           </View>
           <TextInput
@@ -436,79 +439,25 @@ export default function EditWorkoutScreen() {
               </View>
             </>
           ) : null}
-          <View style={styles.row}>
-            {entry.sideMode === "unilateral" ? (
-              <Text style={styles.side}>L</Text>
-            ) : null}
-            <TextInput
-              keyboardType="number-pad"
-              placeholder="# sets"
-              placeholderTextColor="#9FB3C8"
-              style={styles.count}
-              value={entry.reps.length ? String(entry.reps.length) : ""}
-              onChangeText={(value) => updateCount(entry.id, value)}
-            />
-            <Text style={styles.times}>x</Text>
-            <View style={styles.reps}>
-              {entry.reps.map((reps, index) => (
-                <TextInput
-                  key={index}
-                  keyboardType="number-pad"
-                  placeholder="_"
-                  placeholderTextColor="#9FB3C8"
-                  style={styles.rep}
-                  value={reps ? String(reps) : ""}
-                  onChangeText={(value) => updateRep(entry.id, index, value)}
-                />
-              ))}
-            </View>
-            <TextInput
-              keyboardType="decimal-pad"
-              placeholder="lb"
-              placeholderTextColor="#9FB3C8"
-              style={styles.weight}
-              value={entry.weight === undefined ? "" : String(entry.weight)}
-              onChangeText={(value) => updateWeight(entry.id, value)}
-            />
-            <Text style={styles.lb}>lb</Text>
-          </View>
-          {entry.sideMode === "unilateral" ? (
-            <View style={styles.row}>
-              <Text style={styles.side}>R</Text>
-              <View style={styles.countPlaceholder} />
-              <Text style={styles.times}>x</Text>
-              <View style={styles.reps}>
-                {entry.rightReps.map((reps, setIndex) => (
-                  <TextInput
-                    key={setIndex}
-                    accessibilityLabel={`Right side set ${setIndex + 1} reps`}
-                    keyboardType="number-pad"
-                    placeholder="_"
-                    placeholderTextColor="#9FB3C8"
-                    style={styles.rep}
-                    value={reps ? String(reps) : ""}
-                    onChangeText={(value) =>
-                      updateRightRep(entry.id, setIndex, value)
-                    }
-                  />
-                ))}
-              </View>
-              <TextInput
-                accessibilityLabel="Right side working weight in pounds"
-                keyboardType="decimal-pad"
-                placeholder="lb"
-                placeholderTextColor="#9FB3C8"
-                style={styles.weight}
-                value={
-                  entry.rightWeight === undefined
-                    ? ""
-                    : String(entry.rightWeight)
-                }
-                onChangeText={(value) => updateRightWeight(entry.id, value)}
-              />
-              <Text style={styles.lb}>lb</Text>
-            </View>
-          ) : null}
+          <ExerciseSetFields
+            setCount={entry.reps.length}
+            reps={entry.reps}
+            rightReps={entry.rightReps}
+            weight={entry.weight}
+            rightWeight={entry.rightWeight}
+            unilateral={entry.sideMode === "unilateral"}
+            onSetCountChange={(value) => updateCount(entry.id, value)}
+            onRepChange={(index, value, side) =>
+              side === "left"
+                ? updateRep(entry.id, index, value)
+                : updateRightRep(entry.id, index, value)
+            }
+            onWeightChange={(value, side) =>
+              side === "left"
+                ? updateWeight(entry.id, value)
+                : updateRightWeight(entry.id, value)
+            }
+          />
         </View>
       ))}
       <Pressable
@@ -652,48 +601,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
   },
-  row: { alignItems: "center", flexDirection: "row", gap: 6, marginTop: 12 },
-  count: {
-    backgroundColor: colors.background,
-    borderColor: colors.separator,
-    borderRadius: 9,
-    borderWidth: 1,
-    color: colors.text,
-    padding: 9,
-    textAlign: "center",
-    width: 47,
-  },
-  countPlaceholder: { width: 47 },
-  side: {
-    color: colors.blue,
-    fontSize: 14,
-    fontWeight: "800",
-    textAlign: "center",
-    width: 20,
-  },
-  times: { color: colors.secondary, fontSize: 18, fontWeight: "600" },
-  reps: { flex: 1, flexDirection: "row", flexWrap: "wrap", gap: 5 },
-  rep: {
-    backgroundColor: colors.background,
-    borderColor: colors.separator,
-    borderRadius: 9,
-    borderWidth: 1,
-    color: colors.text,
-    padding: 9,
-    textAlign: "center",
-    width: 45,
-  },
-  weight: {
-    backgroundColor: colors.background,
-    borderColor: colors.separator,
-    borderRadius: 9,
-    borderWidth: 1,
-    color: colors.text,
-    padding: 9,
-    textAlign: "center",
-    width: 56,
-  },
-  lb: { color: colors.secondary, fontSize: 13, fontWeight: "600" },
   add: {
     alignItems: "center",
     borderColor: colors.blue,

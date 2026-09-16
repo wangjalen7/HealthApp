@@ -1,3 +1,5 @@
+import { ConfirmationActions } from "../../ui/confirmation-actions";
+import { IconButton } from "../../ui/icon-button";
 import { Modal } from "../../ui/modal";
 import { Pressable } from "../../ui/pressable";
 import { colors } from "../../ui/theme";
@@ -9,6 +11,7 @@ import {
   Image,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -20,10 +23,11 @@ import {
 } from "react-native-safe-area-context";
 
 import { prepareProgressPhoto, selectProgressPhoto } from "./image";
-import { localPhotoDay, progressPhotoDailyLimit } from "./model";
+import { progressPhotoEntryLimit } from "./model";
 import {
   deleteProgressPhoto,
   getProgressPhotos,
+  getEntryProgressPhotoCount,
   type ProgressPhoto,
   uploadProgressPhoto,
 } from "./repository";
@@ -31,13 +35,13 @@ import {
 const photoPageSize = 250;
 
 export function ProgressPhotoGallery({
-  anchorWeightSampleId,
+  weightSampleId,
   onClose,
   onPhotosChanged,
   userId,
   visible,
 }: {
-  anchorWeightSampleId?: string;
+  weightSampleId: string;
   onClose: () => void;
   onPhotosChanged?: () => void;
   userId: string;
@@ -48,33 +52,31 @@ export function ProgressPhotoGallery({
   const scroller = useRef<FlatList<ProgressPhoto>>(null);
   const [photos, setPhotos] = useState<ProgressPhoto[]>([]);
   const [index, setIndex] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const selected = photos[index];
-  const todayCount = photos.filter(
-    (photo) => photo.localDay === localPhotoDay(new Date()),
-  ).length;
+  const [entryCount, setEntryCount] = useState<number>();
 
   useEffect(() => {
     if (!visible) return;
     let active = true;
     setLoading(true);
     setError("");
-    void getProgressPhotos(userId, 0, photoPageSize)
-      .then((next) => {
+    setEntryCount(undefined);
+    void Promise.all([
+      getProgressPhotos(userId, weightSampleId, 0, photoPageSize),
+      getEntryProgressPhotoCount(userId, weightSampleId),
+    ])
+      .then(([next, count]) => {
         if (!active) return;
         setPhotos(next);
+        setEntryCount(count);
         setHasMore(next.length === photoPageSize);
-        const anchoredIndex = anchorWeightSampleId
-          ? next.findIndex(
-              (photo) => photo.weightSampleId === anchorWeightSampleId,
-            )
-          : -1;
-        const nextIndex = Math.max(0, anchoredIndex);
+        const nextIndex = 0;
         setIndex(nextIndex);
         requestAnimationFrame(() => {
           scroller.current?.scrollToOffset({
@@ -96,7 +98,7 @@ export function ProgressPhotoGallery({
     return () => {
       active = false;
     };
-  }, [anchorWeightSampleId, userId, visible, width]);
+  }, [weightSampleId, userId, visible, width]);
 
   async function loadOlderPhotos() {
     if (!hasMore || loadingMore || busy) return;
@@ -104,6 +106,7 @@ export function ProgressPhotoGallery({
     try {
       const next = await getProgressPhotos(
         userId,
+        weightSampleId,
         photos.length,
         photoPageSize,
       );
@@ -126,8 +129,9 @@ export function ProgressPhotoGallery({
   }
 
   async function addPhoto(source: "camera" | "library") {
-    if (todayCount >= progressPhotoDailyLimit) {
-      setError("Three progress photos are allowed per day.");
+    if (entryCount === undefined || loading) return;
+    if (entryCount >= progressPhotoEntryLimit) {
+      setError("Three progress photos are allowed per weight entry.");
       return;
     }
     setBusy(true);
@@ -139,7 +143,7 @@ export function ProgressPhotoGallery({
       const uploaded = await uploadProgressPhoto(
         userId,
         prepared,
-        anchorWeightSampleId,
+        weightSampleId,
       );
       setPhotos((current) => [uploaded, ...current]);
       setIndex(0);
@@ -147,6 +151,8 @@ export function ProgressPhotoGallery({
         scroller.current?.scrollToOffset({ animated: false, offset: 0 });
       });
       onPhotosChanged?.();
+      setEntryCount(undefined);
+      setEntryCount(await getEntryProgressPhotoCount(userId, weightSampleId));
     } catch (caught) {
       setError(
         caught instanceof Error ? caught.message : "Could not upload photo.",
@@ -174,6 +180,8 @@ export function ProgressPhotoGallery({
         });
       });
       onPhotosChanged?.();
+      setEntryCount(undefined);
+      setEntryCount(await getEntryProgressPhotoCount(userId, weightSampleId));
     } catch (caught) {
       setError(
         caught instanceof Error ? caught.message : "Could not delete photo.",
@@ -224,96 +232,120 @@ export function ProgressPhotoGallery({
             />
           </Pressable>
         </View>
-        <View style={[styles.viewer, { height: Math.min(560, height * 0.58) }]}>
-          {loading ? (
-            <ActivityIndicator color={colors.blue} />
-          ) : photos.length ? (
-            <FlatList
-              data={photos}
-              decelerationRate="fast"
-              getItemLayout={(_, itemIndex) => ({
-                index: itemIndex,
-                length: width,
-                offset: width * itemIndex,
-              })}
-              horizontal
-              initialNumToRender={1}
-              keyExtractor={(photo) => photo.id}
-              maxToRenderPerBatch={2}
-              onMomentumScrollEnd={updateIndex}
-              onEndReached={() => void loadOlderPhotos()}
-              onEndReachedThreshold={0.5}
-              pagingEnabled
-              ref={scroller}
-              removeClippedSubviews
-              renderItem={({ item: photo }) => (
-                <View style={[styles.slide, { width }]}>
-                  <Image
-                    accessibilityLabel={`Progress photo from ${new Date(photo.takenAt).toLocaleDateString()}`}
-                    resizeMode="contain"
-                    source={{ uri: photo.signedUrl }}
-                    style={styles.image}
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingBottom: 16 }}
+        >
+          <View
+            style={[styles.viewer, { height: Math.min(560, height * 0.5) }]}
+          >
+            {loading ? (
+              <ActivityIndicator color={colors.blue} />
+            ) : photos.length ? (
+              <FlatList
+                data={photos}
+                decelerationRate="fast"
+                getItemLayout={(_, itemIndex) => ({
+                  index: itemIndex,
+                  length: width,
+                  offset: width * itemIndex,
+                })}
+                horizontal
+                initialNumToRender={1}
+                keyExtractor={(photo) => photo.id}
+                maxToRenderPerBatch={2}
+                onMomentumScrollEnd={updateIndex}
+                onEndReached={() => void loadOlderPhotos()}
+                onEndReachedThreshold={0.5}
+                pagingEnabled
+                ref={scroller}
+                removeClippedSubviews
+                renderItem={({ item: photo }) => (
+                  <View style={[styles.slide, { width }]}>
+                    <Image
+                      accessibilityLabel={`Progress photo from ${new Date(photo.takenAt).toLocaleDateString()}`}
+                      resizeMode="contain"
+                      source={{ uri: photo.signedUrl }}
+                      style={styles.image}
+                    />
+                  </View>
+                )}
+                showsHorizontalScrollIndicator={false}
+                windowSize={3}
+              />
+            ) : (
+              <Text style={styles.empty}>
+                No photos attached to this weight entry.
+              </Text>
+            )}
+          </View>
+          <View style={styles.details}>
+            {selected ? (
+              <>
+                <Text style={styles.date}>
+                  {new Intl.DateTimeFormat(undefined, {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  }).format(new Date(selected.takenAt))}
+                </Text>
+                <Text style={styles.count}>
+                  {index + 1} of {photos.length}
+                  {hasMore ? "+" : ""}
+                </Text>
+                <View style={styles.deleteAction}>
+                  <IconButton
+                    name="delete"
+                    label="Delete"
+                    destructive
+                    disabled={busy || !selected}
+                    onPress={() => setConfirmingDelete(true)}
                   />
                 </View>
-              )}
-              showsHorizontalScrollIndicator={false}
-              windowSize={3}
-            />
-          ) : (
-            <Text style={styles.empty}>No progress photos yet.</Text>
-          )}
-        </View>
-        <View style={styles.details}>
-          {selected ? (
-            <>
-              <Text style={styles.date}>
-                {new Intl.DateTimeFormat(undefined, {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                }).format(new Date(selected.takenAt))}
+                {loadingMore ? (
+                  <ActivityIndicator color={colors.blue} size="small" />
+                ) : null}
+              </>
+            ) : null}
+            {error ? (
+              <Text accessibilityLiveRegion="polite" style={styles.error}>
+                {error}
               </Text>
-              <Text style={styles.count}>
-                {index + 1} of {photos.length}
-                {hasMore ? "+" : ""}
-              </Text>
-              {loadingMore ? (
-                <ActivityIndicator color={colors.blue} size="small" />
-              ) : null}
-            </>
-          ) : null}
-          {error ? (
-            <Text accessibilityLiveRegion="polite" style={styles.error}>
-              {error}
+            ) : null}
+            <View style={styles.actions}>
+              <PhotoAction
+                disabled={
+                  busy ||
+                  loading ||
+                  entryCount === undefined ||
+                  entryCount >= progressPhotoEntryLimit
+                }
+                fallback="C"
+                label="Camera"
+                name="camera.fill"
+                onPress={() => void addPhoto("camera")}
+              />
+              <PhotoAction
+                disabled={
+                  busy ||
+                  loading ||
+                  entryCount === undefined ||
+                  entryCount >= progressPhotoEntryLimit
+                }
+                fallback="L"
+                label="Library"
+                name="photo.on.rectangle"
+                onPress={() => void addPhoto("library")}
+              />
+            </View>
+            <Text accessibilityLiveRegion="polite" style={styles.limit}>
+              {entryCount === undefined
+                ? loading || busy
+                  ? "Loading photo count..."
+                  : "Photo count unavailable"
+                : `${entryCount} of ${progressPhotoEntryLimit} photos attached to this entry`}
             </Text>
-          ) : null}
-          <View style={styles.actions}>
-            <PhotoAction
-              disabled={busy || todayCount >= progressPhotoDailyLimit}
-              fallback="C"
-              label="Camera"
-              name="camera.fill"
-              onPress={() => void addPhoto("camera")}
-            />
-            <PhotoAction
-              disabled={busy || todayCount >= progressPhotoDailyLimit}
-              fallback="L"
-              label="Library"
-              name="photo.on.rectangle"
-              onPress={() => void addPhoto("library")}
-            />
-            <PhotoAction
-              destructive
-              disabled={busy || !selected}
-              fallback="D"
-              label="Delete"
-              name="trash"
-              onPress={() => setConfirmingDelete(true)}
-            />
           </View>
-          <Text style={styles.limit}>
-            {todayCount} of {progressPhotoDailyLimit} photos today
-          </Text>
-        </View>
+        </ScrollView>
         {busy ? (
           <View style={styles.busyOverlay}>
             <ActivityIndicator color="#fff" size="large" />
@@ -323,22 +355,11 @@ export function ProgressPhotoGallery({
           <View style={styles.confirmBackdrop}>
             <View accessibilityViewIsModal style={styles.confirmCard}>
               <Text style={styles.confirmTitle}>Delete photo?</Text>
-              <View style={styles.confirmActions}>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => setConfirmingDelete(false)}
-                  style={styles.cancelButton}
-                >
-                  <Text style={styles.cancelText}>Cancel</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => void removeSelected()}
-                  style={styles.deleteButton}
-                >
-                  <Text style={styles.deleteText}>Delete</Text>
-                </Pressable>
-              </View>
+              <ConfirmationActions
+                onCancel={() => setConfirmingDelete(false)}
+                onConfirm={() => void removeSelected()}
+                busy={busy}
+              />
             </View>
           </View>
         ) : null}
@@ -415,10 +436,19 @@ const styles = StyleSheet.create({
   image: { height: "100%", width: "100%" },
   empty: { color: colors.separator, fontSize: 15, fontWeight: "700" },
   details: { alignItems: "center", padding: 18 },
+  deleteAction: { position: "absolute", right: 12, top: 14 },
   date: { color: colors.text, fontSize: 15, fontWeight: "700" },
   count: { color: colors.tertiary, fontSize: 12, marginTop: 4 },
   error: { color: "#B42318", marginTop: 10, textAlign: "center" },
-  actions: { flexDirection: "row", gap: 12, marginTop: 18 },
+  actions: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: "100%",
+    maxWidth: 232,
+    justifyContent: "center",
+    gap: 12,
+    marginTop: 18,
+  },
   action: {
     alignItems: "center",
     backgroundColor: "#fff",
@@ -434,7 +464,13 @@ const styles = StyleSheet.create({
   actionFallback: { fontSize: 15, fontWeight: "600" },
   actionLabel: { fontSize: 12, fontWeight: "600" },
   disabled: { opacity: 0.45 },
-  limit: { color: colors.tertiary, fontSize: 12, marginTop: 10 },
+  limit: {
+    color: colors.secondary,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 14,
+    textAlign: "center",
+  },
   busyOverlay: {
     alignItems: "center",
     backgroundColor: "rgba(11, 23, 32, 0.55)",

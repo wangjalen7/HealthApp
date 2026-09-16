@@ -67,7 +67,7 @@ Status key: `[ ]` planned, `[-]` in progress, `[x]` complete.
 - [x] Add reusable, brand-aware food profiles with immutable meal snapshots, exact serving/mass/volume calculations, and user-scoped unfinished meal drafts.
 - [x] Combine Basic entry with saved-food search, offer prefilled reusable-label creation only when no exact saved name exists, and deduplicate reusable profiles by catalog product or canonical per-user barcode.
 - [x] Deploy an authenticated, cached Open Food Facts barcode resolver as a TypeScript Supabase Edge Function.
-- [ ] Validate the native Face ID, progress-photo, unified nutrition/barcode, and expanded tracking flows on the registered iPhone, including hydration, workout ordering/location, Summary navigation/calendar, and manual-history editing.
+- [-] Validate the revised interface, native Face ID, progress-photo, unified nutrition/barcode, and expanded tracking flows on the registered iPhone, including hydration, workout ordering/location, Summary navigation/calendar, manual-history editing, Dynamic Type, VoiceOver, and keyboard behavior.
 - [x] Complete local app review, usability/save-flow fixes, and repeatable browser regression coverage; document outstanding live-backend and iPhone checks separately.
 - [x] Correct repository-root Expo startup instructions and workspace script forwarding; verify the iOS development bundle uses Expo Router.
 - [x] Match Food History fluid entries to meal formatting within the daily card, retaining daily totals and confirmed deletion.
@@ -106,7 +106,29 @@ Status key: `[ ]` planned, `[-]` in progress, `[x]` complete.
 
 - [x] Implement the first private AI Coach release with consent controls, saved chat, bounded historical tools, user-option/saved-label meals, lifting/cardio/combined/rest suggestions, evidence, quotas, safety suppression, and review-before-apply local drafts.
 
-- [-] Fund the OpenAI API project and validate live meal estimates and Luna/Terra Coach grounding; the Coach rollout is enabled, while registered-iPhone validation remains open.
+- [ ] Fund the OpenAI API project and validate live meal estimates and Luna/Terra Coach grounding; the Coach rollout is enabled, while registered-iPhone validation remains open.
+
+- [x] Complete the app-wide premium iOS visual redesign and verify responsive screens and existing flows.
+
+- [x] Restore the preferred UI except Profile, fix repeated chart gestures, simplify exercise ordering and L/R rows, add water-fill feedback, and refine login/Coach plus edit/delete icons.
+
+- [x] Keep unilateral L/R reps, labels and weights aligned in a shared scrolling set grid, including overflow focus and saved-workout editing.
+
+- [x] Scope progress photos to their weight entry, count daily photo slots independently, and balance text actions across delete confirmations.
+
+- [x] Replace the daily photo quota with three photos per weight entry, apply backend enforcement, and center Camera/Library controls.
+
+- [x] Center login branding and Face ID feedback, add password visibility and a Remember toggle, and clarify Summary sync feedback.
+
+- [x] Place Remember and Face ID together below Password, above the Sign in button.
+
+- [x] Override native Switch self-alignment so Remember me is vertically centered with its toggle.
+
+- [x] Add separation between Sign in and the recovery/account-creation links.
+
+- [x] Move L/R left of Sets while keeping regular and unilateral exercise columns aligned.
+
+- [x] Restore regular exercises to their original Sets/x/Reps alignment while preserving the unilateral L/R layout.
 
 ## Later releases
 
