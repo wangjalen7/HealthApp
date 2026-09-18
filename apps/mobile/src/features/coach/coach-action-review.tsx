@@ -1,3 +1,4 @@
+import { ExerciseHelp } from "../training/exercise-help";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -201,7 +202,9 @@ export function CoachActionReview({
           contentContainerStyle={styles.content}
         >
           <View style={styles.intro}>
-            <Text style={styles.title}>{payload.title}</Text>
+            <Text accessibilityRole="header" style={styles.title}>
+              {payload.title}
+            </Text>
             <Text style={styles.copy}>{payload.rationale}</Text>
           </View>
           {loading ? (
@@ -305,7 +308,7 @@ function MealReview({
           <Pressable
             key={meal}
             accessibilityRole="radio"
-            accessibilityState={{ selected: payload.mealType === meal }}
+            accessibilityState={{ checked: payload.mealType === meal }}
             onPress={() => onChange({ ...payload, mealType: meal })}
             style={[
               shared.chip,
@@ -388,6 +391,10 @@ function WorkoutReview({
       <View style={styles.typeCard}>
         <Text style={shared.label}>Recommendation</Text>
         <Text style={styles.itemTitle}>{recommendationLabel}</Text>
+        <Text style={styles.detail}>
+          RIR means reps you could still complete with good form. For bodyweight
+          movements, enter 0 lb when logging.
+        </Text>
       </View>
       {payload.recommendation === "rest" ? (
         <View style={styles.itemCard}>
@@ -402,6 +409,24 @@ function WorkoutReview({
         <View key={`${exercise.name}-${index}`} style={styles.itemCard}>
           <Text style={styles.itemTitle}>{exercise.name}</Text>
           <Text style={styles.detail}>{exercise.muscleGroup}</Text>
+          {exercise.targetRir != null ? (
+            <Text style={styles.detail}>
+              {exercise.targetRir} RIR: finish with about {exercise.targetRir}{" "}
+              good-form reps left.
+            </Text>
+          ) : null}
+          {exercise.restSeconds != null ? (
+            <Text style={styles.detail}>
+              Rest {exercise.restSeconds} seconds between sets.
+            </Text>
+          ) : null}
+          {exercise.technique ? (
+            <Text style={styles.detail}>{exercise.technique}</Text>
+          ) : null}
+          <ExerciseHelp
+            name={exercise.name}
+            isNew={exercise.isNewToHistory ?? false}
+          />
           <View style={styles.workoutFields}>
             <ReviewField
               label={`${exercise.name} sets`}
@@ -729,7 +754,7 @@ const styles = StyleSheet.create({
   },
   actionPrimary: { backgroundColor: colors.blue },
   actionText: { color: colors.blue, fontSize: 15, fontWeight: "600" },
-  actionTextPrimary: { color: colors.surface },
+  actionTextPrimary: { color: colors.onAccent },
   destructive: { color: "#B42318" },
   dismiss: { alignItems: "center", minHeight: 48, justifyContent: "center" },
   dismissText: { color: colors.secondary, fontSize: 15 },

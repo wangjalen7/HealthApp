@@ -19,6 +19,9 @@ const proposed = workoutDraftFromCoach({
       setCount: 3,
       targetReps: [8, 9, 10],
       suggestedWeightLb: 185,
+      targetRir: 2,
+      restSeconds: 150,
+      technique: "Control the lowering phase.",
     },
   ],
   cardio: null,
@@ -27,6 +30,11 @@ const proposed = workoutDraftFromCoach({
 test("coach workout maps to the existing editable local draft", () => {
   assert.deepEqual(proposed.entries[0].reps, [8, 9, 10]);
   assert.equal(proposed.entries[0].weight, 185);
+  assert.deepEqual(proposed.entries[0].plan, {
+    rir: 2,
+    restSeconds: 150,
+    technique: "Control the lowering phase.",
+  });
   assert.match(proposed.notes, /Continue recent progress/);
 });
 

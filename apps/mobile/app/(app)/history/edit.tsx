@@ -369,7 +369,9 @@ export default function EditHistoryScreen() {
       >
         <Text style={styles.back}>‹ History</Text>
       </Pressable>
-      <Text style={styles.title}>{title}</Text>
+      <Text accessibilityRole="header" style={styles.title}>
+        {title}
+      </Text>
       {loading ? (
         <ActivityIndicator color={colors.blue} style={styles.loading} />
       ) : null}
@@ -512,7 +514,8 @@ function ChoiceRow<T extends string>({
       {choices.map((choice) => (
         <Pressable
           key={choice}
-          accessibilityState={{ selected: choice === selected }}
+          accessibilityRole="radio"
+          accessibilityState={{ checked: choice === selected }}
           onPress={() => onSelect(choice)}
           style={[styles.choice, choice === selected && styles.choiceActive]}
         >
@@ -590,7 +593,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   input: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     borderColor: colors.separator,
     borderRadius: 11,
     borderWidth: 1,

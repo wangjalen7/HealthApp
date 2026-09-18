@@ -22,7 +22,7 @@ const actions = [
     href: "/(app)/water",
     icon: "water",
     color: colors.blue,
-    tint: colors.blueSoft,
+    tint: "#EAF3FF",
   },
   {
     title: "Blood pressure",
@@ -71,7 +71,12 @@ export default function CreateScreen() {
       >
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
-            <Text style={[surfaces.title, { fontSize: 28 }]}>Quick log</Text>
+            <Text
+              accessibilityRole="header"
+              style={[surfaces.title, { fontSize: 28 }]}
+            >
+              Quick log
+            </Text>
           </View>
           <Pressable
             accessibilityLabel="Close create menu"

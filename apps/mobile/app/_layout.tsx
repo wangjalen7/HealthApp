@@ -6,17 +6,20 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider, useAuth } from "../src/features/auth/auth-provider";
 import { shouldDismissQuickLogForBiometricLock } from "../src/features/auth/biometric-lock-navigation";
 import { ReminderNotificationObserver } from "../src/features/reminders/notification-observer";
+import { AppearanceProvider, useAppAppearance } from "../src/ui/appearance";
 import { MotionProvider, useReducedMotion } from "../src/ui/motion";
 import { colors } from "../src/ui/theme";
 
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <MotionProvider>
-        <AuthProvider>
-          <RootNavigator />
-        </AuthProvider>
-      </MotionProvider>
+      <AppearanceProvider>
+        <MotionProvider>
+          <AuthProvider>
+            <RootNavigator />
+          </AuthProvider>
+        </MotionProvider>
+      </AppearanceProvider>
     </GestureHandlerRootView>
   );
 }
@@ -25,6 +28,7 @@ function RootNavigator() {
   const { biometricLocked } = useAuth();
   const pathname = usePathname();
   const reducedMotion = useReducedMotion();
+  const { resolvedScheme } = useAppAppearance();
 
   useEffect(() => {
     if (shouldDismissQuickLogForBiometricLock(biometricLocked, pathname)) {
@@ -35,7 +39,7 @@ function RootNavigator() {
 
   return (
     <>
-      <StatusBar style="dark" />
+      <StatusBar style={resolvedScheme === "dark" ? "light" : "dark"} />
       <ReminderNotificationObserver />
       <Stack
         screenOptions={{

@@ -34,7 +34,7 @@ test("compact forms retain focus, text, validation and reachable sheet actions",
   await page.screenshot({ path: testInfo.outputPath("sign-up-320.png") });
 
   await signIn(page);
-  for (const title of ["Summary", "History", "AI Coach", "Profile"]) {
+  for (const title of ["Soon", "Summary", "History", "Profile"]) {
     const label = page
       .getByRole("tab", { name: title, exact: true })
       .getByText(title, { exact: true });

@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { Pressable } from "./pressable";
 import { colors } from "./theme";
 
-/** Equal-size text actions for destructive confirmations; icons belong on entry points. */
+/** Quiet, balanced actions for destructive confirmations; icons stay on entry points. */
 export function ConfirmationActions({
   onCancel,
   onConfirm,
@@ -21,6 +21,8 @@ export function ConfirmationActions({
   return (
     <View testID="confirmation-actions" style={styles.actions}>
       <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled: busy }}
         disabled={busy}
         onPress={onCancel}
         style={[styles.button, styles.cancel]}
@@ -29,13 +31,14 @@ export function ConfirmationActions({
       </Pressable>
       <Pressable
         accessibilityLabel={confirmAccessibilityLabel ?? confirmLabel}
-        accessibilityState={{ busy }}
+        accessibilityRole="button"
+        accessibilityState={{ busy, disabled: busy }}
         disabled={busy}
         onPress={onConfirm}
         style={[styles.button, styles.confirm]}
       >
         <Text style={[styles.label, styles.confirmLabel]}>
-          {busy ? "Deleting..." : confirmLabel}
+          {busy ? "Deleting…" : confirmLabel}
         </Text>
       </Pressable>
     </View>
@@ -44,29 +47,36 @@ export function ConfirmationActions({
 const styles = StyleSheet.create({
   actions: {
     flexDirection: "row",
-    gap: 12,
-    marginTop: 20,
+    gap: 10,
+    marginTop: 22,
     alignSelf: "stretch",
   },
   button: {
     flex: 1,
     minWidth: 0,
-    minHeight: 48,
+    minHeight: 50,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 13,
+    borderRadius: 14,
+    borderCurve: "continuous",
     borderWidth: 1,
   },
-  cancel: { backgroundColor: colors.fill, borderColor: colors.fill },
-  confirm: { backgroundColor: "#B42318", borderColor: "#B42318" },
+  cancel: {
+    backgroundColor: colors.surface,
+    borderColor: colors.separator,
+  },
+  confirm: {
+    backgroundColor: colors.dangerSoft,
+    borderColor: colors.dangerSoft,
+  },
   label: {
     fontSize: 16,
     lineHeight: 22,
-    fontWeight: "600",
+    fontWeight: "700",
     textAlign: "center",
   },
-  cancelLabel: { color: colors.text },
-  confirmLabel: { color: "#FFFFFF" },
+  cancelLabel: { color: colors.secondary },
+  confirmLabel: { color: colors.danger },
 });

@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   bloodPressurePointsForRange,
+  connectedBloodPressurePointsForRange,
   connectedPointsForRange,
   pointsForRange,
   shiftTrendReference,
@@ -163,6 +164,52 @@ test("adds only adjacent averaged buckets to connect a visible line", () => {
   assert.deepEqual(
     points.map((point) => point.value),
     [183, 180, 179, 177],
+  );
+});
+
+test("does not draw a weekly edge connection across a gap longer than the window", () => {
+  const samples = [
+    sample("september-seven", "2026-09-07T08:00:00", 184),
+    sample("september-seventeen", "2026-09-17T08:00:00", 180),
+  ];
+
+  const current = connectedPointsForRange(
+    samples,
+    "weight",
+    "W",
+    new Date("2026-09-17T12:00:00"),
+  );
+  const emptyMiddle = connectedPointsForRange(
+    samples,
+    "weight",
+    "W",
+    new Date("2026-09-16T12:00:00"),
+  );
+
+  assert.deepEqual(
+    current.map((point) => point.value),
+    [180],
+  );
+  assert.deepEqual(emptyMiddle, []);
+});
+
+test("does not connect blood pressure across a gap longer than the selected window", () => {
+  const samples = [
+    bpSample("sys-old", "systolic_bp", "2026-09-07T08:00:00", 140),
+    bpSample("dia-old", "diastolic_bp", "2026-09-07T08:01:00", 90),
+    bpSample("sys-new", "systolic_bp", "2026-09-17T08:00:00", 124),
+    bpSample("dia-new", "diastolic_bp", "2026-09-17T08:01:00", 78),
+  ];
+
+  const points = connectedBloodPressurePointsForRange(
+    samples,
+    "W",
+    new Date("2026-09-17T12:00:00"),
+  );
+
+  assert.deepEqual(
+    points.map((point) => [point.systolic, point.diastolic]),
+    [[124, 78]],
   );
 });
 

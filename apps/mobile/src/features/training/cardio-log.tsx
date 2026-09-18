@@ -154,7 +154,8 @@ export function CardioLog() {
         {activities.map((item) => (
           <Pressable
             key={item}
-            accessibilityState={{ selected: activityType === item }}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: activityType === item }}
             onPress={() => setActivityType(item)}
             style={[styles.chip, activityType === item && styles.chipActive]}
           >

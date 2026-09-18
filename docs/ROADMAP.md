@@ -67,6 +67,19 @@ Status key: `[ ]` planned, `[-]` in progress, `[x]` complete.
 - [x] Add reusable, brand-aware food profiles with immutable meal snapshots, exact serving/mass/volume calculations, and user-scoped unfinished meal drafts.
 - [x] Combine Basic entry with saved-food search, offer prefilled reusable-label creation only when no exact saved name exists, and deduplicate reusable profiles by catalog product or canonical per-user barcode.
 - [x] Deploy an authenticated, cached Open Food Facts barcode resolver as a TypeScript Supabase Edge Function.
+- [x] Move AI estimation into Add Food, support per-food reusable-label choices and cooking-fat assumptions, keep package servings at amount selection, smooth vital trends without bridging longer-than-window gaps, refine confirmations, add Device/Light/Dark appearance, and organize device/integration controls in Profile Settings.
+- [x] Add reusable recipes built from exact food-label amounts, user-defined batch yields, per-serving nutrition, fractional whole-recipe logging, immutable history snapshots, private RLS storage, and portable export.
+- [x] Add Profile calorie and fluid goal helpers with 2023 adult EER maintenance estimates, selectable weight-change planning rates and timeframe comparison, beverage-specific hydration references, explicit acceptance, and tested canonical-unit calculations.
+- [x] Review calorie/fluids against Calculator.net and primary hydration research; document findings, drink categories and custom-drink/AI design in CALORIE_FLUID_REVIEW.md (review only).
+- [x] Implement locally the reviewed Calculator.net calorie method and intake guard, revised fluid-goal options, and manual category-based drink logging with consistent totals and legacy preservation; exclude AI from drinks.
+- [x] Obtain explicit deployment approval, apply migration 202609170002_drink_categories.sql, validate its SQL/RLS fixtures, and deploy the updated coach-chat function. Linked checks and database lint pass; Coach version 12 is active and no migrations remain pending.
+- [x] Simplify fluid and drink entry, correct goal precision, and move Coach into research-informed workout planning with beginner guidance; deploy the updated planner function.
+- [x] Reduce the gap between fluid-history category and delete actions.
+- [x] Retain a two-line preview when workout/cardio history notes are collapsed.
+- [x] Collapse workout-history notes, simplify fluid row quantities and unify AI action button styling.
+- [x] Support multiple workout goals/styles, simplify overlapping choices and fix preference validation errors.
+- [x] Replace workout chat with single-session lifting/cardio draft generation and expanded custom preferences.
+- [x] Separate fluid entries and daily totals into their own History tab.
 - [-] Validate the revised interface, native Face ID, progress-photo, unified nutrition/barcode, and expanded tracking flows on the registered iPhone, including hydration, workout ordering/location, Summary navigation/calendar, manual-history editing, Dynamic Type, VoiceOver, and keyboard behavior.
 - [x] Complete local app review, usability/save-flow fixes, and repeatable browser regression coverage; document outstanding live-backend and iPhone checks separately.
 - [x] Correct repository-root Expo startup instructions and workspace script forwarding; verify the iOS development bundle uses Expo Router.

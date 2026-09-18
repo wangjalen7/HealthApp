@@ -1,4 +1,15 @@
 import { test, expect, signIn, quickLog } from "./fixture";
+import type { Page } from "@playwright/test";
+
+async function openAiEstimator(page: Page) {
+  await page.getByRole("button", { name: "Add food", exact: true }).click();
+  await page
+    .getByRole("button", {
+      name: "Estimate meal with AI from a photo or description",
+      exact: true,
+    })
+    .click();
+}
 
 const estimate = {
   inputType: "meal",
@@ -118,12 +129,7 @@ test("AI text meal creates separate editable labels and exact saved portions", a
     await route.fulfill({ json: estimate });
   });
   await quickLog(page, "Food");
-  await page
-    .getByRole("button", {
-      name: "Estimate meal with AI from a photo or description",
-      exact: true,
-    })
-    .click();
+  await openAiEstimator(page);
   await page
     .getByLabel("Meal description", { exact: true })
     .fill("2 cups pasta, tomato sauce, and 150g chicken");
@@ -164,7 +170,7 @@ test("AI text meal creates separate editable labels and exact saved portions", a
   await page
     .getByRole("button", { name: "Add foods to meal", exact: true })
     .click();
-  await page.getByRole("button", { name: "dinner", exact: true }).click();
+  await page.getByRole("radio", { name: "dinner", exact: true }).click();
   await expect(page.getByText("470 calories", { exact: true })).toBeVisible();
   await expect(
     page
@@ -207,11 +213,7 @@ test("AI count estimate saves an editable number of food items", async ({
 }) => {
   await signIn(page);
   await quickLog(page, "Food");
-  await page
-    .getByRole("button", {
-      name: "Estimate meal with AI from a photo or description",
-    })
-    .click();
+  await openAiEstimator(page);
   await page
     .getByLabel("Meal description", { exact: true })
     .fill("8 pork dumplings");
@@ -252,7 +254,7 @@ test("AI count estimate saves an editable number of food items", async ({
   await page
     .getByRole("button", { name: "Add foods to meal", exact: true })
     .click();
-  await page.getByRole("button", { name: "dinner", exact: true }).click();
+  await page.getByRole("radio", { name: "dinner", exact: true }).click();
   await page.getByRole("button", { name: "Save meal", exact: true }).click();
   await expect(page.getByText("Meal saved.", { exact: true })).toBeVisible();
   expect(backend.tables.nutrition_entries).toHaveLength(1);
@@ -276,11 +278,7 @@ test("AI count estimate saves an editable number of food items", async ({
     updated_at: "2026-09-10T12:00:00.000Z",
   });
 
-  await page
-    .getByRole("button", {
-      name: "Estimate meal with AI from a photo or description",
-    })
-    .click();
+  await openAiEstimator(page);
   await page
     .getByLabel("Meal description", { exact: true })
     .fill("8 steamed pork dumplings");
@@ -293,7 +291,7 @@ test("AI count estimate saves an editable number of food items", async ({
   await page
     .getByRole("button", { name: "Add foods to meal", exact: true })
     .click();
-  await page.getByRole("button", { name: "dinner", exact: true }).click();
+  await page.getByRole("radio", { name: "dinner", exact: true }).click();
   await page.getByRole("button", { name: "Save meal", exact: true }).click();
   await expect(page.getByText("Meal saved.", { exact: true })).toBeVisible();
   expect(estimateCalls).toBe(2);
@@ -312,17 +310,62 @@ test("AI count estimate saves an editable number of food items", async ({
   expect(backend.tables.nutrition_entries).toHaveLength(2);
 });
 
+test("each AI food can independently skip its reusable label", async ({
+  page,
+  backend,
+}) => {
+  await signIn(page);
+  await quickLog(page, "Food");
+  await openAiEstimator(page);
+  await page
+    .getByLabel("Meal description", { exact: true })
+    .fill("pasta, tomato sauce, and grilled chicken");
+  await page
+    .getByRole("checkbox", { name: "Allow AI meal processing" })
+    .click();
+  await page.route("**/functions/v1/estimate-meal", (route) =>
+    route.fulfill({ json: estimate }),
+  );
+  await page
+    .getByRole("button", { name: "Estimate foods", exact: true })
+    .click();
+  await expect(page.getByText("Review 3 estimated foods")).toBeVisible();
+  const skippedLabel = page.getByLabel("Create reusable label for Food 2");
+  await expect(skippedLabel).toBeChecked();
+  await skippedLabel.click();
+  await expect(skippedLabel).not.toBeChecked();
+  await expect(
+    page.getByLabel("Create reusable label for Food 1"),
+  ).toBeChecked();
+  await expect(
+    page.getByLabel("Create reusable label for Food 3"),
+  ).toBeChecked();
+  await page
+    .getByRole("button", { name: "Add foods to meal", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Estimate a meal", exact: true }),
+  ).not.toBeVisible();
+  expect(backend.tables.user_food_profiles ?? []).toHaveLength(2);
+  await page.getByRole("radio", { name: "dinner", exact: true }).click();
+  await page.getByRole("button", { name: "Save meal", exact: true }).click();
+  await expect(page.getByText("Meal saved.", { exact: true })).toBeVisible();
+  expect(backend.tables.nutrition_entries).toHaveLength(3);
+  expect(backend.tables.user_food_profiles ?? []).toHaveLength(2);
+  expect(
+    backend.tables.user_food_profiles.some(
+      (profile) => profile.food_name === "Tomato sauce",
+    ),
+  ).toBe(false);
+});
+
 test("AI errors retain input, retry works, and cancel/close never adds foods", async ({
   page,
   backend,
 }) => {
   await signIn(page);
   await quickLog(page, "Food");
-  await page
-    .getByRole("button", {
-      name: "Estimate meal with AI from a photo or description",
-    })
-    .click();
+  await openAiEstimator(page);
   await page
     .getByLabel("Meal description", { exact: true })
     .fill("pasta with sauce and chicken");
@@ -377,11 +420,7 @@ test("AI photo is prepared as JPEG and sent with optional description", async ({
   void backend;
   await signIn(page);
   await quickLog(page, "Food");
-  await page
-    .getByRole("button", {
-      name: "Estimate meal with AI from a photo or description",
-    })
-    .click();
+  await openAiEstimator(page);
   const fileChooser = page.waitForEvent("filechooser");
   await page
     .getByRole("button", { name: "Choose meal photo", exact: true })
@@ -428,11 +467,7 @@ test("AI rejects a non-food photo without creating food labels", async ({
 }) => {
   await signIn(page);
   await quickLog(page, "Food");
-  await page
-    .getByRole("button", {
-      name: "Estimate meal with AI from a photo or description",
-    })
-    .click();
+  await openAiEstimator(page);
   const fileChooser = page.waitForEvent("filechooser");
   await page
     .getByRole("button", { name: "Choose meal photo", exact: true })
@@ -481,13 +516,8 @@ test("cancelled AI response is ignored and existing meal portions survive anothe
 }) => {
   await signIn(page);
   await quickLog(page, "Food");
-  await page.getByRole("button", { name: "dinner", exact: true }).click();
-  await page
-    .getByRole("button", {
-      name: "Estimate meal with AI from a photo or description",
-      exact: true,
-    })
-    .click();
+  await page.getByRole("radio", { name: "dinner", exact: true }).click();
+  await openAiEstimator(page);
   await page.getByLabel("Meal description", { exact: true }).fill("pasta");
   await page
     .getByRole("checkbox", { name: "Allow AI meal processing" })
@@ -524,12 +554,7 @@ test("cancelled AI response is ignored and existing meal portions survive anothe
     .click();
   await expect(page.getByText("316 calories", { exact: true })).toBeVisible();
   expect(backend.tables.user_food_profiles).toHaveLength(1);
-  await page
-    .getByRole("button", {
-      name: "Estimate meal with AI from a photo or description",
-      exact: true,
-    })
-    .click();
+  await openAiEstimator(page);
   await page.getByLabel("Meal description", { exact: true }).fill("chicken");
   await page
     .getByRole("checkbox", { name: "Allow AI meal processing" })

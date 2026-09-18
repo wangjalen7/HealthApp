@@ -1,3 +1,5 @@
+import { trainingPlanningSummary } from "../_shared/workout-planning.ts";
+import { fluidContribution, fluidTotals } from "../_shared/hydration.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.112.4";
 import { corsHeaders } from "../_shared/cors.ts";
 import {
@@ -48,7 +50,10 @@ function profileFromRow(row: Record<string, unknown>): CoachProfile {
         ? row.goals
         : [row.primary_goal],
     experienceLevel: row.experience_level,
-    trainingDaysPerWeek: Number(row.training_days_per_week),
+    trainingDaysPerWeek:
+      row.training_days_per_week == null
+        ? undefined
+        : Number(row.training_days_per_week),
     sessionMinutes: Number(row.session_minutes),
     equipment: row.equipment ?? [],
     limitations: row.limitations ?? undefined,
@@ -122,6 +127,12 @@ Deno.serve(
       if (coachResult.error) throw coachResult.error;
       if (!coachResult.data) return undefined;
       const coachProfile = profileFromRow(coachResult.data);
+      if (input.workoutPreferences) {
+        coachProfile.useNutrition = false;
+        coachProfile.useHydration = false;
+        coachProfile.useVitals = false;
+        coachProfile.usePhotoMetadata = false;
+      }
       const threadResult = input.threadId
         ? await client
             .from("coach_threads")
@@ -164,7 +175,9 @@ Deno.serve(
           coachProfile.useHydration
             ? client
                 .from("hydration_entries")
-                .select("fluid_name, volume_ml, occurred_at")
+                .select(
+                  "fluid_name, volume_ml, occurred_at, category_id, alcohol_status, counting_policy",
+                )
                 .eq("user_id", userId)
                 .order("occurred_at", { ascending: false })
                 .limit(500)
@@ -224,6 +237,8 @@ Deno.serve(
             )
             .eq("user_id", userId)
             .in("session_id", sessionIds)
+            .order("created_at", { ascending: false })
+            .limit(3000)
         : { data: [], error: null };
       if (sets.error) throw sets.error;
       return {
@@ -239,19 +254,34 @@ Deno.serve(
           role: row.role as "user" | "assistant",
           content: String(row.content),
         })),
-        snapshot: buildCoachSnapshot({
-          profile: profile.data,
-          coachProfile: coachResult.data,
-          nutrition: nutrition.data ?? [],
-          hydration: hydration.data ?? [],
-          vitals: vitals.data ?? [],
-          workouts: workouts.data ?? [],
-          sets: sets.data ?? [],
-          cardio: cardio.data ?? [],
-          photos: photos.data ?? [],
-          localDate: input.localDate,
-          timezone: input.timezone,
-        }),
+        snapshot: input.workoutPreferences
+          ? {
+              preferences: input.workoutPreferences,
+              training: trainingPlanningSummary(
+                workouts.data ?? [],
+                sets.data ?? [],
+              ),
+              recentSessions: (workouts.data ?? []).slice(0, 12),
+              recentSets: (sets.data ?? []).slice(0, 120),
+              cardio: (cardio.data ?? []).slice(0, 10),
+              historyEnabled: coachProfile.useTraining,
+            }
+          : buildCoachSnapshot({
+              profile: profile.data,
+              coachProfile: coachResult.data,
+              nutrition: nutrition.data ?? [],
+              hydration: (hydration.data ?? []).map((row) => ({
+                ...row,
+                counted_ml: fluidContribution(row),
+              })),
+              vitals: vitals.data ?? [],
+              workouts: workouts.data ?? [],
+              sets: sets.data ?? [],
+              cardio: cardio.data ?? [],
+              photos: photos.data ?? [],
+              localDate: input.localDate,
+              timezone: input.timezone,
+            }),
       };
     },
     runTool: async (token, userId, name, args, requestContext) => {
@@ -287,7 +317,9 @@ Deno.serve(
           permissions.use_hydration
             ? client
                 .from("hydration_entries")
-                .select("fluid_name, volume_ml, occurred_at")
+                .select(
+                  "fluid_name, volume_ml, occurred_at, category_id, alcohol_status, counting_policy",
+                )
                 .eq("user_id", userId)
                 .gte("occurred_at", bounds.start)
                 .lt("occurred_at", bounds.end)
@@ -307,7 +339,11 @@ Deno.serve(
         return {
           date,
           food: food.data ?? [],
-          hydration: hydration.data ?? [],
+          hydration: (hydration.data ?? []).map((row) => ({
+            ...row,
+            counted_ml: fluidContribution(row),
+          })),
+          fluidTotals: fluidTotals(hydration.data ?? []),
           vitals: vitals.data ?? [],
         };
       }
@@ -414,7 +450,9 @@ Deno.serve(
           permissions.use_hydration
             ? client
                 .from("hydration_entries")
-                .select("fluid_name, volume_ml, occurred_at")
+                .select(
+                  "fluid_name, volume_ml, occurred_at, category_id, alcohol_status, counting_policy",
+                )
                 .eq("user_id", userId)
                 .gte("occurred_at", start)
                 .limit(365)
@@ -425,7 +463,11 @@ Deno.serve(
         return {
           days,
           cardio: cardio.data ?? [],
-          hydration: hydration.data ?? [],
+          hydration: (hydration.data ?? []).map((row) => ({
+            ...row,
+            counted_ml: fluidContribution(row),
+          })),
+          fluidTotals: fluidTotals(hydration.data ?? []),
         };
       }
       return { error: "Unknown tool" };
@@ -498,6 +540,9 @@ Deno.serve(
             ...action,
             exercises: action.exercises.map((exercise) => ({
               ...exercise,
+              isNewToHistory: !names.has(
+                exercise.name.trim().toLocaleLowerCase(),
+              ),
               name:
                 names.get(exercise.name.trim().toLocaleLowerCase()) ??
                 exercise.name,

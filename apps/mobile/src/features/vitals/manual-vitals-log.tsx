@@ -181,7 +181,9 @@ export function ManualVitalsLog({ mode }: { mode: ManualVitalsLogMode }) {
       contentContainerStyle={styles.page}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.title}>{isWeight ? "Weight" : "Blood pressure"}</Text>
+      <Text accessibilityRole="header" style={styles.title}>
+        {isWeight ? "Weight" : "Blood pressure"}
+      </Text>
       {isWeight ? (
         <>
           <Field label="Weight (lb)" value={weight} onChangeText={setWeight} />

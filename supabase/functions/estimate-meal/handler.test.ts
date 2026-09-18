@@ -136,6 +136,8 @@ test("text and image request use strict schema, high image detail and disabled r
   assert.equal(body.store, false);
   assert.equal(body.max_output_tokens, 3500);
   assert.equal(body.text.format.strict, true);
+  assert.match(body.instructions, /typical amount of cooking oil/i);
+  assert.match(body.instructions, /rather than\s+adding a separate oil item/i);
   assert.deepEqual(body.text.format.schema.properties.inputType.enum, [
     "meal",
     "not_food",

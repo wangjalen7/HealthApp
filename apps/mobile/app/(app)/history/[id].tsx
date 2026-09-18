@@ -301,7 +301,9 @@ export default function EditWorkoutScreen() {
       contentContainerStyle={styles.page}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.title}>Edit workout</Text>
+      <Text accessibilityRole="header" style={styles.title}>
+        Edit workout
+      </Text>
       <Text style={styles.label}>Muscle groups</Text>
       <View style={styles.groups}>
         {muscleGroups.map((group) => (
@@ -523,7 +525,7 @@ const styles = StyleSheet.create({
   chipText: { color: colors.secondary, fontWeight: "600" },
   chipTextActive: { color: "#fff", fontWeight: "600" },
   card: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     borderColor: colors.separator,
     borderRadius: 15,
     borderWidth: StyleSheet.hairlineWidth,

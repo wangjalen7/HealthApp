@@ -18,6 +18,12 @@ import {
 } from "../../src/features/nutrition/draft";
 import { FoodEditor } from "../../src/features/nutrition/food-editor";
 import { AiMealEditor } from "../../src/features/nutrition/ai-meal-editor";
+import { RecipeManager } from "../../src/features/nutrition/recipe-manager";
+import {
+  recipeMealDraftEntry,
+  type FoodRecipe,
+} from "../../src/features/nutrition/recipe";
+import { createId } from "../../src/features/vitals/storage";
 import {
   appendEstimatedEntries,
   deduplicateAiDraftEntries,
@@ -50,8 +56,10 @@ export default function NutritionScreen() {
   const [entries, setEntries] = useState<MealDraftEntry[]>([]);
   const [editorOpen, setEditorOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const [recipesOpen, setRecipesOpen] = useState(false);
   const [editorPurpose, setEditorPurpose] = useState<"add" | "manage">("add");
   const [editing, setEditing] = useState<MealDraftEntry>();
+  const [editingIsNew, setEditingIsNew] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [saving, setSaving] = useState(false);
@@ -76,8 +84,12 @@ export default function NutritionScreen() {
     appendEstimatedEntries(draftRef.current.entries, added);
     const profiled: MealDraftEntry[] = [];
     for (const entry of added) {
-      const profile = await saveFoodProfile(userId, entry);
-      profiled.push({ ...entry, ...profile });
+      if (entry.saveToMyFoods === false) {
+        profiled.push(entry);
+      } else {
+        const profile = await saveFoodProfile(userId, entry);
+        profiled.push({ ...entry, ...profile });
+      }
     }
     const next = appendEstimatedEntries(draftRef.current.entries, profiled);
     await saveNutritionDraft(userId, {
@@ -163,6 +175,17 @@ export default function NutritionScreen() {
         : [...current, entry];
     });
     setEditing(undefined);
+    setEditingIsNew(false);
+    setFeedback("");
+  }
+
+  function chooseRecipe(recipe: FoodRecipe) {
+    const entry = recipeMealDraftEntry(recipe, createId());
+    setRecipesOpen(false);
+    setEditing(entry);
+    setEditingIsNew(true);
+    setEditorPurpose("add");
+    setEditorOpen(true);
     setFeedback("");
   }
 
@@ -204,7 +227,9 @@ export default function NutritionScreen() {
       >
         <View style={styles.titleRow}>
           <View style={styles.titleCopy}>
-            <Text style={styles.title}>Food</Text>
+            <Text accessibilityRole="header" style={styles.title}>
+              Food
+            </Text>
           </View>
           {nutritionDraftHasContent(draft) ? (
             <Pressable
@@ -225,8 +250,8 @@ export default function NutritionScreen() {
         <View style={styles.chips}>
           {meals.map((meal) => (
             <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ selected: mealType === meal }}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: mealType === meal }}
               key={meal}
               onPress={() => {
                 setMealType(meal);
@@ -251,7 +276,18 @@ export default function NutritionScreen() {
             <Pressable
               accessibilityRole="button"
               onPress={() => {
+                setRecipesOpen(true);
+                setFeedback("");
+              }}
+              style={styles.manageLabelsButton}
+            >
+              <Text style={styles.manageLabelsText}>Recipes</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
                 setEditing(undefined);
+                setEditingIsNew(false);
                 setEditorPurpose("manage");
                 setEditorOpen(true);
                 setFeedback("");
@@ -262,27 +298,6 @@ export default function NutritionScreen() {
             </Pressable>
           </View>
         </View>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Estimate meal with AI from a photo or description"
-          disabled={saving || !draftLoaded}
-          onPress={() => setAiOpen(true)}
-          style={[
-            styles.aiEstimateButton,
-            (saving || !draftLoaded) && styles.buttonDisabled,
-          ]}
-        >
-          <Icon name="sparkles" size={24} color={colors.surface} />
-          <View style={styles.aiEstimateCopy}>
-            <Text style={styles.aiEstimateTitle}>
-              Estimate meal from photo or text
-            </Text>
-            <Text style={styles.aiEstimateSubtitle}>
-              AI creates editable food labels and portions
-            </Text>
-          </View>
-        </Pressable>
 
         {entries.map((entry) => (
           <View key={entry.id} style={styles.foodCard}>
@@ -315,6 +330,7 @@ export default function NutritionScreen() {
                 label="Edit amount"
                 onPress={() => {
                   setEditing(entry);
+                  setEditingIsNew(false);
                   setEditorPurpose("add");
                   setEditorOpen(true);
                 }}
@@ -338,6 +354,7 @@ export default function NutritionScreen() {
           disabled={saving || !draftLoaded}
           onPress={() => {
             setEditing(undefined);
+            setEditingIsNew(false);
             setEditorPurpose("add");
             setEditorOpen(true);
             setFeedback("");
@@ -347,7 +364,7 @@ export default function NutritionScreen() {
             (saving || !draftLoaded) && styles.buttonDisabled,
           ]}
         >
-          <Icon name="food" size={20} color={colors.surface} />
+          <Icon name="food" size={20} color={colors.onAccent} />
           <Text style={styles.addButtonText}>Add food</Text>
         </Pressable>
 
@@ -413,12 +430,29 @@ export default function NutritionScreen() {
       ) : null}
 
       {userId ? (
+        <RecipeManager
+          onClose={() => setRecipesOpen(false)}
+          onLog={chooseRecipe}
+          userId={userId}
+          visible={recipesOpen}
+        />
+      ) : null}
+
+      {userId ? (
         <FoodEditor
           initial={editing}
+          initialIsNew={editingIsNew}
           labelManagementOnly={editorPurpose === "manage"}
+          onAiEstimate={() => {
+            setEditorOpen(false);
+            setEditing(undefined);
+            setEditingIsNew(false);
+            setAiOpen(true);
+          }}
           onClose={() => {
             setEditorOpen(false);
             setEditing(undefined);
+            setEditingIsNew(false);
           }}
           onSave={acceptEntry}
           userId={userId}
@@ -434,7 +468,9 @@ export default function NutritionScreen() {
       >
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Discard unfinished meal?</Text>
+            <Text accessibilityRole="header" style={styles.modalTitle}>
+              Discard unfinished meal?
+            </Text>
             <Text style={styles.modalCopy}>
               This clears the meal saved on this device. Completed food history
               is not affected.
@@ -505,28 +541,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   manageLabelsText: { color: colors.blue, fontSize: 14, fontWeight: "600" },
-  aiEstimateButton: {
-    alignItems: "center",
-    backgroundColor: colors.purple,
-    borderRadius: 16,
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 20,
-    minHeight: 68,
-    paddingHorizontal: 18,
-    paddingVertical: 13,
-  },
-  aiEstimateCopy: { flex: 1, gap: 3 },
-  aiEstimateTitle: {
-    color: colors.surface,
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  aiEstimateSubtitle: {
-    color: "#F3EAFF",
-    fontSize: 13,
-    lineHeight: 18,
-  },
   addButton: trackingStyles.listAddButton,
   addButtonText: trackingStyles.listAddButtonText,
   foodCard: { ...trackingStyles.card, marginBottom: 12 },
@@ -615,7 +629,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   modalCard: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     borderRadius: 18,
     maxWidth: 420,
     padding: 20,

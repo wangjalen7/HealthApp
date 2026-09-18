@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { type VitalSample } from "../../src/domain/vitals";
 import { useAuth } from "../../src/features/auth/auth-provider";
+import { ClassifyDrink } from "../../src/features/hydration/classify-drink";
 import { mlToFluidOunces } from "../../src/features/hydration/model";
 import {
   getHydrationHistory,
@@ -63,11 +64,12 @@ import { pulseForBloodPressure } from "../../src/features/vitals/blood-pressure-
 const historyOptions = [
   { value: "exercise", label: "Workout" },
   { value: "food", label: "Food" },
+  { value: "fluids", label: "Fluids" },
   { value: "weight", label: "Weight" },
   { value: "blood_pressure", label: "Blood pressure" },
 ] as const;
 
-type HistoryView = "exercise" | "blood_pressure" | "weight" | "food";
+type HistoryView = "exercise" | "blood_pressure" | "weight" | "food" | "fluids";
 type DeletionRequest = {
   title: string;
   message: string;
@@ -80,7 +82,8 @@ function historyView(
     value === "exercise" ||
     value === "blood_pressure" ||
     value === "weight" ||
-    value === "food"
+    value === "food" ||
+    value === "fluids"
   ) {
     return value;
   }
@@ -393,7 +396,9 @@ export default function HistoryScreen() {
         />
       }
     >
-      <Text style={styles.title}>History</Text>
+      <Text accessibilityRole="header" style={styles.title}>
+        History
+      </Text>
       <View style={{ height: 16 }} />
       <SegmentedControl
         label="History category"
@@ -451,10 +456,19 @@ export default function HistoryScreen() {
         {view === "food" ? (
           <FoodHistory
             entries={food}
-            hydration={hydration}
             loading={loading}
             onDelete={confirmRemoveFood}
+          />
+        ) : null}
+        {view === "fluids" ? (
+          <FluidHistory
+            hydration={hydration}
+            loading={loading}
             onDeleteHydration={confirmRemoveHydration}
+            onHydrationChanged={async () => {
+              if (session)
+                setHydration(await getHydrationHistory(session.user.id));
+            }}
           />
         ) : null}
       </SwipeContent>
@@ -501,7 +515,9 @@ function DeleteConfirmation({
     >
       <View style={styles.modalBackdrop}>
         <View accessibilityViewIsModal style={styles.modalCard}>
-          <Text style={styles.modalTitle}>{request?.title}</Text>
+          <Text accessibilityRole="header" style={styles.modalTitle}>
+            {request?.title}
+          </Text>
           <Text style={styles.modalCopy}>{request?.message}</Text>
           <ConfirmationActions onCancel={onCancel} onConfirm={onConfirm} />
         </View>
@@ -567,6 +583,44 @@ function ExerciseHistory({
   );
 }
 
+function HistoryNotes({
+  notes,
+  kind,
+}: {
+  notes: string;
+  kind: "workout" | "cardio";
+}) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <View style={styles.notesSection}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={
+          (expanded ? "Collapse " : "Expand ") + kind + " notes"
+        }
+        accessibilityState={{ expanded }}
+        onPress={() => setExpanded((current) => !current)}
+        style={styles.notesToggle}
+      >
+        <Text style={styles.notesLabel}>Notes</Text>
+        <Text style={styles.notesAction}>
+          {expanded ? "Show less" : "Show more"}
+        </Text>
+        <View style={{ transform: [{ rotate: expanded ? "90deg" : "0deg" }] }}>
+          <Icon name="chevron" size={16} color={colors.secondary} />
+        </View>
+      </Pressable>
+      <Text
+        style={styles.notes}
+        numberOfLines={expanded ? undefined : 2}
+        ellipsizeMode="tail"
+      >
+        {notes}
+      </Text>
+    </View>
+  );
+}
+
 function WorkoutHistoryCard({
   session,
   onDelete,
@@ -625,7 +679,7 @@ function WorkoutHistoryCard({
         </View>
       ))}
       {session.notes ? (
-        <Text style={styles.notes}>Notes: {session.notes}</Text>
+        <HistoryNotes notes={session.notes} kind="workout" />
       ) : null}
       {session.location ? (
         <Text style={styles.location}>Gym: {session.location}</Text>
@@ -680,9 +734,7 @@ function CardioHistoryCard({
           ? ` \u00b7 ${cleanSourceName(entry.sourceName)}`
           : ""}
       </Text>
-      {entry.notes ? (
-        <Text style={styles.notes}>Notes: {entry.notes}</Text>
-      ) : null}
+      {entry.notes ? <HistoryNotes notes={entry.notes} kind="cardio" /> : null}
       <View style={styles.cardActions}>
         {entry.source === "manual" ? (
           <IconButton
@@ -882,16 +934,12 @@ type FoodHistoryDay = {
   key: string;
   occurredAt: string;
   entries: FoodHistoryEntry[];
-  waterMl: number;
 };
 function localHistoryDateKey(value: string): string {
   const date = new Date(value);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
-function groupFoodByDay(
-  entries: FoodHistoryEntry[],
-  hydration: HydrationHistoryEntry[],
-): FoodHistoryDay[] {
+function groupFoodByDay(entries: FoodHistoryEntry[]): FoodHistoryDay[] {
   const days = new Map<string, FoodHistoryDay>();
   for (const entry of entries) {
     const key = localHistoryDateKey(entry.occurredAt);
@@ -899,20 +947,8 @@ function groupFoodByDay(
       key,
       occurredAt: entry.occurredAt,
       entries: [],
-      waterMl: 0,
     };
     day.entries.push(entry);
-    days.set(key, day);
-  }
-  for (const entry of hydration) {
-    const key = localHistoryDateKey(entry.occurredAt);
-    const day = days.get(key) ?? {
-      key,
-      occurredAt: entry.occurredAt,
-      entries: [],
-      waterMl: 0,
-    };
-    day.waterMl += entry.volumeMl;
     days.set(key, day);
   }
   return [...days.values()].sort((left, right) =>
@@ -921,23 +957,19 @@ function groupFoodByDay(
 }
 function FoodHistory({
   entries,
-  hydration,
   loading,
   onDelete,
-  onDeleteHydration,
 }: {
   entries: FoodHistoryEntry[];
-  hydration: HydrationHistoryEntry[];
   loading: boolean;
   onDelete: (foodId: string) => void;
-  onDeleteHydration: (entry: HydrationHistoryEntry) => void;
 }) {
   const [selectedDay, setSelectedDay] = useState<FoodHistoryDay>();
-  if (!loading && !entries.length && !hydration.length)
+  if (!loading && !entries.length)
     return (
       <Empty
-        title="No food or water saved yet"
-        copy="Foods and daily hydration totals will be grouped here by date."
+        title="No food saved yet"
+        copy="Meals and nutrition totals will be grouped here by date."
       />
     );
   const mealOrder: FoodHistoryEntry["mealType"][] = [
@@ -949,11 +981,8 @@ function FoodHistory({
   ];
   return (
     <>
-      {groupFoodByDay(entries, hydration).map((day) => {
-        const totals = dailyNutritionTotals(day.entries, day.waterMl);
-        const fluids = hydration.filter(
-          (entry) => localHistoryDateKey(entry.occurredAt) === day.key,
-        );
+      {groupFoodByDay(entries).map((day) => {
+        const totals = dailyNutritionTotals(day.entries, 0);
         return (
           <View key={day.key} style={styles.card}>
             <View style={styles.cardHeader}>
@@ -968,9 +997,6 @@ function FoodHistory({
                 <Text style={styles.setTotal}>
                   {totals.calories} cal ·{" "}
                   {Math.round(totals.proteinGrams * 10) / 10}g protein
-                </Text>
-                <Text style={[styles.setTotal, styles.waterTotal]}>
-                  {mlToFluidOunces(day.waterMl)} fl oz water
                 </Text>
                 <Pressable
                   accessibilityLabel={`View full totals for ${day.key}`}
@@ -1060,39 +1086,6 @@ function FoodHistory({
                 </View>
               );
             })}
-            {fluids.length ? (
-              <View style={styles.mealGroup}>
-                <Text style={styles.mealTitle}>Fluids</Text>
-                {fluids.map((entry) => (
-                  <View key={entry.id} style={styles.foodRow}>
-                    <View style={styles.foodHistoryHeader}>
-                      <View style={styles.foodDetails}>
-                        <Text style={styles.exerciseName}>
-                          {entry.fluidName}
-                        </Text>
-                      </View>
-                      <Text style={styles.foodTime}>
-                        {new Intl.DateTimeFormat(undefined, {
-                          hour: "numeric",
-                          minute: "2-digit",
-                        }).format(new Date(entry.occurredAt))}
-                      </Text>
-                    </View>
-                    <Text style={styles.detail}>
-                      {mlToFluidOunces(entry.volumeMl)} fl oz
-                    </Text>
-                    <View style={styles.cardActions}>
-                      <IconButton
-                        name="delete"
-                        label={`Delete ${entry.fluidName} entry`}
-                        onPress={() => onDeleteHydration(entry)}
-                        destructive
-                      />
-                    </View>
-                  </View>
-                ))}
-              </View>
-            ) : null}
           </View>
         );
       })}
@@ -1100,6 +1093,132 @@ function FoodHistory({
         day={selectedDay}
         onClose={() => setSelectedDay(undefined)}
       />
+    </>
+  );
+}
+
+function FluidHistory({
+  hydration,
+  loading,
+  onDeleteHydration,
+  onHydrationChanged,
+}: {
+  hydration: HydrationHistoryEntry[];
+  loading: boolean;
+  onDeleteHydration: (entry: HydrationHistoryEntry) => void;
+  onHydrationChanged: () => Promise<void>;
+}) {
+  if (!loading && !hydration.length)
+    return (
+      <Empty
+        title="No fluids saved yet"
+        copy="Your drinks and daily fluid totals will appear here."
+      />
+    );
+  const days = new Map<string, HydrationHistoryEntry[]>();
+  for (const entry of hydration) {
+    const key = localHistoryDateKey(entry.occurredAt);
+    days.set(key, [...(days.get(key) ?? []), entry]);
+  }
+  return (
+    <>
+      {[...days.entries()]
+        .sort(([left], [right]) => right.localeCompare(left))
+        .map(([key, fluids]) => {
+          const countedMl = fluids.reduce(
+            (sum, entry) => sum + (entry.countedMl ?? 0),
+            0,
+          );
+          const pendingMl = fluids.reduce(
+            (sum, entry) =>
+              sum + (entry.countedMl === null ? entry.volumeMl : 0),
+            0,
+          );
+          const alcoholMl = fluids.reduce(
+            (sum, entry) =>
+              sum +
+              (entry.countingPolicy === "beverage_volume_v1" &&
+              entry.alcoholStatus === "alcoholic"
+                ? entry.volumeMl
+                : 0),
+            0,
+          );
+          return (
+            <View key={key} style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.date}>
+                  {new Intl.DateTimeFormat(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  }).format(new Date(fluids[0].occurredAt))}
+                </Text>
+                <View style={styles.dayTotals}>
+                  <Text style={[styles.setTotal, styles.waterTotal]}>
+                    {mlToFluidOunces(countedMl)} fl oz fluids
+                  </Text>
+                  {pendingMl > 0 ? (
+                    <Text style={styles.setTotal}>
+                      {mlToFluidOunces(pendingMl)} fl oz pending
+                    </Text>
+                  ) : null}
+                  {alcoholMl > 0 ? (
+                    <Text style={styles.setTotal}>
+                      {mlToFluidOunces(alcoholMl)} fl oz alcohol separately
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+              {fluids.length ? (
+                <View style={styles.mealGroup}>
+                  <Text accessibilityRole="header" style={styles.mealTitle}>
+                    Fluids
+                  </Text>
+                  {fluids.map((entry) => (
+                    <View key={entry.id} style={styles.foodRow}>
+                      <View style={styles.foodHistoryHeader}>
+                        <View style={styles.foodDetails}>
+                          <Text style={styles.exerciseName}>
+                            {entry.fluidName}
+                          </Text>
+                        </View>
+                        <Text style={styles.foodTime}>
+                          {new Intl.DateTimeFormat(undefined, {
+                            hour: "numeric",
+                            minute: "2-digit",
+                          }).format(new Date(entry.occurredAt))}
+                        </Text>
+                      </View>
+                      <Text style={styles.detail}>
+                        {mlToFluidOunces(entry.volumeMl)} fl oz
+                      </Text>
+                      {entry.countedMl === null ||
+                      entry.alcoholStatus === "alcoholic" ? (
+                        <Text style={styles.detail}>
+                          {entry.countedMl === null
+                            ? "Needs classification"
+                            : "Alcohol logged separately"}
+                        </Text>
+                      ) : null}
+                      <ClassifyDrink
+                        entry={entry}
+                        onChanged={onHydrationChanged}
+                      />
+                      <View style={[styles.cardActions, { marginTop: 0 }]}>
+                        <IconButton
+                          name="delete"
+                          label={`Delete ${entry.fluidName} entry`}
+                          onPress={() => onDeleteHydration(entry)}
+                          destructive
+                        />
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </View>
+          );
+        })}
     </>
   );
 }
@@ -1126,7 +1245,7 @@ function DailyTotalsModal({
   onClose: () => void;
 }) {
   const totals: DailyNutritionTotals | undefined = day
-    ? dailyNutritionTotals(day.entries, day.waterMl)
+    ? dailyNutritionTotals(day.entries, 0)
     : undefined;
   const incomplete = totals
     ? [
@@ -1146,7 +1265,9 @@ function DailyTotalsModal({
     >
       <View style={styles.modalBackdrop}>
         <View accessibilityViewIsModal style={styles.modalCard}>
-          <Text style={styles.modalTitle}>Daily totals</Text>
+          <Text accessibilityRole="header" style={styles.modalTitle}>
+            Daily totals
+          </Text>
           <Text style={styles.modalCopy}>
             {day
               ? new Intl.DateTimeFormat(undefined, {
@@ -1165,10 +1286,6 @@ function DailyTotalsModal({
               <DailyTotalRow
                 label="Protein"
                 value={`${roundedTotal(totals.proteinGrams)} g`}
-              />
-              <DailyTotalRow
-                label="Water / fluids"
-                value={`${mlToFluidOunces(totals.waterMl)} fl oz`}
               />
               <DailyTotalRow
                 label="Carbohydrates"
@@ -1277,7 +1394,7 @@ const styles = StyleSheet.create({
     letterSpacing: -1,
   },
   card: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     borderColor: colors.separator,
     borderRadius: 22,
     borderCurve: "continuous",
@@ -1387,14 +1504,29 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     marginTop: 5,
   },
-  notes: {
+  notesSection: {
     borderTopColor: colors.fill,
     borderTopWidth: 1,
+    marginTop: 12,
+  },
+  notesToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    minHeight: 44,
+  },
+  notesLabel: {
+    flex: 1,
     color: colors.secondary,
     fontSize: 13,
-    fontStyle: "italic",
-    marginTop: 12,
-    paddingTop: 10,
+    fontWeight: "600",
+  },
+  notesAction: { color: colors.blue, fontSize: 13 },
+  notes: {
+    color: colors.secondary,
+    fontSize: 13,
+    lineHeight: 20,
+    paddingBottom: 8,
   },
   location: {
     color: colors.blue,
@@ -1423,7 +1555,7 @@ const styles = StyleSheet.create({
   compactDeleteButton: { marginTop: 0 },
   deleteText: { color: "#B42318", fontSize: 13, fontWeight: "600" },
   readingCard: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     borderColor: colors.separator,
     borderRadius: 14,
     borderWidth: 1,
@@ -1473,7 +1605,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: 40,
   },
-  progressPhotoButtonFilled: { backgroundColor: "#C6F2E8" },
+  progressPhotoButtonFilled: { backgroundColor: colors.greenSoft },
   progressPhotoButtonPressed: { opacity: 0.55 },
   progressPhotoFallback: { color: colors.blue, fontWeight: "600" },
   progressPhotoMarker: {
@@ -1488,7 +1620,7 @@ const styles = StyleSheet.create({
     width: 10,
   },
   empty: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     borderColor: colors.separator,
     borderRadius: 14,
     borderWidth: 1,
@@ -1505,7 +1637,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   modalCard: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     borderRadius: 18,
     maxWidth: 420,
     padding: 20,

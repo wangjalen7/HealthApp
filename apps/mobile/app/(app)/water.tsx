@@ -9,17 +9,28 @@ import { StyleSheet, Text, TextInput, View } from "react-native";
 
 import { useAuth } from "../../src/features/auth/auth-provider";
 import {
+  hydrationInputSchema,
   hydrationUnitLabel,
   mlToFluidOunces,
   type HydrationUnit,
 } from "../../src/features/hydration/model";
 import {
-  getTodayHydrationMl,
+  getTodayHydrationTotals,
+  getHydrationHistory,
+  type HydrationHistoryEntry,
   saveHydration,
 } from "../../src/features/hydration/repository";
 
 import { getDailyGoals } from "../../src/features/goals/repository";
 import { WaterGlass } from "../../src/features/hydration/water-glass";
+
+import { DrinkSelector } from "../../src/features/hydration/drink-selector";
+import { ClassifyDrink } from "../../src/features/hydration/classify-drink";
+import {
+  getDrinkCategory,
+  type DrinkCategoryId,
+  type AlcoholStatus,
+} from "../../src/features/hydration/categories";
 
 const units: HydrationUnit[] = ["fl_oz", "ml", "cup"];
 const quickOunces = [8, 12, 16, 20, 24, 40];
@@ -27,6 +38,12 @@ const quickOunces = [8, 12, 16, 20, 24, 40];
 export default function WaterScreen() {
   const { session } = useAuth();
   const [fluidName, setFluidName] = useState("Water");
+  const [categoryId, setCategoryId] = useState<DrinkCategoryId>("water");
+  const [alcoholStatus, setAlcoholStatus] =
+    useState<AlcoholStatus>("nonalcoholic");
+  const [recent, setRecent] = useState<HydrationHistoryEntry[]>([]);
+  const [alcoholMl, setAlcoholMl] = useState(0);
+  const [pendingMl, setPendingMl] = useState(0);
   const [amount, setAmount] = useState("");
   const [unit, setUnit] = useState<HydrationUnit>("fl_oz");
   const [todayMl, setTodayMl] = useState(0);
@@ -37,11 +54,15 @@ export default function WaterScreen() {
   const load = useCallback(async () => {
     if (!session) return;
     try {
-      const [total, goals] = await Promise.all([
-        getTodayHydrationMl(session.user.id),
+      const [total, goals, history] = await Promise.all([
+        getTodayHydrationTotals(session.user.id),
         getDailyGoals(session.user.id),
+        getHydrationHistory(session.user.id),
       ]);
-      setTodayMl(total);
+      setTodayMl(total.countedMl);
+      setAlcoholMl(total.alcoholMl);
+      setPendingMl(total.pendingMl);
+      setRecent(history);
       setGoalMl(goals.waterGoalMl);
     } catch (error) {
       setFeedback(
@@ -54,17 +75,25 @@ export default function WaterScreen() {
   async function save() {
     if (!session) return setFeedback("Please sign in before saving.");
     const parsed = Number(amount.replace(",", "."));
-    if (!fluidName.trim() || !Number.isFinite(parsed) || parsed <= 0) {
-      return setFeedback("Enter a fluid name and an amount greater than zero.");
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return setFeedback("Enter an amount greater than zero.");
     }
     setSaving(true);
     setFeedback("");
     try {
-      await saveHydration(session.user.id, {
-        fluidName: fluidName.trim(),
+      const input = {
+        fluidName: fluidName.trim() || getDrinkCategory(categoryId)!.label,
         amount: parsed,
         unit,
-      });
+        categoryId,
+        alcoholStatus,
+      };
+      const validation = hydrationInputSchema.safeParse(input);
+      if (!validation.success) {
+        setFeedback(validation.error.issues[0].message);
+        return;
+      }
+      await saveHydration(session.user.id, input);
       setAmount("");
       setFeedback("Fluid saved.");
       await load();
@@ -83,7 +112,9 @@ export default function WaterScreen() {
       contentContainerStyle={styles.page}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.title}>Water</Text>
+      <Text accessibilityRole="header" style={styles.title}>
+        Daily fluids
+      </Text>
       <View style={styles.todayCard}>
         <WaterGlass value={todayMl} goal={goalMl} />
         <View style={{ flex: 1 }}>
@@ -91,12 +122,21 @@ export default function WaterScreen() {
           <Text style={styles.todayValue}>
             {mlToFluidOunces(todayMl)} fl oz
           </Text>
-          <Text style={styles.todayDetail}>{Math.round(todayMl)} mL</Text>
           <Text style={styles.todayDetail}>
             {goalMl
               ? `of ${mlToFluidOunces(goalMl)} fl oz goal`
-              : "Set a daily water goal in Profile"}
+              : "Set a daily fluid goal in Profile"}
           </Text>
+          {alcoholMl > 0 ? (
+            <Text style={styles.todayDetail}>
+              {mlToFluidOunces(alcoholMl)} fl oz alcohol logged separately
+            </Text>
+          ) : null}
+          {pendingMl > 0 ? (
+            <Text style={styles.todayDetail}>
+              {mlToFluidOunces(pendingMl)} fl oz needs classification
+            </Text>
+          ) : null}
           {goalMl && todayMl >= goalMl ? (
             <Text style={styles.goalReached}>Daily goal reached</Text>
           ) : null}
@@ -107,14 +147,18 @@ export default function WaterScreen() {
         {quickOunces.map((ounces) => (
           <Pressable
             key={ounces}
+            accessibilityLabel={`${ounces} fluid ounces`}
+            accessibilityRole="radio"
             accessibilityState={{
-              selected:
+              checked:
                 fluidName === "Water" &&
                 unit === "fl_oz" &&
                 Number(amount) === ounces,
             }}
             onPress={() => {
               setFluidName("Water");
+              setCategoryId("water");
+              setAlcoholStatus("nonalcoholic");
               setAmount(String(ounces));
               setUnit("fl_oz");
             }}
@@ -151,7 +195,59 @@ export default function WaterScreen() {
           </Pressable>
         ))}
       </View>
-      <Text style={styles.label}>Fluid</Text>
+      {recent.some((entry) => entry.categoryId !== "legacy") ? (
+        <>
+          <Text style={styles.label}>Recent drinks</Text>
+          <View style={styles.chips}>
+            {recent
+              .filter(
+                (entry, index, all) =>
+                  entry.categoryId !== "legacy" &&
+                  all.findIndex(
+                    (other) =>
+                      other.fluidName === entry.fluidName &&
+                      other.categoryId === entry.categoryId &&
+                      other.alcoholStatus === entry.alcoholStatus,
+                  ) === index,
+              )
+              .slice(0, 6)
+              .map((entry) => (
+                <Pressable
+                  key={entry.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Use recent drink ${entry.fluidName}`}
+                  onPress={() => {
+                    const category = getDrinkCategory(entry.categoryId);
+                    if (!category) return;
+                    setFluidName(entry.fluidName);
+                    setCategoryId(category.id);
+                    setAlcoholStatus(
+                      (entry.alcoholStatus as AlcoholStatus) ?? "unknown",
+                    );
+                    setUnit("ml");
+                    setAmount(String(entry.volumeMl));
+                  }}
+                  style={styles.unitChip}
+                >
+                  <Text style={styles.unitText}>{entry.fluidName}</Text>
+                </Pressable>
+              ))}
+          </View>
+        </>
+      ) : null}
+      <DrinkSelector
+        categoryId={categoryId}
+        alcoholStatus={alcoholStatus}
+        disabled={saving}
+        onChange={(id, status) => {
+          if (id !== categoryId)
+            setFluidName(getDrinkCategory(id)?.label ?? "");
+          setCategoryId(id);
+          setAlcoholStatus(status);
+          setFeedback("");
+        }}
+      />
+      <Text style={styles.label}>Drink name (optional)</Text>
       <TextInput
         accessibilityLabel="Fluid name"
         maxLength={80}
@@ -174,7 +270,9 @@ export default function WaterScreen() {
       <View style={styles.chips}>
         {units.map((value) => (
           <Pressable
-            accessibilityState={{ selected: unit === value }}
+            accessibilityLabel={hydrationUnitLabel[value]}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: unit === value }}
             key={value}
             onPress={() => setUnit(value)}
             style={[styles.unitChip, unit === value && styles.unitChipActive]}
@@ -189,6 +287,7 @@ export default function WaterScreen() {
       </View>
       {feedback ? (
         <Text
+          accessibilityLiveRegion="polite"
           style={feedback === "Fluid saved." ? styles.success : styles.error}
         >
           {feedback}
@@ -203,6 +302,21 @@ export default function WaterScreen() {
           {saving ? "Saving..." : "Save fluid"}
         </Text>
       </Pressable>
+      {recent.filter((entry) => entry.countedMl === null).length ? (
+        <View style={{ marginTop: 24 }}>
+          <Text style={styles.label}>Needs classification</Text>
+          {recent
+            .filter((entry) => entry.countedMl === null)
+            .map((entry) => (
+              <View key={entry.id}>
+                <Text style={styles.unitText}>
+                  {entry.fluidName} · {mlToFluidOunces(entry.volumeMl)} fl oz
+                </Text>
+                <ClassifyDrink entry={entry} onChanged={load} />
+              </View>
+            ))}
+        </View>
+      ) : null}
     </ScreenScrollView>
   );
 }

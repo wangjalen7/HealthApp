@@ -1,3 +1,4 @@
+import { AiActionCard } from "../../ui/ai-action-card";
 import { ConfirmationActions } from "../../ui/confirmation-actions";
 import { IconButton } from "../../ui/icon-button";
 import { trackingStyles } from "../../ui/tracking-styles";
@@ -223,16 +224,26 @@ export function FoodEditor({
   userId,
   visible,
   initial,
+  initialIsNew = false,
+  excludeRecipes = false,
   labelManagementOnly = false,
+  onAiEstimate,
   onClose,
+  onDismiss,
   onSave,
+  saveButtonLabel,
 }: {
   userId: string;
   visible: boolean;
   initial?: MealDraftEntry;
+  initialIsNew?: boolean;
+  excludeRecipes?: boolean;
   labelManagementOnly?: boolean;
+  onAiEstimate: () => void;
   onClose: () => void;
+  onDismiss?: () => void;
   onSave: (entry: MealDraftEntry) => void;
+  saveButtonLabel?: string;
 }) {
   const [mode, setMode] = useState<EditorMode>("methods");
   const [feedback, setFeedback] = useState("");
@@ -246,6 +257,7 @@ export function FoodEditor({
   const [labelProfileId, setLabelProfileId] = useState<string>();
   const [labelAlreadyCorrected, setLabelAlreadyCorrected] = useState(false);
   const [basis, setBasis] = useState<FoodBasis>();
+  const [recipeId, setRecipeId] = useState<string>();
   const [entryMethod, setEntryMethod] =
     useState<MealDraftEntry["entryMethod"]>("label");
   const [amount, setAmount] = useState("1");
@@ -281,6 +293,7 @@ export function FoodEditor({
       setManagingLabels(labelManagementOnly);
       setLabel(blankLabel());
       setBasis(undefined);
+      setRecipeId(undefined);
       setCatalogProductId(undefined);
       setBarcode(undefined);
       setProviderSignature(undefined);
@@ -306,6 +319,7 @@ export function FoodEditor({
       nutrientsPerServing: initial.nutrientsPerServing,
     };
     setBasis(nextBasis);
+    setRecipeId(initial.recipeId);
     setAmount(String(initial.amount));
     setUnit(initial.unit);
     setEntryMethod(initial.entryMethod);
@@ -319,7 +333,12 @@ export function FoodEditor({
     const timeout = setTimeout(() => {
       void getFoodSuggestions(userId, query)
         .then((items) => {
-          if (request === searchRequest.current) setSuggestions(items);
+          if (request === searchRequest.current)
+            setSuggestions(
+              excludeRecipes
+                ? items.filter((item) => item.kind !== "recipe")
+                : items,
+            );
         })
         .catch((error) => {
           if (request === searchRequest.current) {
@@ -336,11 +355,12 @@ export function FoodEditor({
         });
     }, 220);
     return () => clearTimeout(timeout);
-  }, [mode, query, userId, visible]);
+  }, [excludeRecipes, mode, query, userId, visible]);
 
   const calculated = useMemo(() => {
     if (!basis) return undefined;
-    const parsedAmount = Number(amount.replace(",", "."));
+    const parsedAmount = parseFoodMeasurementAmount(amount);
+    if (!parsedAmount) return undefined;
     try {
       return calculateFoodAmount(basis, parsedAmount, unit);
     } catch {
@@ -350,6 +370,7 @@ export function FoodEditor({
 
   function openLabel() {
     setLabel(blankLabel());
+    setRecipeId(undefined);
     setEditingProfileId(undefined);
     setLabelProfileId(undefined);
     setLabelAlreadyCorrected(false);
@@ -365,6 +386,7 @@ export function FoodEditor({
     const name = query.trim();
     if (!name) return;
     setLabel({ ...blankLabel(), name });
+    setRecipeId(undefined);
     setEditingProfileId(undefined);
     setLabelProfileId(undefined);
     setLabelAlreadyCorrected(false);
@@ -487,6 +509,7 @@ export function FoodEditor({
     const householdAmount = nextBasis.householdQuantityPerServing;
     const householdUnit = nextBasis.householdUnit;
     setBasis(nextBasis);
+    setRecipeId(undefined);
     setAmount(String(householdAmount ?? 1));
     setUnit(householdAmount && householdUnit ? "household" : "serving");
     setEntryMethod(labelSource === "open_food_facts" ? "barcode" : "label");
@@ -572,22 +595,32 @@ export function FoodEditor({
     try {
       const shouldUpdateProfile =
         basis.profileId && ["label", "barcode"].includes(entryMethod);
+      const shouldSkipProfile =
+        Boolean(recipeId) || initial?.saveToMyFoods === false;
       const finalBasis = shouldUpdateProfile
         ? await updateFoodProfile(userId, basis)
         : basis.profileId
           ? basis
-          : await saveFoodProfile(userId, basis);
-      const parsedAmount = Number(amount.replace(",", "."));
+          : shouldSkipProfile
+            ? basis
+            : await saveFoodProfile(userId, basis);
+      const parsedAmount = parseFoodMeasurementAmount(amount);
+      if (!parsedAmount) {
+        setFeedback("Enter a valid amount using a decimal or fraction.");
+        return;
+      }
       const result = calculateFoodAmount(finalBasis, parsedAmount, unit);
       onSave(
         mealDraftEntrySchema.parse({
           ...finalBasis,
           id: initial?.id ?? createId(),
+          recipeId,
           amount: parsedAmount,
           unit,
           ...result,
           note: note.trim() || undefined,
           entryMethod,
+          saveToMyFoods: recipeId ? false : initial?.saveToMyFoods,
         }),
       );
       onClose();
@@ -603,9 +636,16 @@ export function FoodEditor({
   function chooseSuggestion(item: FoodSuggestion) {
     const units = availableFoodUnits(item.basis);
     setBasis(item.basis);
+    setRecipeId(item.recipeId);
     setAmount(String(item.defaultAmount));
     setUnit(units.includes(item.defaultUnit) ? item.defaultUnit : "serving");
-    setEntryMethod(item.kind === "recent" ? "history" : "profile");
+    setEntryMethod(
+      item.kind === "recipe"
+        ? "recipe"
+        : item.kind === "recent"
+          ? "history"
+          : "profile",
+    );
     setNote(
       item.basis.source === "ai"
         ? `AI-estimated label. ${item.basis.description ?? ""}`.trim()
@@ -780,6 +820,7 @@ export function FoodEditor({
   return (
     <Modal
       animationType="slide"
+      onDismiss={onDismiss}
       onRequestClose={() =>
         pendingProfileDeletion ? cancelProfileDeletion() : back()
       }
@@ -797,10 +838,14 @@ export function FoodEditor({
               {initial || mode === "methods" ? "Close" : "Back"}
             </Text>
           </Pressable>
-          <Text style={styles.headerTitle}>
+          <Text accessibilityRole="header" style={styles.headerTitle}>
             {editingProfileId
               ? "Edit food label"
-              : modeTitle(mode, Boolean(initial), managingLabels)}
+              : modeTitle(
+                  mode,
+                  Boolean(initial) && !initialIsNew,
+                  managingLabels,
+                )}
           </Text>
           <View style={styles.headerSpacer} />
         </View>
@@ -823,6 +868,10 @@ export function FoodEditor({
           >
             {mode === "methods" ? (
               <MethodPicker
+                onAiEstimate={() => {
+                  onClose();
+                  onAiEstimate();
+                }}
                 onLabel={openLabel}
                 onSearch={() => {
                   setFeedback("");
@@ -866,6 +915,7 @@ export function FoodEditor({
                 choose={chooseSuggestion}
                 createLabel={createLabelFromQuery}
                 edit={editSuggestion}
+                includeRecipes={!excludeRecipes}
                 managingLabels={managingLabels}
                 requestDelete={requestProfileDeletion}
               />
@@ -880,8 +930,10 @@ export function FoodEditor({
                 note={note}
                 setNote={setNote}
                 calculated={calculated}
-                editing={Boolean(initial)}
+                editing={Boolean(initial) && !initialIsNew}
+                recipe={Boolean(recipeId)}
                 saving={saving}
+                saveButtonLabel={saveButtonLabel}
                 onSave={() => void finishAmount()}
               />
             ) : null}
@@ -930,10 +982,12 @@ function modeTitle(
 }
 
 function MethodPicker({
+  onAiEstimate,
   onLabel,
   onSearch,
   onScan,
 }: {
+  onAiEstimate: () => void;
   onLabel: () => void;
   onSearch: () => void;
   onScan: () => void;
@@ -945,6 +999,12 @@ function MethodPicker({
   ] as const;
   return (
     <>
+      <AiActionCard
+        title="Estimate meal from photo or text"
+        subtitle="AI creates editable foods and portions"
+        accessibilityLabel="Estimate meal with AI from a photo or description"
+        onPress={onAiEstimate}
+      />
       {methods.map(([title, action]) => (
         <Pressable
           accessibilityRole="button"
@@ -1351,6 +1411,7 @@ function FoodSearch({
   choose,
   createLabel,
   edit,
+  includeRecipes,
   managingLabels,
   requestDelete,
 }: {
@@ -1361,10 +1422,12 @@ function FoodSearch({
   choose: (item: FoodSuggestion) => void;
   createLabel: () => void;
   edit: (item: FoodSuggestion) => void;
+  includeRecipes: boolean;
   managingLabels: boolean;
   requestDelete: (item: FoodSuggestion) => void;
 }) {
   const recent = suggestions.filter((item) => item.kind === "recent");
+  const recipes = suggestions.filter((item) => item.kind === "recipe");
   const profiles = suggestions.filter((item) => item.kind === "profile");
   const managedProfiles = Array.from(
     new Map(
@@ -1393,7 +1456,7 @@ function FoodSearch({
       <Text style={styles.help}>
         {managingLabels
           ? "Edit or delete reusable labels saved in My Foods. Past food history will not change."
-          : "Select a match from your Recent or My Foods records. If the food does not exist, create a reusable label with its name already filled in."}
+          : `Select a match from ${includeRecipes ? "Recipes, Recent, or My Foods" : "Recent or My Foods"}. If the food does not exist, create a reusable label with its name already filled in.`}
       </Text>
       {searching ? <Text style={styles.searchState}>Searching...</Text> : null}
       {managingLabels ? (
@@ -1407,6 +1470,15 @@ function FoodSearch({
         />
       ) : (
         <>
+          {includeRecipes ? (
+            <SuggestionSection
+              label="Recipes"
+              items={recipes}
+              choose={choose}
+              edit={edit}
+              requestDelete={requestDelete}
+            />
+          ) : null}
           <SuggestionSection
             label="Recent"
             items={recent}
@@ -1555,7 +1627,9 @@ function AmountEditor({
   setNote,
   calculated,
   editing,
+  recipe,
   saving,
+  saveButtonLabel,
   onSave,
 }: {
   basis: FoodBasis;
@@ -1567,7 +1641,9 @@ function AmountEditor({
   setNote: (value: string) => void;
   calculated: ReturnType<typeof calculateFoodAmount> | undefined;
   editing: boolean;
+  recipe: boolean;
   saving: boolean;
+  saveButtonLabel?: string;
   onSave: () => void;
 }) {
   return (
@@ -1582,17 +1658,30 @@ function AmountEditor({
             Serving: {basis.servingLabel}
           </Text>
         ) : null}
+        {basis.servingsPerContainer ? (
+          <Text style={styles.packageServings}>
+            {recipe ? "Recipe" : "Package"}:{" "}
+            {formatFoodMeasurementAmount(basis.servingsPerContainer)}{" "}
+            {basis.servingsPerContainer === 1 ? "serving" : "servings"} total
+          </Text>
+        ) : null}
       </View>
       <Text style={styles.sectionLabel}>How much did you have?</Text>
       <TextInput
         accessibilityLabel="Food amount"
-        keyboardType="decimal-pad"
+        keyboardType={recipe ? "numbers-and-punctuation" : "decimal-pad"}
         onChangeText={setAmount}
-        placeholder="1"
+        placeholder={recipe ? "1 or 1/4" : "1"}
         placeholderTextColor="#9FB3C8"
         style={[styles.input, styles.amountInput]}
         value={amount}
       />
+      {recipe ? (
+        <Text style={styles.amountHelp}>
+          Choose servings, or choose recipe and enter a fraction such as 1/4 of
+          the whole batch.
+        </Text>
+      ) : null}
       <UnitSelector
         values={availableFoodUnits(basis)}
         selected={unit}
@@ -1629,7 +1718,13 @@ function AmountEditor({
       />
       <PrimaryButton
         disabled={saving}
-        label={saving ? "Saving..." : editing ? "Save amount" : "Add to meal"}
+        label={
+          saving
+            ? "Saving..."
+            : editing
+              ? "Save amount"
+              : (saveButtonLabel ?? "Add to meal")
+        }
         onPress={onSave}
       />
     </>
@@ -1785,6 +1880,8 @@ function UnitSelector({
     <View style={styles.unitRow}>
       {values.map((value) => (
         <Pressable
+          accessibilityRole="radio"
+          accessibilityState={{ checked: selected === value }}
           key={value}
           onPress={() => onSelect(value)}
           style={[styles.unitChip, selected === value && styles.unitChipActive]}
@@ -1844,7 +1941,7 @@ const styles = StyleSheet.create({
   content: { padding: 20, paddingBottom: 42 },
   methodCard: {
     alignItems: "center",
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     borderColor: colors.separator,
     borderRadius: 22,
     borderCurve: "continuous",
@@ -1897,6 +1994,18 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   sectionLabel: { ...trackingStyles.section, marginTop: 8 },
+  packageServings: {
+    alignSelf: "flex-start",
+    backgroundColor: colors.blueSoft,
+    borderRadius: 9,
+    color: colors.blue,
+    fontSize: 13,
+    fontWeight: "600",
+    marginTop: 8,
+    overflow: "hidden",
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
   help: {
     color: colors.tertiary,
     fontSize: 12,
@@ -1941,7 +2050,7 @@ const styles = StyleSheet.create({
   searchState: { color: colors.secondary, marginVertical: 10 },
   suggestionSection: { marginTop: 10 },
   suggestionCard: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     borderColor: colors.separator,
     borderRadius: 13,
     borderWidth: 1,
@@ -1992,7 +2101,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   profileDeleteDialog: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     borderRadius: 18,
     maxWidth: 420,
     padding: 20,
@@ -2027,7 +2136,7 @@ const styles = StyleSheet.create({
   profileDeleteDisabled: { opacity: 0.6 },
   profileDeleteConfirmText: { color: "#fff", fontWeight: "600" },
   empty: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     borderColor: colors.separator,
     borderRadius: 14,
     borderWidth: 1,
@@ -2043,6 +2152,13 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 5,
     maxWidth: 180,
+  },
+  amountHelp: {
+    color: colors.secondary,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 4,
+    marginTop: -5,
   },
   totalCard: { ...trackingStyles.card, marginBottom: 17 },
   totalEyebrow: {
@@ -2102,7 +2218,7 @@ const styles = StyleSheet.create({
   },
   torchText: { color: colors.text, fontWeight: "600" },
   permissionCard: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     borderColor: colors.separator,
     borderRadius: 15,
     borderWidth: 1,
@@ -2125,7 +2241,7 @@ const styles = StyleSheet.create({
     padding: 18,
   },
   scanFeedback: {
-    backgroundColor: "#FFF4E5",
+    backgroundColor: colors.orangeSoft,
     color: "#8A4B08",
     padding: 12,
     textAlign: "center",

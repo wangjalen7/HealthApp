@@ -25,9 +25,22 @@ export function workoutDraftFromCoach(
           exercise.targetReps[index] ?? exercise.targetReps.at(-1) ?? 8,
       ),
       weight: exercise.suggestedWeightLb ?? undefined,
+      plan: {
+        rir: exercise.targetRir ?? undefined,
+        restSeconds: exercise.restSeconds ?? undefined,
+        technique: exercise.technique ?? undefined,
+      },
     })),
     location: "",
-    notes: `Coach plan: ${action.rationale}`,
+    notes: [
+      `Coach plan: ${action.rationale}`,
+      ...action.exercises.map(
+        (exercise) =>
+          `${exercise.name}: ${exercise.targetRir ?? "?"} RIR, ${exercise.restSeconds ?? "?"}s rest. ${exercise.technique ?? ""}`,
+      ),
+    ]
+      .join("\n")
+      .slice(0, 1000),
   };
 }
 
@@ -60,6 +73,9 @@ export function mergeWorkoutDrafts(
     ],
     entries: [...existing.entries, ...proposed.entries],
     location: existing.location,
-    notes: [existing.notes, proposed.notes].filter(Boolean).join("\n\n"),
+    notes: [existing.notes, proposed.notes]
+      .filter(Boolean)
+      .join("\n\n")
+      .slice(0, 1000),
   };
 }

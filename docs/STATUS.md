@@ -1,9 +1,96 @@
 # Current status
 
 **Active release:** Release 3 — nutrition and tracking expansion
-**Active item:** Validate the revised interface and existing native integrations on the registered iPhone.
-**Verification state:** Login/lock-screen refinements and Summary refresh feedback are implemented. Lint, strict TypeScript, 114 app tests and 43 Edge tests pass; focused browser validation is recorded below. Native Face ID message alignment and pull-to-refresh placement remain physical-iPhone checks.
-**Last updated:** 2026-09-16
+**Active item:** Validate the revised tracking interface and native flows on the registered iPhone.
+**Verification state:** Compact history and shared AI action styling pass TypeScript, targeted ESLint and 16 existing browser flows. Prior planner/backend checks remain documented below; coach-chat version 15 remains active. Physical-iPhone and live authenticated model validation remain open.
+**Last updated:** 2026-09-18
+
+## Compact history and consistent AI actions - 2026-09-18
+
+- Workout and cardio History notes start with a two-line preview and trailing ellipsis. Show more expands the full note; Show less restores the preview independently for each entry.
+- Removed the extra 14px action margin between Change drink category and the fluid-entry delete button while preserving touch-target sizes. Targeted ESLint and diff checks pass for this spacing follow-up.
+- Fluid History rows show consumed volume once (for example, 24 fl oz), without the duplicate toward-goal quantity. Pending-classification/alcohol labels and existing daily goal-counting totals remain.
+- Extracted the meal estimator's purple sparkle/chevron card into a shared AI action component and used it for Plan workout with AI, with an editable-drafts subtitle.
+- Verification: TypeScript and targeted ESLint pass; all 16 existing review/drink/planner browser flows pass. Reviewed the compact workout button and fluid-history screenshots. The two-line preview follow-up passes targeted ESLint and TypeScript; the prior browser suite was not repeated for this text-layout-only change. No backend or database changes were needed; native-device validation remains open.
+
+## Multi-select workout preferences and validation - 2026-09-18
+
+- Goals and styles now support multiple choices. Consolidated overlapping goal/style labels; the shared UI/API catalog prevents enum drift. Legacy single selections and aliases migrate into deduplicated arrays without discarding the remembered preferences.
+- Added per-step validation with named inline errors for missing goals/styles, Other text, time, equipment and history consent. Validation returns to the relevant step and scrolls to it. Existing custom session times are shown as selected options.
+- Addressed the reported missing-number failure path by defaulting the removed weekly-frequency profile field, handling missing stored values before numeric coercion, and replacing raw profile/request validation errors with actionable messages. Regression coverage verifies a profile without that legacy field can submit generation; the user's exact native failure was not independently reproduced.
+- Verification: npm run check passes (139 app / 53 Edge tests); all five planner browser flows pass, including legacy preference migration, multiple selections, missed choices and generation with the old numeric profile field absent. Reviewed the multi-select screenshot. Prior iOS export is documented below; physical-iPhone and live model-quality checks remain open.
+- Deployed coach-chat version 15 using existing authorization; ACTIVE with JWT verification, OPTIONS 200 and unauthenticated POST 401. No migration or real health-record/model-call fixtures. Log: dist/workout-multiselect-check.log.
+
+## Direct workout and cardio drafts - 2026-09-18
+
+- Replaced the remaining planner chat with questionnaire-to-draft generation. Lifting/cardio plans open their editable tracker section; mixed plans populate both and provide a review shortcut. Existing affected drafts require explicit replacement. No completed workout/cardio records are written by generation.
+- Added session type, expanded goals and styles, cardio activity and validated Other fields. No equipment is exclusive. Removed training-days-per-week and the science-based weekly-set blurb. History consent now has a clear checked/unchecked treatment and explains draft creation.
+- Backend instructions generate one session without follow-up questions, use bounded training history and fit lifting plus cardio within the shared total time. Shared validation checks section completeness, conservative time feasibility, effort and technique; original safety handling remains.
+- Verification: npm run check passes (139 app / 50 Edge tests), all four focused browser flows pass, and production iOS/Hermes export succeeds. Tests cover retry, direct editable drafts, custom preference validation, mutually exclusive equipment and protection of existing mixed/cardio drafts. Reviewed 320px questionnaire and mixed-cardio screenshots. Logs: dist/workout-draft-planner-check.log and apps/mobile/dist/workout-draft-planner-ios.log.
+- Deployed coach-chat version 14 through the Supabase API using existing authorization; ACTIVE with JWT verification enabled, OPTIONS 200 and unauthenticated POST 401. No database migration or live model/real health-record tests were required. Native-device and live model-quality validation remain open.
+
+## Separate Fluids history - 2026-09-18
+
+- Added a dedicated Fluids History tab with date-grouped entries and daily counted-volume totals. Pending classifications and alcohol volumes remain separately labeled; category changes and confirmed deletion remain available.
+- Food history and its daily nutrition totals now contain only food. Fluid-only days no longer create Food history cards. Tab selection, URL selection and swiping include Fluids.
+- Verification: TypeScript and targeted ESLint pass. All 11 selected existing browser flows pass across the full run and focused rerun; corrected an assertion that matched the hidden Water screen. Verified Food/Fluids separation, classification, totals and deletion, and reviewed the 320px screenshot. No backend change was needed; native-device verification remains open.
+
+## Simpler goals, drinks and workout planning - 2026-09-17
+
+- Fixed pound/kilogram conversion noise at weight-goal persistence and loading; 150 saves and displays as 150, with fractional goals retained. Added exact browser regression coverage for the reported value.
+- Replaced fluid sweat/duration inputs with sex and usual-activity choices plus Custom. Activity allowances are clearly adjustable app estimates. Full drink categories open in a searchable popup; removed My Drinks controls while retaining recent drinks and stored records.
+- Bottom navigation is Soon (blank placeholder), Summary, Track, History, Profile. Workout opens a three-step AI planning questionnaire covering optional focus, goal/style, location/equipment, time, variety, experience, weekly schedule, readiness and limitations; Science based is selected initially.
+- Planner requests use training-only context and tools, dated 7/28-day primary-group volume and previous sessions/sets, RIR/rest/technique, conservative novice/readiness checks, and explicit review before applying a local draft. Exercise guidance stays visible in the draft. Five curated ACE photo/instruction guides use exact movement matches; other names show a clearly labeled external-library fallback. See [research and design](WORKOUT_PLANNER_EVIDENCE.md).
+- Verification: 139 app and 48 Edge tests, lint and TypeScript pass (dist/workout-planner-check.log). Full browser suite passed 29/30; the remaining compact-screen test referenced the removed AI Coach tab and passed after its label update. All 30 current flows pass across these runs. Reviewed the 320px questionnaire screenshot. iOS/Hermes export passes (apps/mobile/dist/ios-workout-planner/).
+- Deployed coach-chat version 13 through the Supabase API. Confirmed ACTIVE, JWT verification enabled, OPTIONS 200 and unauthenticated POST 401. No database migration or real health-record fixtures were required. Live model quality and native-device behavior remain unverified.
+
+## Calculator and manual drink-category implementation - 2026-09-17
+
+- Replaced DRI EER with Calculator.net's Mifflin-St Jeor method and all six verified activity factors. Added separate BMR display, whole-kcal results, persisted method/input metadata, disabled low-intake loss scenarios, and cleared stale results after invalid input. Existing exact unit conversions and explicit goal acceptance remain.
+- Fluid goals now offer Suggested and Custom modes. Custom needs no demographic inputs. Suggested uses beverage references with an optional editable exercise allowance, clearly labeled as a rough assumption, and optional measured sweat-rate calibration. No climate input or automatically changing saved goals.
+- Added 35 manual drink categories, optional names, private saved drinks, recent drinks, and explicit Other/fermented alcohol classification. No AI, attachments or provider calls in drink logging. Nonalcoholic beverage volume counts in full by app convention; alcohol remains separate and unknown contribution remains pending.
+- Added one shared counting module for the app and Coach; updated Summary, Water, History/daily totals and export. Users can explicitly reclassify an entry. The additive migration preserves prior totals through a legacy policy and protects saved drinks with ownership RLS.
+- Verification: 138 app/44 Edge tests and lint/TypeScript pass (`dist/fluid-calorie-check.log`). Full browser run passed 34/35; the remaining test needed updated heading/validation selectors and passed its focused rerun. All new goal/drink flows pass, including no AI requests, save retry, pending classification, cross-screen totals, custom-goal precision and low-calorie guards. Reviewed the 320px drink screen. Production iOS export passes (`apps/mobile/dist/ios-fluid-calorie/`). Native-device behavior remains unverified.
+- Deployment complete after explicit user approval: applied the sole pending migration `202609170002_drink_categories.sql`; linked `supabase/tests/drink_categories.sql` assertions and database lint pass. Deployed `coach-chat` version 12, confirmed ACTIVE with JWT verification enabled, OPTIONS 200 and unauthenticated POST 401. Final migration dry-run reports up to date. Authenticated live chat and physical-iPhone behavior remain unverified. See [ADR-007](decisions/ADR-007-beverage-volume-counting.md).
+
+## Calorie/fluid review and implementation proposal - 2026-09-17
+
+- Completed a review-only pass at the user's request; app code, saved goals and hosted services are unchanged. See [CALORIE_FLUID_REVIEW.md](CALORIE_FLUID_REVIEW.md) for findings, source links, the complete proposed drink catalog, logging design and implementation checks.
+- Confirmed the current DRI method differs materially from Calculator.net's Mifflin-St Jeor default and verified the site's exact six maintenance multipliers. Found that current loss scenarios can offer a 650 kcal/day goal despite passing the BMI checks; implementation should add a minimum-intake guard.
+- Recommended editable beverage references plus optional, explicitly approximate exercise adjustments and custom-goal bypass. Weight-based sweat-loss calibration is supported; a precise baseline sex/weight/activity drinking equation and universal coffee/soda/alcohol hydration percentages are not established by the reviewed evidence.
+- Proposed category-first logging, optional custom names and saved drinks, a nonalcoholic beverage-volume counting convention, separate alcohol tracking, unresolved-category handling, and optional reviewed AI label classification without invented hydration ratios. Existing history must retain its prior counting policy.
+- Verification: 10 existing goal/hydration unit tests pass; independent arithmetic reproduces the method discrepancy and low-calorie edge case. Application implementation remains planned, not completed. The registered-iPhone validation remains the sole in-progress roadmap item.
+
+## Evidence-based calorie and fluid goal helpers - 2026-09-17
+
+- Added Find my calories and Find my fluid goal actions to the existing Profile Goals card. Accepted recommendations update the same calorie, target-weight, and fluid fields used throughout Summary, Food, and Water; previews do not mutate saved goals.
+- Calorie maintenance uses the verified 2023 DRI adult 19+ equations without a second activity multiplier or automatic workout-calorie addition. Inputs cover age, switchable US/metric height and weight, the published equation category, official activity categories, and maintain/lose/gain intent. Activity choices now describe the full official daily examples, explicitly warn that one workout does not imply Active, and show all four estimates side by side for the entered profile. The latest weight and its date prefill when available but remain editable.
+- Weight loss offers selectable 0.5, 1, 1.5, and 2 lb/week planning scenarios. Goal weight and optional weeks add a timeframe-specific comparison up to 2 lb/week; faster timeframes are explained but not offered. Results are rounded to about 50 kcal, labeled as starting estimates, and block an app-generated loss target when current or goal BMI is below 18.5.
+- Fluid guidance uses approximate beverage contributions (3.0 L men / 2.2 L women), not the 3.7 L / 2.7 L total-water values that include food. Manual and clinician-directed beverage goals accept US fluid ounces or milliliters. Exact canonical milliliters are preserved when accepting a calorie target rather than round-tripping through the displayed fluid ounces.
+- Added an in-app method explanation with source links and `docs/GOAL_HELPER_EVIDENCE.md`. Eight numerical tests cover every adult DRI fixture, the reported 22-year-old/187-lb profile across all activity categories, exact bidirectional conversions, input exclusions, selectable/timeframe loss math, maintain/gain arithmetic, and beverage-versus-total-water separation. The browser flow verifies activity comparisons, calculation, loss-rate selection, no-drift unit switching, explicit acceptance, cross-goal preservation, and persistence.
+
+## Reusable meal and recipe tracking - 2026-09-17
+
+- Added Recipes directly to Food tracking. Recipe creation has its own ingredient draft: users open Recipes, add and edit exact food-label amounts there, then save one named recipe with a declared yield. Only the completed recipe is added to the meal draft; its component foods never clutter the meal.
+- Recipe-to-ingredient editing uses a sequenced native-sheet handoff on iOS, avoiding the unsupported stacked-modal presentation that could make Add ingredient appear unresponsive while preserving the in-progress recipe.
+- Saved recipes also appear in the standard Find or add food search under a dedicated Recipes section. Selecting one opens the normal recipe-aware amount screen, retains recipe provenance, and does not create a duplicate My Foods label; recipes remain excluded while choosing ingredients to prevent nesting.
+- Logging a recipe reuses the existing amount review. Users can log decimal or fractional servings, or select the recipe unit and enter a fraction of the whole batch such as `1/4`. A sandwich or similar complete item uses a yield of one.
+- Recipe nutrition totals required calories/protein and divides every known nutrient by yield. Optional nutrients remain unavailable when any ingredient lacks them rather than treating missing values as zero. Recipes cannot contain other recipes.
+- Applied linked migration `202609170001_food_recipes.sql`: recipes are user-owned with RLS, archived rather than destructively removed, referenced by immutable nutrition history snapshots, and included in portable data export. Linked database lint reports no schema errors.
+- Verification: lint, strict TypeScript, 125 app tests, 43 Edge tests, all 31 isolated browser flows, and the production iOS/Hermes export pass. The recipe browser regression covers a four-serving two-label pasta recipe, `1/4` whole-recipe logging, nutrition scaling, recipe provenance, and duplicate-label prevention. Synthetic phone screenshots were reviewed.
+
+## Adaptive appearance and nutrition refinements - 2026-09-17
+
+- Moved the existing purple AI meal estimator into Add Food. Each estimated food now has its own reusable-label choice, so one reviewed meal can mix saved My Foods labels and history-only snapshots.
+- Kept total servings optional. Open Food Facts does not expose a dependable direct servings-per-container value, so HealthApp displays it only in the amount selector when supplied manually or safely derived from compatible package and serving measurements.
+- Added a Profile-accessible Settings tab containing Device/Light/Dark appearance, Face ID, Apple Health, and data export. Device appearance is reapplied from the current iPhone scheme whenever the app returns to the foreground; the native automatic-appearance configuration requires a replacement installed build.
+- Aligned Water's Quick Log icon with its peers in dark mode, removed the Track button's surrounding ring, and removed the duplicate milliliter conversion beneath today's fluid-ounce total.
+- Updated AI estimation guidance to account for a reasonable amount of absorbed cooking oil or fat when the preparation normally implies it, while preserving explicit dry, steamed, boiled, and oil-free descriptions.
+- Added semantic headings, selection state, live feedback announcements, shared control roles, and an automated visible-control accessible-name audit across the primary app flows. Native VoiceOver and large Dynamic Type review remains required before claiming platform-level accessibility conformance.
+- Updated shared confirmation actions with quieter surface/danger treatments.
+- Weight and blood-pressure series now use bounded monotone curves through the actual measurements instead of jagged straight segments.
+- Weight and blood-pressure lines no longer reach across an off-screen reading gap longer than the selected D/W/M/6M/Y window. Nearby edge readings still preserve ordinary continuity while panning, and empty intervening windows stay empty.
+- Verification: repository checks pass with 121 app tests and 43 Edge tests; all 30 isolated browser flows and a production iOS/Hermes export pass. The updated `estimate-meal` function is deployed to the linked project. No database migration or user-data write was required. Physical-iPhone visual and assistive-technology review remains open.
 
 ## Regular exercise alignment restored - 2026-09-16
 

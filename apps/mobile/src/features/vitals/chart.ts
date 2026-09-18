@@ -6,6 +6,73 @@ export type ValueDomain = {
   ticks: [number, number, number];
 };
 
+type CurvePoint = { x: number; y: number };
+
+const coordinate = (value: number) => String(Math.round(value * 1000) / 1000);
+
+/**
+ * Build a monotone cubic path. The slope limiter keeps a smooth line from
+ * overshooting the observed values, which matters for health measurements.
+ */
+export function smoothCurvePath(points: CurvePoint[]): string {
+  if (!points.length) return "";
+  const start = `M ${coordinate(points[0].x)} ${coordinate(points[0].y)}`;
+  if (points.length === 1) return start;
+  if (points.length === 2) {
+    return `${start} L ${coordinate(points[1].x)} ${coordinate(points[1].y)}`;
+  }
+
+  const slopes = points.slice(0, -1).map((point, index) => {
+    const next = points[index + 1];
+    const width = next.x - point.x;
+    return width > 0 ? (next.y - point.y) / width : 0;
+  });
+  const tangents = points.map((_, index) => {
+    if (index === 0) return slopes[0];
+    if (index === points.length - 1) return slopes.at(-1) ?? 0;
+    const before = slopes[index - 1];
+    const after = slopes[index];
+    return before === 0 || after === 0 || Math.sign(before) !== Math.sign(after)
+      ? 0
+      : (before + after) / 2;
+  });
+
+  for (let index = 0; index < slopes.length; index += 1) {
+    const slope = slopes[index];
+    if (slope === 0) {
+      tangents[index] = 0;
+      tangents[index + 1] = 0;
+      continue;
+    }
+    const left = tangents[index] / slope;
+    const right = tangents[index + 1] / slope;
+    const magnitude = Math.hypot(left, right);
+    if (magnitude > 3) {
+      const scale = 3 / magnitude;
+      tangents[index] = scale * left * slope;
+      tangents[index + 1] = scale * right * slope;
+    }
+  }
+
+  const commands = [start];
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const current = points[index];
+    const next = points[index + 1];
+    const width = next.x - current.x;
+    if (width <= 0) {
+      commands.push(`L ${coordinate(next.x)} ${coordinate(next.y)}`);
+      continue;
+    }
+    const third = width / 3;
+    commands.push(
+      `C ${coordinate(current.x + third)} ${coordinate(current.y + tangents[index] * third)} ` +
+        `${coordinate(next.x - third)} ${coordinate(next.y - tangents[index + 1] * third)} ` +
+        `${coordinate(next.x)} ${coordinate(next.y)}`,
+    );
+  }
+  return commands.join(" ");
+}
+
 function estimatedTextWidth(text: string, fontSize: number): number {
   return [...text].reduce((width, character) => {
     if (character === " ") return width + fontSize * 0.3;

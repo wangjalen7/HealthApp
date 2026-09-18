@@ -20,6 +20,13 @@ const draftEntrySchema = z.object({
   weight: z.number().min(0).max(5000).optional(),
   rightReps: z.array(z.number().int().min(0).max(500)).max(12).optional(),
   rightWeight: z.number().min(0).max(5000).optional(),
+  plan: z
+    .object({
+      rir: z.number().int().min(0).max(5).optional(),
+      restSeconds: z.number().int().min(15).max(600).optional(),
+      technique: z.string().max(300).optional(),
+    })
+    .optional(),
 });
 
 export const workoutDraftSchema = z.object({

@@ -45,7 +45,7 @@ export const trackingStyles = StyleSheet.create({
   },
   chipActive: { backgroundColor: colors.blue },
   chipText: { color: colors.secondary, fontSize: 14, fontWeight: "600" },
-  chipTextActive: { color: colors.surface, fontSize: 14, fontWeight: "600" },
+  chipTextActive: { color: colors.onAccent, fontSize: 14, fontWeight: "600" },
   button: {
     alignItems: "center",
     justifyContent: "center",
@@ -55,7 +55,7 @@ export const trackingStyles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  buttonText: { color: colors.surface, fontSize: 16, fontWeight: "600" },
+  buttonText: { color: colors.onAccent, fontSize: 16, fontWeight: "600" },
   addButton: {
     alignItems: "center",
     justifyContent: "center",
@@ -79,7 +79,11 @@ export const trackingStyles = StyleSheet.create({
     padding: 14,
     marginBottom: 20,
   },
-  listAddButtonText: { color: colors.surface, fontSize: 16, fontWeight: "600" },
+  listAddButtonText: {
+    color: colors.onAccent,
+    fontSize: 16,
+    fontWeight: "600",
+  },
   success: {
     color: colors.green,
     fontSize: 14,

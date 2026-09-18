@@ -1,7 +1,15 @@
 import type { CoachActionPayload } from "../../../../../supabase/functions/_shared/coach";
 import { createUuid } from "../../lib/id";
-import { loadWorkoutDraft, saveWorkoutDraft } from "../training/workout-draft";
-import { loadCardioDraft, saveCardioDraft } from "../training/cardio-draft";
+import {
+  loadWorkoutDraft,
+  saveWorkoutDraft,
+  workoutDraftSchema,
+} from "../training/workout-draft";
+import {
+  loadCardioDraft,
+  saveCardioDraft,
+  cardioDraftSchema,
+} from "../training/cardio-draft";
 import {
   calculateFoodAmount,
   type MealDraftEntry,
@@ -27,21 +35,29 @@ export async function applyCoachWorkout(
   action: Extract<CoachActionPayload, { kind: "next_workout" }>,
   mode: CoachDraftMode,
 ) {
-  if (action.exercises.length) {
+  // Validate both sections before writing either draft.
+  const proposed = action.exercises.length
+    ? workoutDraftSchema.parse(workoutDraftFromCoach(action))
+    : undefined;
+  const cardioValue = cardioDraftFromCoach(action);
+  const cardio = cardioValue ? cardioDraftSchema.parse(cardioValue) : undefined;
+  if (proposed) {
     const existing = await loadWorkoutDraft(userId);
     await saveWorkoutDraft(
       userId,
-      mergeWorkoutDrafts(existing, workoutDraftFromCoach(action), mode),
+      mergeWorkoutDrafts(existing, proposed, mode),
     );
   }
-  const cardio = cardioDraftFromCoach(action);
   if (cardio) {
     const existing = await loadCardioDraft(userId);
     await saveCardioDraft(userId, {
       ...cardio,
       notes:
         mode === "append"
-          ? [existing?.notes, cardio.notes].filter(Boolean).join("\n\n")
+          ? [existing?.notes, cardio.notes]
+              .filter(Boolean)
+              .join("\n\n")
+              .slice(0, 1000)
           : cardio.notes,
     });
   }

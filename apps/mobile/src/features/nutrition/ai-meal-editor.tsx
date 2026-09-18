@@ -6,6 +6,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -47,6 +48,7 @@ type ReviewFood = {
   householdQuantityPerServing: string;
   values: Record<keyof EstimatedFood["nutrientsPerServing"], string>;
   corrected: boolean;
+  saveToMyFoods: boolean;
 };
 const numeric = (value: string) =>
   value.trim() ? Number(value.replace(",", ".")) : NaN;
@@ -96,10 +98,12 @@ function reviewUnitLabel(item: ReviewFood, unit: FoodUnit) {
 export function AiMealEditor({
   visible,
   onClose,
+  onDismiss,
   onAdd,
 }: {
   visible: boolean;
   onClose: () => void;
+  onDismiss?: () => void;
   onAdd: (entries: MealDraftEntry[]) => Promise<void>;
 }) {
   const [description, setDescription] = useState("");
@@ -194,6 +198,7 @@ export function AiMealEditor({
               ? ""
               : String(food.householdQuantityPerServing),
           corrected: false,
+          saveToMyFoods: true,
           values: Object.fromEntries(
             nutrients.map(([key]) => [
               key,
@@ -226,6 +231,7 @@ export function AiMealEditor({
       entries = items.map((item) => ({
         ...estimatedFoodToEntry(reviewValue(item), item.id),
         isUserCorrected: item.corrected,
+        saveToMyFoods: item.saveToMyFoods,
       }));
     } catch {
       setFeedback(
@@ -259,10 +265,19 @@ export function AiMealEditor({
     );
   }
 
+  function setSaveToMyFoods(id: string, saveToMyFoods: boolean) {
+    setItems((current) =>
+      current.map((item) =>
+        item.id === id ? { ...item, saveToMyFoods } : item,
+      ),
+    );
+  }
+
   return (
     <Modal
       visible={visible}
       animationType="slide"
+      onDismiss={onDismiss}
       presentationStyle="pageSheet"
       onRequestClose={() => {
         if (!adding) onClose();
@@ -280,7 +295,9 @@ export function AiMealEditor({
           >
             <Text style={styles.headerButtonText}>Close</Text>
           </Pressable>
-          <Text style={styles.headerTitle}>Estimate a meal</Text>
+          <Text accessibilityRole="header" style={styles.headerTitle}>
+            Estimate a meal
+          </Text>
           <View style={styles.headerSpacer} />
         </View>
         <ScrollView
@@ -398,6 +415,32 @@ export function AiMealEditor({
                 return (
                   <View key={item.id} style={styles.card}>
                     <Text style={shared.section}>Food {index + 1}</Text>
+                    <View style={styles.saveLabelRow}>
+                      <View style={styles.saveLabelCopy}>
+                        <Text style={styles.saveLabelTitle}>
+                          Create label in My Foods
+                        </Text>
+                        <Text style={styles.saveLabelDescription}>
+                          Turn off to log this food only.
+                        </Text>
+                      </View>
+                      <Switch
+                        accessibilityLabel={`Create reusable label for Food ${index + 1}`}
+                        accessibilityState={{
+                          checked: item.saveToMyFoods,
+                        }}
+                        disabled={adding}
+                        ios_backgroundColor={colors.fill}
+                        onValueChange={(value) =>
+                          setSaveToMyFoods(item.id, value)
+                        }
+                        trackColor={{
+                          false: colors.fill,
+                          true: colors.purple,
+                        }}
+                        value={item.saveToMyFoods}
+                      />
+                    </View>
                     <Field
                       label={`Food ${index + 1} name`}
                       value={item.food.name}
@@ -762,6 +805,29 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
   calories: { fontSize: 16, color: colors.text, fontWeight: "600" },
+  saveLabelRow: {
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderColor: colors.separator,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    gap: 14,
+    marginBottom: 14,
+    padding: 12,
+  },
+  saveLabelCopy: { flex: 1 },
+  saveLabelTitle: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "600",
+    marginBottom: 3,
+  },
+  saveLabelDescription: {
+    color: colors.secondary,
+    fontSize: 13,
+    lineHeight: 18,
+  },
   unitRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   unitChip: shared.chip,
   unitChipActive: shared.chipActive,

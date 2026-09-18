@@ -60,7 +60,9 @@ export default function ResetPasswordScreen() {
   return (
     <View style={styles.page}>
       <Text style={styles.eyebrow}>ACCOUNT RECOVERY</Text>
-      <Text style={styles.title}>Choose a new password</Text>
+      <Text accessibilityRole="header" style={styles.title}>
+        Choose a new password
+      </Text>
       {passwordRecovery.status === "loading" ? (
         <ActivityIndicator color={colors.blue} style={styles.loading} />
       ) : null}
@@ -133,9 +135,9 @@ const styles = StyleSheet.create({
   },
   buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
   error: {
-    backgroundColor: "#FDECEC",
+    backgroundColor: colors.dangerSoft,
     borderRadius: 10,
-    color: "#B42318",
+    color: colors.danger,
     marginBottom: 12,
     padding: 11,
   },
@@ -146,7 +148,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1.8,
   },
   input: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     borderColor: colors.separator,
     borderRadius: 12,
     borderWidth: 1,

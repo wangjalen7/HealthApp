@@ -14,6 +14,11 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { TextInput } from "../../src/ui/text-input";
+import {
+  appearancePreferences,
+  type AppearancePreference,
+  useAppAppearance,
+} from "../../src/ui/appearance";
 
 import { useAuth } from "../../src/features/auth/auth-provider";
 import {
@@ -21,6 +26,10 @@ import {
   saveDailyGoals,
   type DailyGoals,
 } from "../../src/features/goals/repository";
+import {
+  GoalHelper,
+  type GoalHelperMode,
+} from "../../src/features/goals/goal-helper";
 import {
   connectHealthKit,
   healthKitAvailability,
@@ -44,9 +53,16 @@ import {
   getProfileName,
   saveProfileName,
 } from "../../src/features/profile/repository";
+import { latestSample } from "../../src/domain/vitals";
+import { cachedVitals } from "../../src/features/vitals/storage";
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const [profileSection, setProfileSection] = useState<"profile" | "settings">(
+    "profile",
+  );
+  const { preference: appearance, setPreference: setAppearance } =
+    useAppAppearance();
   const {
     faceIdAvailability,
     faceIdEnabled,
@@ -77,6 +93,10 @@ export default function ProfileScreen() {
   const [diastolicGoal, setDiastolicGoal] = useState("80");
   const [savingGoals, setSavingGoals] = useState(false);
   const [goalsFeedback, setGoalsFeedback] = useState("");
+  const [savedGoals, setSavedGoals] = useState<DailyGoals>({});
+  const [goalHelperMode, setGoalHelperMode] = useState<GoalHelperMode>();
+  const [latestWeightLb, setLatestWeightLb] = useState<number>();
+  const [latestWeightAt, setLatestWeightAt] = useState<string>();
   const [healthKit, setHealthKit] = useState<HealthKitAvailability>({
     available: false,
   });
@@ -122,7 +142,20 @@ export default function ProfileScreen() {
     if (!session) return;
     setLoadingGoals(true);
     try {
-      const goals = await getDailyGoals(session.user.id);
+      const [goals, samples] = await Promise.all([
+        getDailyGoals(session.user.id),
+        cachedVitals(session.user.id),
+      ]);
+      const latestWeight = latestSample(samples, "weight");
+      setSavedGoals(goals);
+      setLatestWeightLb(
+        latestWeight
+          ? latestWeight.unit === "kg"
+            ? latestWeight.value / 0.45359237
+            : latestWeight.value
+          : undefined,
+      );
+      setLatestWeightAt(latestWeight?.occurredAt);
       setCalorieGoal(
         goals.calorieGoal === undefined ? "" : String(goals.calorieGoal),
       );
@@ -278,7 +311,17 @@ export default function ProfileScreen() {
         systolicGoal,
         diastolicGoal,
       );
+      if (goals.calorieGoal === savedGoals.calorieGoal)
+        goals.calorieCalculation = savedGoals.calorieCalculation;
+      if (
+        savedGoals.waterGoalMl !== undefined &&
+        waterGoal === String(mlToFluidOunces(savedGoals.waterGoalMl))
+      ) {
+        goals.waterGoalMl = savedGoals.waterGoalMl;
+        goals.fluidCalculation = savedGoals.fluidCalculation;
+      }
       await saveDailyGoals(session.user.id, goals);
+      setSavedGoals(goals);
       setGoalsFeedback("Goals saved.");
     } catch (error) {
       setGoalsFeedback(
@@ -287,6 +330,43 @@ export default function ProfileScreen() {
     } finally {
       setSavingGoals(false);
     }
+  }
+  async function useCalculatedCalories(
+    calories: number,
+    calculatedWeightGoal?: number,
+    calculation?: Record<string, unknown>,
+  ) {
+    if (!session) throw new Error("Please sign in to save a target.");
+    const goals: DailyGoals = {
+      ...savedGoals,
+      calorieGoal: calories,
+      calorieCalculation: calculation,
+      ...(calculatedWeightGoal === undefined
+        ? {}
+        : { weightGoalLb: calculatedWeightGoal }),
+    };
+    await saveDailyGoals(session.user.id, goals);
+    setSavedGoals(goals);
+    setCalorieGoal(String(calories));
+    if (calculatedWeightGoal !== undefined)
+      setWeightGoal(String(calculatedWeightGoal));
+    setGoalsFeedback("Calorie target saved.");
+  }
+  async function useCalculatedFluid(
+    milliliters: number,
+    calculation?: Record<string, unknown>,
+  ) {
+    if (!session) throw new Error("Please sign in to save a goal.");
+    const ounces = mlToFluidOunces(milliliters);
+    const goals: DailyGoals = {
+      ...savedGoals,
+      waterGoalMl: milliliters,
+      fluidCalculation: calculation,
+    };
+    await saveDailyGoals(session.user.id, goals);
+    setSavedGoals(goals);
+    setWaterGoal(String(ounces));
+    setGoalsFeedback("Fluid goal saved.");
   }
   async function exportData(includePhotos: boolean) {
     if (!session || exportBusy) return;
@@ -340,345 +420,458 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.page}
       >
         <Text accessibilityRole="header" style={styles.title}>
-          Profile
+          {profileSection === "profile" ? "Profile" : "Settings"}
         </Text>
-        <View style={styles.profileHero}>
-          <View style={styles.avatar}>
-            <Icon name="person" size={29} color={colors.blue} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.profileName}>
-              {[firstName, lastName].filter(Boolean).join(" ") ||
-                "Your profile"}
-            </Text>
-            <Text style={styles.profileCaption}>
-              Your goals. Your daily routine.
-            </Text>
-          </View>
-        </View>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Account</Text>
-          <Text style={styles.label}>Signed in as</Text>
-          <Text selectable style={styles.email}>
-            {session?.user.email}
-          </Text>
-          {loadingName ? (
-            <ActivityIndicator color={colors.blue} style={styles.nameLoading} />
-          ) : (
-            <>
-              <View style={styles.nameRow}>
-                <NameField
-                  autoComplete="given-name"
-                  label="First name"
-                  onChangeText={changeFirstName}
-                  textContentType="givenName"
-                  value={firstName}
-                />
-                <NameField
-                  autoComplete="family-name"
-                  label="Last name"
-                  onChangeText={changeLastName}
-                  textContentType="familyName"
-                  value={lastName}
-                />
-              </View>
-              <View
-                accessibilityLiveRegion="polite"
+        <View style={styles.profileTabs}>
+          {(["profile", "settings"] as const).map((section) => {
+            const selected = profileSection === section;
+            const label = section === "profile" ? "Profile" : "Settings";
+            return (
+              <Pressable
+                accessibilityRole="tab"
+                accessibilityState={{ selected }}
+                key={section}
+                onPress={() => setProfileSection(section)}
                 style={[
-                  styles.nameStatus,
-                  nameFeedback && nameFeedback !== "Profile name saved."
-                    ? styles.nameStatusError
-                    : !hasCompleteName
-                      ? styles.nameStatusRequired
-                      : nameHasChanges
-                        ? styles.nameStatusUnsaved
-                        : styles.nameStatusSaved,
+                  styles.profileTab,
+                  selected && styles.profileTabSelected,
                 ]}
               >
                 <Text
                   style={[
-                    styles.nameStatusText,
-                    nameFeedback && nameFeedback !== "Profile name saved."
-                      ? styles.nameStatusErrorText
-                      : !hasCompleteName
-                        ? styles.nameStatusRequiredText
-                        : nameHasChanges
-                          ? styles.nameStatusUnsavedText
-                          : styles.nameStatusSavedText,
+                    styles.profileTabText,
+                    selected && styles.profileTabTextSelected,
                   ]}
                 >
-                  {nameFeedback ||
-                    (!hasCompleteName
-                      ? "First and last name are required"
-                      : nameHasChanges
-                        ? "Unsaved name changes"
-                        : "✓ Profile name saved")}
+                  {label}
                 </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {profileSection === "profile" ? (
+          <View style={styles.profileHero}>
+            <View style={styles.avatar}>
+              <Icon name="person" size={29} color={colors.blue} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.profileName}>
+                {[firstName, lastName].filter(Boolean).join(" ") ||
+                  "Your profile"}
+              </Text>
+              <Text style={styles.profileCaption}>
+                Your goals. Your daily routine.
+              </Text>
+            </View>
+          </View>
+        ) : null}
+        {profileSection === "settings" ? (
+          <View style={styles.card}>
+            <Text accessibilityRole="header" style={styles.cardTitle}>
+              Appearance
+            </Text>
+            <Text style={styles.appearanceDescription}>
+              Match your iPhone or keep HealthApp in light or dark mode.
+            </Text>
+            <View style={styles.appearanceOptions}>
+              {appearancePreferences.map((option) => (
+                <AppearanceOption
+                  key={option}
+                  option={option}
+                  selected={appearance === option}
+                  onSelect={() => void setAppearance(option)}
+                />
+              ))}
+            </View>
+          </View>
+        ) : null}
+        {profileSection === "profile" ? (
+          <View style={styles.card}>
+            <Text accessibilityRole="header" style={styles.cardTitle}>
+              Account
+            </Text>
+            <Text style={styles.label}>Signed in as</Text>
+            <Text selectable style={styles.email}>
+              {session?.user.email}
+            </Text>
+            {loadingName ? (
+              <ActivityIndicator
+                color={colors.blue}
+                style={styles.nameLoading}
+              />
+            ) : (
+              <>
+                <View style={styles.nameRow}>
+                  <NameField
+                    autoComplete="given-name"
+                    label="First name"
+                    onChangeText={changeFirstName}
+                    textContentType="givenName"
+                    value={firstName}
+                  />
+                  <NameField
+                    autoComplete="family-name"
+                    label="Last name"
+                    onChangeText={changeLastName}
+                    textContentType="familyName"
+                    value={lastName}
+                  />
+                </View>
+                <View
+                  accessibilityLiveRegion="polite"
+                  style={[
+                    styles.nameStatus,
+                    nameFeedback && nameFeedback !== "Profile name saved."
+                      ? styles.nameStatusError
+                      : !hasCompleteName
+                        ? styles.nameStatusRequired
+                        : nameHasChanges
+                          ? styles.nameStatusUnsaved
+                          : styles.nameStatusSaved,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.nameStatusText,
+                      nameFeedback && nameFeedback !== "Profile name saved."
+                        ? styles.nameStatusErrorText
+                        : !hasCompleteName
+                          ? styles.nameStatusRequiredText
+                          : nameHasChanges
+                            ? styles.nameStatusUnsavedText
+                            : styles.nameStatusSavedText,
+                    ]}
+                  >
+                    {nameFeedback ||
+                      (!hasCompleteName
+                        ? "First and last name are required"
+                        : nameHasChanges
+                          ? "Unsaved name changes"
+                          : "✓ Profile name saved")}
+                  </Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={savingName || !nameHasChanges || !hasCompleteName}
+                  onPress={() => void updateName()}
+                  style={[
+                    styles.saveButton,
+                    (savingName || !nameHasChanges || !hasCompleteName) &&
+                      styles.disabledButton,
+                  ]}
+                >
+                  <Text style={styles.saveText}>
+                    {savingName
+                      ? "Saving..."
+                      : nameHasChanges
+                        ? "Save name"
+                        : "Name saved"}
+                  </Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+        ) : null}
+        {profileSection === "settings" ? (
+          <View style={styles.card}>
+            <Pressable
+              accessibilityLabel={
+                faceIdEnabled ? "Disable Face ID" : "Enable Face ID"
+              }
+              accessibilityRole="button"
+              disabled={
+                faceIdBusy || (!faceIdEnabled && !faceIdAvailability.available)
+              }
+              onPress={() => {
+                setFaceIdFeedback("");
+                if (faceIdEnabled) {
+                  void toggleFaceId(false);
+                } else {
+                  setFaceIdPassword("");
+                  setFaceIdPromptOpen(true);
+                }
+              }}
+              style={({ pressed }) => [
+                styles.faceIdSettingsRow,
+                pressed && styles.faceIdActionPressed,
+              ]}
+            >
+              <View style={styles.faceIdSettingsIcon}>
+                <SymbolView
+                  fallback={<Text style={styles.faceIdFallback}>ID</Text>}
+                  name="faceid"
+                  size={28}
+                  tintColor={colors.blue}
+                  weight="regular"
+                />
               </View>
+              <View style={styles.faceIdSettingsContent}>
+                <Text style={styles.securityTitle}>Face ID</Text>
+              </View>
+              {faceIdBusy ? (
+                <ActivityIndicator color={colors.blue} />
+              ) : (
+                <Text
+                  style={[
+                    styles.faceIdActionText,
+                    faceIdEnabled && styles.faceIdDisableText,
+                  ]}
+                >
+                  {faceIdEnabled ? "Disable" : "Enable"}
+                </Text>
+              )}
+            </Pressable>
+            {!faceIdEnabled && !faceIdAvailability.available ? (
+              <Text style={styles.faceIdStatus}>
+                {faceIdAvailability.reason ?? "Checking Face ID availability…"}
+              </Text>
+            ) : null}
+            {faceIdFeedback ? (
+              <Text
+                accessibilityLiveRegion="polite"
+                style={
+                  faceIdFeedback.startsWith("Face ID enabled") ||
+                  faceIdFeedback.startsWith("Face ID disabled")
+                    ? styles.success
+                    : styles.error
+                }
+              >
+                {faceIdFeedback}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
+        {profileSection === "profile" ? (
+          <View style={styles.card}>
+            <Text accessibilityRole="header" style={styles.cardTitle}>
+              Goals
+            </Text>
+            {loadingGoals ? (
+              <ActivityIndicator color={colors.blue} />
+            ) : (
+              <View style={styles.goalsBody}>
+                <View style={styles.goalHelperActions}>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setGoalHelperMode("calories")}
+                    style={styles.goalHelperButton}
+                  >
+                    <Icon name="food" size={18} color={colors.blue} />
+                    <Text style={styles.goalHelperButtonText}>
+                      Find my calories
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setGoalHelperMode("fluids")}
+                    style={styles.goalHelperButton}
+                  >
+                    <Icon name="water" size={18} color={colors.blue} />
+                    <Text style={styles.goalHelperButtonText}>
+                      Find my fluid goal
+                    </Text>
+                  </Pressable>
+                </View>
+                <View style={styles.row}>
+                  <GoalField
+                    label="Calories / day"
+                    value={calorieGoal}
+                    onChangeText={(value) => changeGoal(setCalorieGoal, value)}
+                  />
+                  <GoalField
+                    label="Protein / day (g)"
+                    placeholder="Default: 0.7 g/lb"
+                    value={proteinGoal}
+                    onChangeText={(value) => changeGoal(setProteinGoal, value)}
+                  />
+                </View>
+                <View style={styles.fullGoal}>
+                  <GoalField
+                    label="Water / day (fl oz)"
+                    value={waterGoal}
+                    onChangeText={(value) => changeGoal(setWaterGoal, value)}
+                  />
+                </View>
+                <View style={styles.fullGoal}>
+                  <GoalField
+                    label="Weight (lb)"
+                    value={weightGoal}
+                    onChangeText={(value) => changeGoal(setWeightGoal, value)}
+                  />
+                </View>
+                <View style={styles.row}>
+                  <GoalField
+                    label="BP systolic"
+                    placeholder="Default: 120"
+                    value={systolicGoal}
+                    onChangeText={(value) => changeGoal(setSystolicGoal, value)}
+                  />
+                  <GoalField
+                    label="BP diastolic"
+                    placeholder="Default: 80"
+                    value={diastolicGoal}
+                    onChangeText={(value) =>
+                      changeGoal(setDiastolicGoal, value)
+                    }
+                  />
+                </View>
+                <Pressable
+                  disabled={savingGoals}
+                  onPress={() => void saveGoals()}
+                  style={styles.saveButton}
+                >
+                  <Text style={styles.saveText}>
+                    {savingGoals ? "Saving..." : "Save goals"}
+                  </Text>
+                </Pressable>
+                {goalsFeedback ? (
+                  <Text
+                    accessibilityLiveRegion="polite"
+                    style={
+                      goalsFeedback.endsWith("saved.")
+                        ? styles.inlineSuccess
+                        : styles.inlineError
+                    }
+                  >
+                    {goalsFeedback}
+                  </Text>
+                ) : null}
+              </View>
+            )}
+          </View>
+        ) : null}
+        {profileSection === "settings" ? (
+          <View style={styles.card}>
+            <Text accessibilityRole="header" style={styles.cardTitle}>
+              Apple Health
+            </Text>
+            <Text style={styles.healthKitStatus}>
+              {healthKitState.connected
+                ? healthKitState.lastImportedAt
+                  ? `Connected · last synced ${new Date(healthKitState.lastImportedAt).toLocaleString()}`
+                  : "Connected"
+                : (healthKit.reason ?? "Not connected")}
+            </Text>
+            {healthKitFeedback ? (
+              <Text
+                accessibilityLiveRegion="polite"
+                style={
+                  healthKitFeedback.startsWith("Apple Health connected")
+                    ? styles.success
+                    : styles.error
+                }
+              >
+                {healthKitFeedback}
+              </Text>
+            ) : null}
+            {!healthKitState.connected ? (
               <Pressable
                 accessibilityRole="button"
-                disabled={savingName || !nameHasChanges || !hasCompleteName}
-                onPress={() => void updateName()}
+                disabled={!healthKit.available || healthKitBusy}
+                onPress={() => void connectAppleHealth()}
                 style={[
                   styles.saveButton,
-                  (savingName || !nameHasChanges || !hasCompleteName) &&
+                  (!healthKit.available || healthKitBusy) &&
                     styles.disabledButton,
                 ]}
               >
-                <Text style={styles.saveText}>
-                  {savingName
-                    ? "Saving..."
-                    : nameHasChanges
-                      ? "Save name"
-                      : "Name saved"}
-                </Text>
+                {healthKitBusy ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.saveText}>Connect Apple Health</Text>
+                )}
               </Pressable>
-            </>
-          )}
-        </View>
-        <View style={styles.card}>
-          <Pressable
-            accessibilityLabel={
-              faceIdEnabled ? "Disable Face ID" : "Enable Face ID"
-            }
-            accessibilityRole="button"
-            disabled={
-              faceIdBusy || (!faceIdEnabled && !faceIdAvailability.available)
-            }
-            onPress={() => {
-              setFaceIdFeedback("");
-              if (faceIdEnabled) {
-                void toggleFaceId(false);
-              } else {
-                setFaceIdPassword("");
-                setFaceIdPromptOpen(true);
-              }
-            }}
-            style={({ pressed }) => [
-              styles.faceIdSettingsRow,
-              pressed && styles.faceIdActionPressed,
-            ]}
-          >
-            <View style={styles.faceIdSettingsIcon}>
-              <SymbolView
-                fallback={<Text style={styles.faceIdFallback}>ID</Text>}
-                name="faceid"
-                size={28}
-                tintColor={colors.blue}
-                weight="regular"
-              />
-            </View>
-            <View style={styles.faceIdSettingsContent}>
-              <Text style={styles.securityTitle}>Face ID</Text>
-            </View>
-            {faceIdBusy ? (
-              <ActivityIndicator color={colors.blue} />
-            ) : (
-              <Text
+            ) : null}
+          </View>
+        ) : null}
+        {profileSection === "settings" ? (
+          <View style={styles.card}>
+            <Text accessibilityRole="header" style={styles.cardTitle}>
+              Export your data
+            </Text>
+            <Text style={styles.exportDescription}>
+              Create a private ZIP with CSV files for each category and a
+              complete JSON copy. Choose Mail, AirDrop, Save to Files, or
+              another app from the share sheet.
+            </Text>
+            <Text style={styles.exportPhotoNote}>
+              {photoExportSummary
+                ? photoExportSummary.count
+                  ? `${photoExportSummary.count} progress ${photoExportSummary.count === 1 ? "photo" : "photos"} use about ${formatBytes(photoExportSummary.bytes)}. Large photo exports may exceed your email provider's attachment limit.`
+                  : "You have no progress photos, so both exports will be about the same size."
+                : "Progress photos can make the archive too large for some email providers."}
+            </Text>
+            <View style={styles.exportActions}>
+              <Pressable
+                accessibilityRole="button"
+                disabled={Boolean(exportBusy)}
+                onPress={() => void exportData(false)}
                 style={[
-                  styles.faceIdActionText,
-                  faceIdEnabled && styles.faceIdDisableText,
+                  styles.exportSecondaryButton,
+                  exportBusy && styles.disabledButton,
                 ]}
               >
-                {faceIdEnabled ? "Disable" : "Enable"}
-              </Text>
-            )}
-          </Pressable>
-          {!faceIdEnabled && !faceIdAvailability.available ? (
-            <Text style={styles.faceIdStatus}>
-              {faceIdAvailability.reason ?? "Checking Face ID availability…"}
-            </Text>
-          ) : null}
-          {faceIdFeedback ? (
-            <Text
-              accessibilityLiveRegion="polite"
-              style={
-                faceIdFeedback.startsWith("Face ID enabled") ||
-                faceIdFeedback.startsWith("Face ID disabled")
-                  ? styles.success
-                  : styles.error
-              }
-            >
-              {faceIdFeedback}
-            </Text>
-          ) : null}
-        </View>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Goals</Text>
-          {loadingGoals ? (
-            <ActivityIndicator color={colors.blue} />
-          ) : (
-            <View style={styles.goalsBody}>
-              <View style={styles.row}>
-                <GoalField
-                  label="Calories / day"
-                  value={calorieGoal}
-                  onChangeText={(value) => changeGoal(setCalorieGoal, value)}
-                />
-                <GoalField
-                  label="Protein / day (g)"
-                  placeholder="Default: 0.7 g/lb"
-                  value={proteinGoal}
-                  onChangeText={(value) => changeGoal(setProteinGoal, value)}
-                />
-              </View>
-              <View style={styles.fullGoal}>
-                <GoalField
-                  label="Water / day (fl oz)"
-                  value={waterGoal}
-                  onChangeText={(value) => changeGoal(setWaterGoal, value)}
-                />
-              </View>
-              <View style={styles.fullGoal}>
-                <GoalField
-                  label="Weight (lb)"
-                  value={weightGoal}
-                  onChangeText={(value) => changeGoal(setWeightGoal, value)}
-                />
-              </View>
-              <View style={styles.row}>
-                <GoalField
-                  label="BP systolic"
-                  placeholder="Default: 120"
-                  value={systolicGoal}
-                  onChangeText={(value) => changeGoal(setSystolicGoal, value)}
-                />
-                <GoalField
-                  label="BP diastolic"
-                  placeholder="Default: 80"
-                  value={diastolicGoal}
-                  onChangeText={(value) => changeGoal(setDiastolicGoal, value)}
-                />
-              </View>
-              <Pressable
-                disabled={savingGoals}
-                onPress={() => void saveGoals()}
-                style={styles.saveButton}
-              >
-                <Text style={styles.saveText}>
-                  {savingGoals ? "Saving..." : "Save goals"}
-                </Text>
+                {exportBusy === "records" ? (
+                  <ActivityIndicator color={colors.blue} />
+                ) : (
+                  <Text style={styles.exportSecondaryText}>Export records</Text>
+                )}
               </Pressable>
-              {goalsFeedback ? (
-                <Text
-                  accessibilityLiveRegion="polite"
-                  style={
-                    goalsFeedback === "Goals saved."
-                      ? styles.inlineSuccess
-                      : styles.inlineError
-                  }
-                >
-                  {goalsFeedback}
-                </Text>
-              ) : null}
+              <Pressable
+                accessibilityRole="button"
+                disabled={Boolean(exportBusy)}
+                onPress={() => void exportData(true)}
+                style={[
+                  styles.exportPrimaryButton,
+                  exportBusy && styles.disabledButton,
+                ]}
+              >
+                {exportBusy === "photos" ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.saveText}>Export with photos</Text>
+                )}
+              </Pressable>
             </View>
-          )}
-        </View>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Apple Health</Text>
-          <Text style={styles.healthKitStatus}>
-            {healthKitState.connected
-              ? healthKitState.lastImportedAt
-                ? `Connected · last synced ${new Date(healthKitState.lastImportedAt).toLocaleString()}`
-                : "Connected"
-              : (healthKit.reason ?? "Not connected")}
-          </Text>
-          {healthKitFeedback ? (
-            <Text
-              style={
-                healthKitFeedback.startsWith("Apple Health connected")
-                  ? styles.success
-                  : styles.error
-              }
-            >
-              {healthKitFeedback}
-            </Text>
-          ) : null}
-          {!healthKitState.connected ? (
-            <Pressable
-              accessibilityRole="button"
-              disabled={!healthKit.available || healthKitBusy}
-              onPress={() => void connectAppleHealth()}
-              style={[
-                styles.saveButton,
-                (!healthKit.available || healthKitBusy) &&
-                  styles.disabledButton,
-              ]}
-            >
-              {healthKitBusy ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.saveText}>Connect Apple Health</Text>
-              )}
-            </Pressable>
-          ) : null}
-        </View>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Export your data</Text>
-          <Text style={styles.exportDescription}>
-            Create a private ZIP with CSV files for each category and a complete
-            JSON copy. Choose Mail, AirDrop, Save to Files, or another app from
-            the share sheet.
-          </Text>
-          <Text style={styles.exportPhotoNote}>
-            {photoExportSummary
-              ? photoExportSummary.count
-                ? `${photoExportSummary.count} progress ${photoExportSummary.count === 1 ? "photo" : "photos"} use about ${formatBytes(photoExportSummary.bytes)}. Large photo exports may exceed your email provider's attachment limit.`
-                : "You have no progress photos, so both exports will be about the same size."
-              : "Progress photos can make the archive too large for some email providers."}
-          </Text>
-          <View style={styles.exportActions}>
-            <Pressable
-              accessibilityRole="button"
-              disabled={Boolean(exportBusy)}
-              onPress={() => void exportData(false)}
-              style={[
-                styles.exportSecondaryButton,
-                exportBusy && styles.disabledButton,
-              ]}
-            >
-              {exportBusy === "records" ? (
-                <ActivityIndicator color={colors.blue} />
-              ) : (
-                <Text style={styles.exportSecondaryText}>Export records</Text>
-              )}
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              disabled={Boolean(exportBusy)}
-              onPress={() => void exportData(true)}
-              style={[
-                styles.exportPrimaryButton,
-                exportBusy && styles.disabledButton,
-              ]}
-            >
-              {exportBusy === "photos" ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.saveText}>Export with photos</Text>
-              )}
-            </Pressable>
+            {exportFeedback ? (
+              <Text
+                accessibilityLiveRegion="polite"
+                style={exportFailed ? styles.inlineError : styles.inlineSuccess}
+              >
+                {exportFeedback}
+              </Text>
+            ) : null}
           </View>
-          {exportFeedback ? (
-            <Text
-              accessibilityLiveRegion="polite"
-              style={exportFailed ? styles.inlineError : styles.inlineSuccess}
-            >
-              {exportFeedback}
-            </Text>
-          ) : null}
-        </View>
-        {status ? <Text style={styles.error}>{status}</Text> : null}
-        <Pressable
-          disabled={busy}
-          onPress={() => void handleSignOut()}
-          style={styles.button}
-        >
-          <Text style={styles.buttonText}>
-            {busy ? "Signing out..." : "Sign out"}
+        ) : null}
+        {profileSection === "profile" && status ? (
+          <Text accessibilityLiveRegion="polite" style={styles.error}>
+            {status}
           </Text>
-        </Pressable>
+        ) : null}
+        {profileSection === "profile" ? (
+          <Pressable
+            accessibilityRole="button"
+            disabled={busy}
+            onPress={() => void handleSignOut()}
+            style={styles.button}
+          >
+            <Text style={styles.buttonText}>
+              {busy ? "Signing out..." : "Sign out"}
+            </Text>
+          </Pressable>
+        ) : null}
       </ScreenScrollView>
+      <GoalHelper
+        defaultWeightLb={latestWeightLb}
+        defaultWeightOccurredAt={latestWeightAt}
+        initialMode={goalHelperMode ?? "calories"}
+        onClose={() => setGoalHelperMode(undefined)}
+        onUseCalories={useCalculatedCalories}
+        onUseFluid={useCalculatedFluid}
+        savedWaterGoalMl={savedGoals.waterGoalMl}
+        savedWeightGoalLb={savedGoals.weightGoalLb}
+        visible={Boolean(goalHelperMode)}
+      />
       <Modal
         animationType="fade"
         onRequestClose={closeFaceIdPrompt}
@@ -687,7 +880,9 @@ export default function ProfileScreen() {
       >
         <View style={styles.modalBackdrop}>
           <View accessibilityViewIsModal style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Enable Face ID</Text>
+            <Text accessibilityRole="header" style={styles.modalTitle}>
+              Enable Face ID
+            </Text>
             <TextInput
               accessibilityLabel="Current password"
               autoCapitalize="none"
@@ -742,6 +937,40 @@ export default function ProfileScreen() {
     </>
   );
 }
+
+function AppearanceOption({
+  option,
+  selected,
+  onSelect,
+}: {
+  option: AppearancePreference;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const label =
+    option === "system" ? "Device" : option === "light" ? "Light" : "Dark";
+  return (
+    <Pressable
+      accessibilityRole="radio"
+      accessibilityState={{ checked: selected }}
+      onPress={onSelect}
+      style={[
+        styles.appearanceOption,
+        selected && styles.appearanceOptionSelected,
+      ]}
+    >
+      <Text
+        style={[
+          styles.appearanceOptionText,
+          selected && styles.appearanceOptionTextSelected,
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 function goalValues(
   calories: string,
   protein: string,
@@ -877,6 +1106,66 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
+  appearanceDescription: {
+    color: colors.secondary,
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 8,
+  },
+  appearanceOptions: {
+    backgroundColor: colors.fill,
+    borderRadius: 11,
+    flexDirection: "row",
+    gap: 3,
+    marginTop: 14,
+    padding: 3,
+  },
+  appearanceOption: {
+    alignItems: "center",
+    borderRadius: 9,
+    flex: 1,
+    justifyContent: "center",
+    minHeight: 42,
+    paddingHorizontal: 8,
+  },
+  appearanceOptionSelected: {
+    backgroundColor: colors.surface,
+    borderColor: colors.separator,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  appearanceOptionText: {
+    color: colors.secondary,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  appearanceOptionTextSelected: { color: colors.text },
+  profileTabs: {
+    backgroundColor: colors.fill,
+    borderRadius: 13,
+    flexDirection: "row",
+    gap: 4,
+    marginBottom: spacing.lg,
+    padding: 4,
+  },
+  profileTab: {
+    alignItems: "center",
+    borderRadius: 10,
+    flex: 1,
+    justifyContent: "center",
+    minHeight: 46,
+    paddingHorizontal: 12,
+  },
+  profileTabSelected: {
+    backgroundColor: colors.surface,
+    borderColor: colors.separator,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  profileTabText: {
+    color: colors.secondary,
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  profileTabTextSelected: { color: colors.text },
   row: {
     flexDirection: "row",
     gap: 10,
@@ -903,7 +1192,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.orangeSoft,
   },
   nameStatusRequired: {
-    backgroundColor: "#EEF2F6",
+    backgroundColor: colors.fill,
   },
   nameStatusError: {
     backgroundColor: colors.dangerSoft,
@@ -929,6 +1218,30 @@ const styles = StyleSheet.create({
   },
   goalsBody: {
     marginTop: 14,
+  },
+  goalHelperActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 15,
+  },
+  goalHelperButton: {
+    alignItems: "center",
+    backgroundColor: colors.blueSoft,
+    borderColor: colors.blue,
+    borderRadius: 10,
+    borderWidth: 1,
+    flexDirection: "row",
+    flexGrow: 1,
+    gap: 7,
+    justifyContent: "center",
+    minHeight: 46,
+    paddingHorizontal: 11,
+  },
+  goalHelperButtonText: {
+    color: colors.blue,
+    fontSize: 13,
+    fontWeight: "700",
   },
   goalField: {
     flex: 1,

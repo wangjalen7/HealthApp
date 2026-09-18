@@ -1,3 +1,4 @@
+import { fluidTotals } from "./hydration.ts";
 type Row = Record<string, unknown>;
 
 const number = (value: unknown) =>
@@ -252,10 +253,15 @@ export function buildCoachSnapshot(input: CoachContextInput) {
             0,
           ) * 10,
         ) / 10,
-      hydrationMl: todayHydration.reduce(
-        (sum, row) => sum + number(row.volume_ml),
-        0,
-      ),
+      hydrationMl: fluidTotals(
+        todayHydration.map((row) => ({ ...row, volume_ml: row.volume_ml })),
+      ).countedMl,
+      hydrationPendingMl: fluidTotals(
+        todayHydration.map((row) => ({ ...row, volume_ml: row.volume_ml })),
+      ).pendingMl,
+      alcoholBeverageMl: fluidTotals(
+        todayHydration.map((row) => ({ ...row, volume_ml: row.volume_ml })),
+      ).alcoholMl,
       foodsLogged: todayNutrition.length,
     },
     weight: enabled.vitals

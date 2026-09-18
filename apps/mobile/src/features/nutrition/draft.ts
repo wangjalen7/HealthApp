@@ -43,4 +43,3 @@ export function clearNutritionDraft(userId: string) {
   const key = draftKey(userId);
   return queueWrite(key, () => AsyncStorage.removeItem(key));
 }
-

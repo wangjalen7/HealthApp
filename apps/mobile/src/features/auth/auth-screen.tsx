@@ -261,7 +261,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
       style={{ flex: 1 }}
     >
       <ScreenScrollView
-        style={{ backgroundColor: "#FFFFFF" }}
+        style={{ backgroundColor: colors.background }}
         automaticallyAdjustKeyboardInsets={false}
         contentContainerStyle={styles.page}
       >
@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "flex-start",
     padding: 24,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.background,
   },
   form: { alignSelf: "center", maxWidth: 440, width: "100%" },
   brandRow: {
@@ -520,13 +520,13 @@ const styles = StyleSheet.create({
   },
   warning: {
     color: "#8A4B00",
-    backgroundColor: "#FFF3D6",
+    backgroundColor: colors.orangeSoft,
     padding: 12,
     borderRadius: 10,
     marginBottom: 12,
   },
   input: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     borderColor: colors.separator,
     borderWidth: 1,
     borderRadius: 12,
@@ -536,9 +536,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   error: {
-    backgroundColor: "#FDECEC",
+    backgroundColor: colors.dangerSoft,
     borderRadius: 10,
-    color: "#B42318",
+    color: colors.danger,
     marginBottom: 10,
     padding: 11,
   },

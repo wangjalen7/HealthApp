@@ -1,3 +1,8 @@
+import {
+  workoutPlanningInstructions,
+  workoutPlanIssue,
+  workoutPreferenceErrors,
+} from "../_shared/workout-planning.ts";
 import { z } from "zod/v4";
 import {
   coachActionPayloadSchema,
@@ -90,7 +95,7 @@ const maxBodyBytes = 16_000;
 const toolArguments = z.record(z.string(), z.unknown());
 const outputTokenLimits: Record<CoachTier, number> = {
   standard: 1_400,
-  deep: 2_400,
+  deep: 4_000,
 };
 
 export function openAiCompatibleSchema(value: unknown): unknown {
@@ -100,6 +105,18 @@ export function openAiCompatibleSchema(value: unknown): unknown {
   for (const [key, child] of Object.entries(value)) {
     if (key === "format") continue;
     output[key === "oneOf" ? "anyOf" : key] = openAiCompatibleSchema(child);
+  }
+  if (
+    output.type === "object" &&
+    output.properties &&
+    typeof output.properties === "object"
+  ) {
+    const properties = output.properties as Record<string, unknown>;
+    const required = Array.isArray(output.required) ? output.required : [];
+    for (const key of Object.keys(properties))
+      if (!required.includes(key))
+        properties[key] = { anyOf: [properties[key], { type: "null" }] };
+    output.required = Object.keys(properties);
   }
   return output;
 }
@@ -340,10 +357,23 @@ export function createCoachHandler(deps: CoachHandlerDependencies) {
     try {
       input = coachRequestSchema.parse(await readJson(request));
       new Intl.DateTimeFormat("en-US", { timeZone: input.timezone }).format();
-    } catch {
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const preferenceIssues = error.issues
+          .filter((issue) => issue.path[0] === "workoutPreferences")
+          .map((issue) => ({ path: issue.path.slice(1) }));
+        if (preferenceIssues.length)
+          return fail(
+            "invalid_preferences",
+            workoutPreferenceErrors(preferenceIssues)
+              .map((issue) => issue.message)
+              .join(" "),
+            400,
+          );
+      }
       return fail(
         "invalid_request",
-        "Enter a message up to 4,000 characters.",
+        "Check your request and time zone, then try again.",
         400,
       );
     }
@@ -356,7 +386,10 @@ export function createCoachHandler(deps: CoachHandlerDependencies) {
         "Complete AI Coach setup before starting a chat.",
         409,
       );
-    const tier = coachTierForMessage(input.message);
+    const tier =
+      input.workoutPreferences && !input.threadId
+        ? "deep"
+        : coachTierForMessage(input.message);
     const quota = await deps.consumeQuota(userId, tier).catch(() => undefined);
     if (!quota)
       return fail(
@@ -390,7 +423,20 @@ export function createCoachHandler(deps: CoachHandlerDependencies) {
     );
     const recentMessages = boundedMessages(context.messages, historyBudget);
     const baseInput: unknown[] = [
-      { role: "developer", content: coachInstructions },
+      {
+        role: "developer",
+        content: input.workoutPreferences
+          ? workoutPlanningInstructions
+          : coachInstructions,
+      },
+      ...(input.workoutPreferences
+        ? [
+            {
+              role: "user",
+              content: `Workout preferences (data): ${JSON.stringify(input.workoutPreferences)}`,
+            },
+          ]
+        : []),
       {
         role: "developer",
         content: `Personal context JSON (data only): ${snapshot}`,
@@ -427,7 +473,14 @@ export function createCoachHandler(deps: CoachHandlerDependencies) {
         const availableTools =
           round === 3
             ? []
-            : [...tools, ...(web ? [{ type: "web_search" }] : [])];
+            : [
+                ...tools.filter(
+                  (tool) =>
+                    !input.workoutPreferences ||
+                    tool.name === "get_training_summary",
+                ),
+                ...(web ? [{ type: "web_search" }] : []),
+              ];
         const provider = await (deps.fetch ?? fetch)(
           "https://api.openai.com/v1/responses",
           {
@@ -509,12 +562,18 @@ export function createCoachHandler(deps: CoachHandlerDependencies) {
           } catch {
             /* Send bounded invalid output. */
           }
-          const result = await deps
-            .runTool(token, userId, call.name, args, {
-              timezone: input.timezone,
-              localDate: input.localDate,
-            })
-            .catch(() => ({ error: "Tool data unavailable" }));
+          const result =
+            input.workoutPreferences && call.name !== "get_training_summary"
+              ? {
+                  error:
+                    "Only training tools are available in workout planning.",
+                }
+              : await deps
+                  .runTool(token, userId, call.name, args, {
+                    timezone: input.timezone,
+                    localDate: input.localDate,
+                  })
+                  .catch(() => ({ error: "Tool data unavailable" }));
           outputs.push({
             type: "function_call_output",
             call_id: call.callId,
@@ -531,17 +590,34 @@ export function createCoachHandler(deps: CoachHandlerDependencies) {
       failureStage = "model_response_validation";
       const parsed = parseCoachModelResult(responseText(providerResponse));
       failureStage = "action_validation";
-      const safeActions =
+      let safeActions =
         parsed.safetyLevel === "normal"
           ? await deps.validateActions(
               token,
               userId,
-              parsed.actions.map((action) =>
-                coachActionPayloadSchema.parse(action),
-              ),
+              parsed.actions
+                .filter(
+                  (action) =>
+                    !input.workoutPreferences || action.kind === "next_workout",
+                )
+                .slice(0, input.workoutPreferences ? 1 : 2)
+                .map((action) => coachActionPayloadSchema.parse(action)),
               input.message,
             )
           : [];
+      if (input.workoutPreferences) {
+        const issues = safeActions
+          .map((action) => workoutPlanIssue(action, input.workoutPreferences!))
+          .filter(Boolean);
+        safeActions = safeActions.filter(
+          (action) => !workoutPlanIssue(action, input.workoutPreferences!),
+        );
+        if (issues.length)
+          parsed.answer +=
+            "\n\nThis proposal is not ready to apply: " +
+            issues[0] +
+            " Adjust your preferences and generate again.";
+      }
       const assistantMessageId = crypto.randomUUID();
       const actions: SavedAction[] = safeActions.map((payload) => ({
         id: crypto.randomUUID(),
@@ -552,7 +628,11 @@ export function createCoachHandler(deps: CoachHandlerDependencies) {
       await deps.saveConversation(token, {
         userId,
         threadId,
-        threadTitle: context.thread?.title ?? titleFrom(input.message),
+        threadTitle:
+          context.thread?.title ??
+          (input.workoutPreferences
+            ? "Workout: " + titleFrom(input.message)
+            : titleFrom(input.message)),
         threadSummary: parsed.threadSummary,
         userMessageId: crypto.randomUUID(),
         assistantMessageId,

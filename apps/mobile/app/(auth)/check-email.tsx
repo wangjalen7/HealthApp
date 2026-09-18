@@ -13,7 +13,7 @@ export default function CheckEmailScreen() {
   return (
     <View style={styles.page}>
       <Text style={styles.eyebrow}>CHECK YOUR EMAIL</Text>
-      <Text style={styles.title}>
+      <Text accessibilityRole="header" style={styles.title}>
         {isReset ? "Reset link sent" : "Confirm your account"}
       </Text>
       <Text style={styles.copy}>

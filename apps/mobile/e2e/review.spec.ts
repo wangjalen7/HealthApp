@@ -1,4 +1,36 @@
+import type { Page } from "@playwright/test";
 import { test, expect, signIn, quickLog } from "./fixture";
+
+async function unnamedVisibleControls(page: Page) {
+  return page
+    .locator(
+      'button, a, input, textarea, select, [role="button"], [role="link"], [role="tab"], [role="radio"], [role="switch"], [role="checkbox"]',
+    )
+    .evaluateAll((controls) =>
+      controls.flatMap((control) => {
+        const element = control as HTMLElement;
+        const bounds = element.getBoundingClientRect();
+        if (!bounds.width || !bounds.height) return [];
+        const labelledBy = element.getAttribute("aria-labelledby");
+        const labelledText = labelledBy
+          ?.split(/\s+/)
+          .map((id) => document.getElementById(id)?.textContent?.trim() ?? "")
+          .join(" ")
+          .trim();
+        const name =
+          element.getAttribute("aria-label")?.trim() ||
+          labelledText ||
+          element.getAttribute("title")?.trim() ||
+          element.getAttribute("placeholder")?.trim() ||
+          element.textContent?.trim();
+        return name
+          ? []
+          : [
+              `${element.tagName.toLowerCase()}[role=${element.getAttribute("role") ?? "native"}]`,
+            ];
+      }),
+    );
+}
 
 test("authentication validation and protected Quick Log", async ({
   page,
@@ -39,6 +71,7 @@ test("review all screens at phone and desktop widths", async ({
       height: width === 320 ? 568 : width === 430 ? 932 : 844,
     });
     await page.getByRole("tab", { name: "Summary" }).click();
+    expect(await unnamedVisibleControls(page)).toEqual([]);
     await page.screenshot({
       path: testInfo.outputPath(`summary-${width}.png`),
     });
@@ -76,17 +109,32 @@ test("review all screens at phone and desktop widths", async ({
           () => document.documentElement.scrollWidth <= window.innerWidth,
         ),
       ).toBeTruthy();
+      expect(await unnamedVisibleControls(page)).toEqual([]);
     }
-    for (const title of ["History", "AI Coach", "Profile"]) {
+    for (const title of ["History", "Soon", "Profile"]) {
       await page.getByRole("tab", { name: title, exact: true }).click();
       if (title === "History")
         await expect(
           page.getByRole("button", { name: "Add a log" }),
         ).toBeVisible();
-      if (title === "Profile")
+      if (title === "Profile") {
         await expect(
           page.getByRole("button", { name: "Name saved", exact: true }),
         ).toBeDisabled();
+        await page.getByRole("tab", { name: "Settings", exact: true }).click();
+        await expect(
+          page.getByText("Appearance", { exact: true }),
+        ).toBeVisible();
+        expect(await unnamedVisibleControls(page)).toEqual([]);
+        await page.screenshot({
+          path: testInfo.outputPath(`Settings-${width}.png`),
+        });
+        await page
+          .getByRole("tab", { name: "Profile", exact: true })
+          .first()
+          .click();
+      }
+      expect(await unnamedVisibleControls(page)).toEqual([]);
       await page.screenshot({
         path: testInfo.outputPath(`${title}-${width}.png`),
       });
@@ -95,7 +143,7 @@ test("review all screens at phone and desktop widths", async ({
   expect(errors).toEqual([]);
 });
 
-test("water save, failed save and retry reach food history", async ({
+test("water save, retry and deletion stay separate from food history", async ({
   page,
   backend,
 }, testInfo) => {
@@ -117,9 +165,11 @@ test("water save, failed save and retry reach food history", async ({
   await quickLog(page, "Water");
   await page.getByRole("button", { name: "Save fluid", exact: true }).click();
   await expect(
-    page.getByText("Enter a fluid name and an amount greater than zero."),
+    page.getByText("Enter an amount greater than zero."),
   ).toBeVisible();
-  await page.getByRole("button", { name: "12 fl oz", exact: true }).click();
+  await page
+    .getByRole("radio", { name: "12 fluid ounces", exact: true })
+    .click();
   backend.failNextWrite = "hydration_entries";
   await page.getByRole("button", { name: "Save fluid", exact: true }).click();
   await expect(
@@ -133,13 +183,18 @@ test("water save, failed save and retry reach food history", async ({
   expect(backend.tables.hydration_entries).toHaveLength(1);
   await page.getByRole("tab", { name: "History", exact: true }).click();
   await page.getByRole("tab", { name: "Food", exact: true }).click();
-  await expect(page.getByText(/12 fl oz/).first()).toBeVisible();
-  await expect(page.getByText("Fluids", { exact: true })).toBeVisible();
   await expect(page.getByText("Review oats", { exact: true })).toBeVisible();
+  await expect(page.getByText("12 fl oz fluids", { exact: true })).toHaveCount(0);
+  await page.getByRole("tab", { name: "Fluids", exact: true }).click();
+  await expect(page.getByText("12 fl oz fluids", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Fluids", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("Review oats", { exact: true })).toHaveCount(0);
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 });
     await page.screenshot({
-      path: testInfo.outputPath(`food-and-fluids-${width}.png`),
+      path: testInfo.outputPath(`fluid-history-${width}.png`),
     });
   }
   await page.getByRole("button", { name: "Delete Water entry" }).click();
@@ -147,14 +202,19 @@ test("water save, failed save and retry reach food history", async ({
   expect(backend.tables.hydration_entries).toHaveLength(1);
   await page.getByRole("button", { name: "Delete Water entry" }).click();
   await page.getByRole("button", { name: "Delete", exact: true }).click();
-  await expect(page.getByText("Fluids", { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Fluids", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("No fluids saved yet", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "Food", exact: true }).click();
   await expect(page.getByText("Review oats", { exact: true })).toBeVisible();
-  await expect(page.getByText("0 fl oz water", { exact: true })).toBeVisible();
   expect(backend.tables.nutrition_entries).toHaveLength(1);
   expect(backend.tables.hydration_entries).toHaveLength(0);
   await page.getByRole("button", { name: "Delete Review oats" }).click();
   await page.getByRole("button", { name: "Delete", exact: true }).click();
-  await expect(page.getByText("No food or water saved yet")).toBeVisible();
+  await expect(page.getByText("No food saved yet")).toBeVisible();
 });
 
 test("weight and blood pressure persist and appear in history", async ({
@@ -218,7 +278,7 @@ test("meal label, draft restoration, amount editing, save and deletion", async (
     .getByRole("button", { name: "Add food", exact: true })
     .boundingBox();
   const breakfastBox = await page
-    .getByRole("button", { name: "breakfast", exact: true })
+    .getByRole("radio", { name: "breakfast", exact: true })
     .boundingBox();
   expect(breakfastBox!.y).toBeLessThan(addFoodBox!.y);
   await page.getByRole("button", { name: "Add food", exact: true }).click();
@@ -247,7 +307,7 @@ test("meal label, draft restoration, amount editing, save and deletion", async (
   await expect(
     page.getByText("Choose a meal first.", { exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "breakfast", exact: true }).click();
+  await page.getByRole("radio", { name: "breakfast", exact: true }).click();
   await page.screenshot({ path: testInfo.outputPath("food-draft.png") });
   await expect(
     page.getByRole("button", { name: "Edit amount", exact: true }),
@@ -285,7 +345,7 @@ test("meal label, draft restoration, amount editing, save and deletion", async (
     .getByRole("button", { name: "Delete Review oats", exact: true })
     .click();
   await page.getByRole("button", { name: "Delete", exact: true }).click();
-  await expect(page.getByText("No food or water saved yet")).toBeVisible();
+  await expect(page.getByText("No food saved yet")).toBeVisible();
   expect(backend.tables.nutrition_entries).toHaveLength(0);
   expect(backend.tables.user_food_profiles).toHaveLength(1);
 });
@@ -330,7 +390,7 @@ test("lifting and cardio saves, history and delete", async ({
   expect(backend.tables.workout_sessions).toHaveLength(1);
   expect(backend.tables.workout_sets).toHaveLength(1);
   await page.getByRole("tab", { name: "Cardio", exact: true }).click();
-  await page.getByRole("button", { name: "walk", exact: true }).click();
+  await page.getByRole("radio", { name: "walk", exact: true }).click();
   await page.getByLabel("Minutes", { exact: true }).fill("20");
   await page.getByRole("button", { name: "Save cardio", exact: true }).click();
   await expect(page.getByText("Cardio activity saved.")).toBeVisible();
@@ -464,7 +524,17 @@ test("profile name persistence and browser reminder guidance", async ({
   backend,
 }) => {
   await signIn(page);
-  await page.getByRole("tab", { name: "Profile", exact: true }).click();
+  await page.getByRole("tab", { name: "Profile", exact: true }).first().click();
+  await page.getByRole("tab", { name: "Settings", exact: true }).click();
+  await expect(page.getByText("Appearance", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("radio", { name: "Device", exact: true }),
+  ).toBeChecked();
+  await page.getByRole("radio", { name: "Dark", exact: true }).click();
+  await expect(
+    page.getByRole("radio", { name: "Dark", exact: true }),
+  ).toBeChecked();
+  await page.getByRole("tab", { name: "Profile", exact: true }).first().click();
   await expect(
     page.getByRole("button", { name: "Name saved", exact: true }),
   ).toBeDisabled();
@@ -481,6 +551,7 @@ test("profile name persistence and browser reminder guidance", async ({
   await expect
     .poll(() => backend.tables.profiles[0].daily_calorie_goal)
     .toBe(2300);
+  await page.getByRole("tab", { name: "Settings", exact: true }).click();
   await expect(
     page.getByText("Export your data", { exact: true }),
   ).toBeVisible();
@@ -501,6 +572,7 @@ test("profile name persistence and browser reminder guidance", async ({
     0,
   );
   await page.getByRole("tab", { name: "Profile", exact: true }).click();
+  await page.getByRole("tab", { name: "Profile", exact: true }).first().click();
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Sign in", exact: true }),

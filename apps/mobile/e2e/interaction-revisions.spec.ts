@@ -10,7 +10,7 @@ test("water glass follows saved totals, goal changes and goal completion", async
   await quickLog(page, "Water");
   const glass = page.getByRole("progressbar", { name: "Daily water goal" });
   await expect(glass).toHaveAttribute("aria-valuenow", "0");
-  await page.getByRole("button", { name: "mL", exact: true }).click();
+  await page.getByRole("radio", { name: "mL", exact: true }).click();
   await page.getByLabel("Fluid amount", { exact: true }).fill("500");
   await page.getByRole("button", { name: "Save fluid", exact: true }).click();
   await expect(glass).toHaveAttribute("aria-valuenow", "50");

@@ -80,6 +80,7 @@ export function foodProfileContentKey(input: FoodBasis) {
 
 export const mealDraftEntrySchema = foodBasisSchema.extend({
   id: z.string().uuid(),
+  recipeId: z.string().uuid().optional(),
   amount: z.number().positive().max(100000),
   unit: foodUnitSchema,
   servingCount: z.number().positive(),
@@ -94,7 +95,10 @@ export const mealDraftEntrySchema = foodBasisSchema.extend({
     "label",
     "barcode",
     "ai",
+    "recipe",
   ]),
+  /** False logs an estimated food without creating a reusable My Foods label. */
+  saveToMyFoods: z.boolean().optional(),
 });
 export type MealDraftEntry = z.infer<typeof mealDraftEntrySchema>;
 

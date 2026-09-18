@@ -38,13 +38,13 @@ export function NutritionProgressCard({
     animation.start();
     return () => animation.stop();
   }, [fraction, progress, reduced]);
-  const water = label === "Water";
+  const water = unit === "fl oz";
   const accent = water
     ? colors.blue
     : label === "Protein"
       ? colors.purple
       : colors.orange;
-  const rounded = Math.round(value);
+  const rounded = water ? Math.round(value * 10) / 10 : Math.round(value);
   const roundedGoal = hasGoal ? Math.round(goal) : undefined;
   const ring = (
     <Svg

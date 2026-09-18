@@ -1,3 +1,5 @@
+import { AiActionCard } from "../../src/ui/ai-action-card";
+import { ExerciseHelp } from "../../src/features/training/exercise-help";
 import { ExerciseSetFields } from "../../src/features/training/exercise-set-fields";
 import { IconButton } from "../../src/ui/icon-button";
 import { trackingStyles } from "../../src/ui/tracking-styles";
@@ -54,6 +56,7 @@ type ExerciseEntry = {
   weight?: number;
   rightReps: number[];
   rightWeight?: number;
+  plan?: WorkoutDraft["entries"][number]["plan"];
   guidance?: ExerciseGuidance;
   guidanceState: "idle" | "loading" | "loaded";
 };
@@ -79,8 +82,9 @@ function persistWorkoutDraft(
 }
 
 export default function WorkoutScreen() {
-  const { section: requestedSection } = useLocalSearchParams<{
+  const { section: requestedSection, planned } = useLocalSearchParams<{
     section?: string;
+    planned?: string;
   }>();
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
@@ -124,6 +128,7 @@ export default function WorkoutScreen() {
           weight,
           rightReps,
           rightWeight,
+          plan,
         }) => ({
           id,
           name,
@@ -133,6 +138,7 @@ export default function WorkoutScreen() {
           weight,
           rightReps,
           rightWeight,
+          plan,
         }),
       ),
       location,
@@ -295,7 +301,15 @@ export default function WorkoutScreen() {
   function updateEntry(id: string, patch: Partial<ExerciseEntry>) {
     setEntries((current) =>
       current.map((entry) =>
-        entry.id === id ? { ...entry, ...patch } : entry,
+        entry.id === id
+          ? {
+              ...entry,
+              ...(patch.name !== undefined && patch.name !== entry.name
+                ? { plan: undefined }
+                : {}),
+              ...patch,
+            }
+          : entry,
       ),
     );
   }
@@ -426,6 +440,7 @@ export default function WorkoutScreen() {
         return {
           ...entry,
           name,
+          plan: name === entry.name ? entry.plan : undefined,
           guidance: undefined,
           guidanceState: "idle",
           rightReps: unilateral
@@ -528,7 +543,43 @@ export default function WorkoutScreen() {
       ]}
       ListHeaderComponent={
         <>
-          <Text style={styles.title}>Workout</Text>
+          <Text accessibilityRole="header" style={styles.title}>
+            Workout
+          </Text>
+          <AiActionCard
+            title="Plan workout with AI"
+            subtitle="AI creates editable lifting and cardio drafts"
+            onPress={() => router.push("/(app)/coach")}
+          />
+          {planned ? (
+            <View style={{ gap: 8, marginBottom: 16 }}>
+              <Text accessibilityLiveRegion="polite" style={styles.draftStatus}>
+                {planned === "combo"
+                  ? "AI drafts added to Lifting and Cardio. Edit both sections before logging your completed session."
+                  : "AI draft added. Edit the suggestions below before logging your completed session."}
+              </Text>
+              {planned === "combo" ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() =>
+                    setSection(section === "lifting" ? "cardio" : "lifting")
+                  }
+                  style={{ minHeight: 44, justifyContent: "center" }}
+                >
+                  <Text style={{ color: colors.blue }}>
+                    Review {section === "lifting" ? "Cardio" : "Lifting"} draft
+                  </Text>
+                </Pressable>
+              ) : null}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Dismiss planner notice"
+                onPress={() => router.setParams({ planned: undefined })}
+              >
+                <Text style={{ color: colors.blue }}>Dismiss</Text>
+              </Pressable>
+            </View>
+          ) : null}
           <View>
             <SegmentedControl
               label="Workout type"
@@ -780,6 +831,23 @@ export default function WorkoutScreen() {
                 updateWeight(entry.id, value, side)
               }
             />
+            {entry.plan ? (
+              <View style={{ gap: 6, marginBottom: 10 }}>
+                <Text style={{ color: colors.blue, fontWeight: "600" }}>
+                  Plan: {entry.plan.rir ?? "?"} RIR /{" "}
+                  {entry.plan.restSeconds ?? "?"} sec rest
+                </Text>
+                <Text style={{ color: colors.secondary }}>
+                  {entry.plan.technique}
+                </Text>
+              </View>
+            ) : null}
+            <ExerciseHelp
+              name={entry.name}
+              isNew={
+                entry.guidanceState === "loaded" && !entry.guidance?.memory
+              }
+            />
             {entry.guidanceState === "loading" ? (
               <Text style={styles.memoryMuted}>
                 Checking your last 90 days...
@@ -817,7 +885,7 @@ export default function WorkoutScreen() {
               onPress={addExercise}
               style={styles.bottomAddButton}
             >
-              <Icon name="plus" size={20} color={colors.surface} />
+              <Icon name="plus" size={20} color={colors.onAccent} />
               <Text style={styles.bottomAddButtonText}>Add exercise</Text>
             </Pressable>
             <Text style={styles.label}>Notes (optional)</Text>
@@ -868,7 +936,7 @@ const styles = StyleSheet.create({
   },
   historyButtonText: { color: colors.blue, fontSize: 14, fontWeight: "700" },
   empty: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     borderColor: colors.separator,
     borderRadius: 14,
     borderWidth: 1,
@@ -925,7 +993,7 @@ const styles = StyleSheet.create({
   },
   locationInput: { marginBottom: 8 },
   locationSuggestions: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.surface,
     borderColor: colors.separator,
     borderRadius: 10,
     borderWidth: 1,
@@ -965,7 +1033,7 @@ const styles = StyleSheet.create({
     padding: 9,
   },
   progressHold: {
-    backgroundColor: "#F1F5F9",
+    backgroundColor: colors.fill,
     borderRadius: 9,
     color: colors.secondary,
     fontSize: 13,

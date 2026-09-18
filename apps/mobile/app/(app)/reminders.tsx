@@ -343,7 +343,9 @@ export default function RemindersScreen() {
   if (Platform.OS === "web") {
     return (
       <ScreenScrollView contentContainerStyle={styles.page}>
-        <Text style={styles.title}>Reminders</Text>
+        <Text accessibilityRole="header" style={styles.title}>
+          Reminders
+        </Text>
         <View style={[styles.editor, { gap: 12, marginTop: 18 }]}>
           <Icon name="bell" size={28} color={colors.blue} />
           <Text style={styles.section}>Set reminders on your iPhone</Text>
@@ -365,7 +367,9 @@ export default function RemindersScreen() {
       keyboardShouldPersistTaps="handled"
     >
       <View style={styles.header}>
-        <Text style={styles.title}>Reminders</Text>
+        <Text accessibilityRole="header" style={styles.title}>
+          Reminders
+        </Text>
         <Pressable
           accessibilityLabel="Add reminder"
           accessibilityRole="button"
@@ -751,7 +755,7 @@ const styles = StyleSheet.create({
   loading: { marginTop: 36 },
   card: {
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.surface,
     borderColor: colors.separator,
     borderRadius: 22,
     borderCurve: "continuous",

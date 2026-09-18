@@ -6,10 +6,33 @@ import {
   inclusiveAxisInstants,
   paddedValueDomain,
   stableValueDomain,
+  smoothCurvePath,
   timelineX,
   timeAxisTicks,
   toggleSelectedPoint,
 } from "./chart";
+
+test("builds a smooth curve through measurements without invalid coordinates", () => {
+  const path = smoothCurvePath([
+    { x: 0, y: 20 },
+    { x: 10, y: 10 },
+    { x: 20, y: 30 },
+    { x: 30, y: 20 },
+  ]);
+  assert.match(path, /^M 0 20 C /);
+  assert.match(path, /30 20$/);
+  assert.doesNotMatch(path, /NaN|Infinity/);
+});
+
+test("uses a direct segment when only two chart points exist", () => {
+  assert.equal(
+    smoothCurvePath([
+      { x: 1, y: 2 },
+      { x: 3, y: 4 },
+    ]),
+    "M 1 2 L 3 4",
+  );
+});
 
 test("sizes tooltips to their content with consistent compact padding", () => {
   const short = compactTooltipWidth(

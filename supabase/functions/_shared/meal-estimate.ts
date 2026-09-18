@@ -112,7 +112,11 @@ pieces of the same food into one item with the total count. Do not return both a
 components or double count anything mentioned in text and also visible in the photo. Treat preparation
 variants of the same named food as one item: pasta/cooked pasta, chicken/grilled chicken, and
 dumplings/steamed pork dumplings must each produce only one label for that food.
-Include plausible cooking fats only when supported by the preparation; state assumptions.
+Account for a typical amount of cooking oil or other fat when the preparation normally uses it,
+even when the user does not explicitly mention it. Grilled, sauteed, pan-fried, stir-fried, roasted,
+and fried foods usually include some cooking fat unless the user says dry, oil-free, air-fried, boiled,
+or steamed. Include that absorbed or retained fat in the prepared food's calories and fat rather than
+adding a separate oil item, and state the cooking-fat assumption without pretending it was measured.
 Prefer the user's explicit quantities and preparation details over visual guesses. Distinguish cooked
 from dry/raw weights and edible portions from bones, peels and containers.
 Create a practical one-serving label and estimate nutrition for exactly that serving. For an

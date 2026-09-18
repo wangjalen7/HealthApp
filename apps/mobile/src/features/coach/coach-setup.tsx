@@ -426,7 +426,7 @@ function ChoiceGroup<T extends string>({
           <Pressable
             key={value || "none"}
             accessibilityRole="radio"
-            accessibilityState={{ selected: selected === value }}
+            accessibilityState={{ checked: selected === value }}
             onPress={() => onSelect(value)}
             style={[shared.chip, selected === value && shared.chipActive]}
           >
@@ -525,7 +525,7 @@ const styles = StyleSheet.create({
     height: 22,
     borderWidth: 1,
     borderColor: colors.separator,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.surface,
     borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",

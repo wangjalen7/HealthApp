@@ -11,6 +11,45 @@ const enabledProfile = {
   response_style: "concise",
 };
 
+test("coach separates alcohol and pending drinks while preserving legacy credit", () => {
+  const snapshot = buildCoachSnapshot({
+    profile: {},
+    coachProfile: enabledProfile,
+    localDate: "2026-09-17",
+    now: new Date("2026-09-17T12:00:00Z"),
+    nutrition: [],
+    vitals: [],
+    workouts: [],
+    sets: [],
+    cardio: [],
+    photos: [],
+    hydration: [
+      { occurred_at: "2026-09-17T09:00:00Z", volume_ml: 200 },
+      {
+        occurred_at: "2026-09-17T09:00:00Z",
+        volume_ml: 250,
+        counting_policy: "beverage_volume_v1",
+        alcohol_status: "nonalcoholic",
+      },
+      {
+        occurred_at: "2026-09-17T09:00:00Z",
+        volume_ml: 150,
+        counting_policy: "beverage_volume_v1",
+        alcohol_status: "alcoholic",
+      },
+      {
+        occurred_at: "2026-09-17T09:00:00Z",
+        volume_ml: 300,
+        counting_policy: "beverage_volume_v1",
+        alcohol_status: "unknown",
+      },
+    ],
+  });
+  assert.equal(snapshot.today.hydrationMl, 450);
+  assert.equal(snapshot.today.hydrationPendingMl, 300);
+  assert.equal(snapshot.today.alcoholBeverageMl, 150);
+});
+
 test("coach snapshot calculates goals, today's intake, trends and training aggregates", () => {
   const snapshot = buildCoachSnapshot({
     profile: {
@@ -77,6 +116,8 @@ test("coach snapshot calculates goals, today's intake, trends and training aggre
     calories: 500,
     proteinGrams: 40,
     hydrationMl: 750,
+    hydrationPendingMl: 0,
+    alcoholBeverageMl: 0,
     foodsLogged: 1,
   });
   assert.equal(snapshot.weight.average7dLb, 179);

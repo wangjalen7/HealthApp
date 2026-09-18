@@ -6,7 +6,7 @@ import Svg, {
   ClipPath,
   G,
   Line,
-  Polyline,
+  Path,
   Rect,
   Text as SvgText,
 } from "react-native-svg";
@@ -32,6 +32,7 @@ import {
   compactTooltipWidth,
   inclusiveAxisInstants,
   stableValueDomain,
+  smoothCurvePath,
   timelineX,
   timeAxisTicks,
   toggleSelectedPoint,
@@ -111,12 +112,12 @@ function LinePlot({
     end,
     false,
   );
-  const path = linePoints.map((point) => `${point.x},${point.y}`).join(" ");
+  const path = smoothCurvePath(linePoints);
   return (
     <>
       {linePoints.length > 1 ? (
-        <Polyline
-          points={path}
+        <Path
+          d={path}
           fill="none"
           stroke={item.lineColor}
           strokeWidth="2"
@@ -133,7 +134,7 @@ function LinePlot({
             cx={point.x}
             cy={point.y}
             r="4.5"
-            fill={outlined ? "#FFFFFF" : color}
+            fill={outlined ? colors.surface : color}
             stroke={color}
             strokeWidth={outlined ? "2.5" : "1"}
           />
@@ -147,7 +148,7 @@ function LinePlot({
                 cx={point.x}
                 cy={point.y}
                 r={13}
-                fill="#FFFFFF"
+                fill={colors.surface}
                 fillOpacity={0.001}
                 role="button"
                 tabIndex={0}
@@ -166,7 +167,7 @@ function LinePlot({
                 cx={point.x}
                 cy={point.y}
                 r="13"
-                fill="#FFFFFF"
+                fill={colors.surface}
                 fillOpacity={0.001}
                 onPress={(event) => {
                   onSelect(point.at);
@@ -363,7 +364,7 @@ function ChartPlot({
                   y1={plot.top}
                   x2={x}
                   y2={plot.bottom}
-                  stroke="#EDF2F7"
+                  stroke={colors.separator}
                   strokeWidth="1"
                 />
                 <SvgText
@@ -393,7 +394,7 @@ function ChartPlot({
           {tooltip && tooltipPoint ? (
             <G>
               <Rect
-                fill="#FFFFFF"
+                fill={colors.surface}
                 height={tooltipHeight}
                 rx="6"
                 stroke={tooltip.color}
@@ -775,7 +776,9 @@ export function TrendCard({
   return (
     <View style={styles.card}>
       <View style={styles.header}>
-        <Text style={styles.title}>{title}</Text>
+        <Text accessibilityRole="header" style={styles.title}>
+          {title}
+        </Text>
         <Text style={styles.value}>
           {mean !== undefined
             ? `${mean.toFixed(1)} ${unitFor(kind)}`
@@ -824,7 +827,9 @@ export function BloodPressureTrendCard({
   return (
     <View style={styles.card}>
       <View style={styles.header}>
-        <Text style={styles.title}>Blood pressure</Text>
+        <Text accessibilityRole="header" style={styles.title}>
+          Blood pressure
+        </Text>
         <Text
           style={[
             styles.value,
@@ -871,7 +876,7 @@ export function BloodPressureTrendCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.surface,
     borderColor: colors.fill,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 22,

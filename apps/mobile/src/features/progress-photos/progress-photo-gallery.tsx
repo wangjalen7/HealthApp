@@ -214,7 +214,9 @@ export function ProgressPhotoGallery({
     >
       <SafeAreaView edges={["bottom"]} style={styles.page}>
         <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
-          <Text style={styles.title}>Progress photos</Text>
+          <Text accessibilityRole="header" style={styles.title}>
+            Progress photos
+          </Text>
           <Pressable
             accessibilityLabel="Close progress photos"
             accessibilityRole="button"
@@ -451,7 +453,7 @@ const styles = StyleSheet.create({
   },
   action: {
     alignItems: "center",
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     borderColor: colors.separator,
     borderRadius: 12,
     borderWidth: 1,
@@ -485,7 +487,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   confirmCard: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     borderRadius: 22,
     borderCurve: "continuous",
     maxWidth: 360,

@@ -55,6 +55,7 @@ export default function AppLayout() {
       }
     >
       <Tabs
+        initialRouteName="index"
         screenOptions={{
           headerShown: false,
           headerShadowVisible: false,
@@ -67,7 +68,7 @@ export default function AppLayout() {
           tabBarLabelStyle: { fontSize: 10, fontWeight: "600", lineHeight: 14 },
           tabBarStyle: {
             borderTopColor: colors.separator,
-            backgroundColor: "rgba(255,255,255,0.97)",
+            backgroundColor: colors.surface,
             borderTopWidth: StyleSheet.hairlineWidth,
             height: 64 + insets.bottom,
             paddingBottom: Math.max(insets.bottom, 7),
@@ -76,6 +77,13 @@ export default function AppLayout() {
         }}
       >
         <Tabs.Screen
+          name="placeholder"
+          options={{
+            title: "Soon",
+            tabBarIcon: ({ color }) => <Icon name="sparkles" color={color} />,
+          }}
+        />
+        <Tabs.Screen
           name="index"
           options={{
             title: "Summary",
@@ -83,17 +91,17 @@ export default function AppLayout() {
           }}
         />
         <Tabs.Screen
-          name="history"
-          options={{
-            title: "History",
-            tabBarIcon: ({ color }) => <Icon name="history" color={color} />,
-          }}
-        />
-        <Tabs.Screen
           name="track"
           options={{
             title: "Create",
             tabBarButton: () => <CreateTabButton />,
+          }}
+        />
+        <Tabs.Screen
+          name="history"
+          options={{
+            title: "History",
+            tabBarIcon: ({ color }) => <Icon name="history" color={color} />,
           }}
         />
         <Tabs.Screen name="workout" options={{ href: null }} />
@@ -106,13 +114,7 @@ export default function AppLayout() {
         <Tabs.Screen name="water" options={{ href: null }} />
         <Tabs.Screen name="weight" options={{ href: null }} />
         <Tabs.Screen name="reminders" options={{ href: null }} />
-        <Tabs.Screen
-          name="coach"
-          options={{
-            title: "AI Coach",
-            tabBarIcon: ({ color }) => <Icon name="sparkles" color={color} />,
-          }}
-        />
+        <Tabs.Screen name="coach" options={{ href: null }} />
         <Tabs.Screen
           name="profile"
           options={{
@@ -230,15 +232,9 @@ const styles = StyleSheet.create({
   createCircle: {
     alignItems: "center",
     backgroundColor: colors.blue,
-    borderColor: colors.background,
     borderRadius: 28,
-    borderWidth: 4,
     height: 54,
     justifyContent: "center",
-    shadowColor: colors.text,
-    shadowOffset: { height: 5, width: 0 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
     width: 54,
   },
   createPlus: {
@@ -267,7 +263,7 @@ const styles = StyleSheet.create({
   },
   lockError: {
     textAlign: "center",
-    backgroundColor: "#FDECEC",
+    backgroundColor: colors.dangerSoft,
     borderRadius: 10,
     color: "#B42318",
     marginBottom: 12,
@@ -277,13 +273,13 @@ const styles = StyleSheet.create({
   },
   unlockButton: {
     alignItems: "center",
-    backgroundColor: "#F2F2F7",
+    backgroundColor: colors.background,
     borderRadius: 29,
     height: 58,
     justifyContent: "center",
     width: 58,
   },
-  unlockButtonPressed: { backgroundColor: "#E5E5EA", opacity: 0.72 },
+  unlockButtonPressed: { backgroundColor: colors.fill, opacity: 0.72 },
   disabledButton: { opacity: 0.65 },
   unlockButtonFallback: { color: "#007AFF", fontSize: 15, fontWeight: "700" },
   passwordButton: { marginTop: 18, padding: 7 },

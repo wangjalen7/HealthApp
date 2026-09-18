@@ -223,7 +223,7 @@ test("workout planning uses deep routing and completes a bounded read-only tool 
         calls += 1;
         const body = JSON.parse(String(init?.body));
         assert.equal(body.model, "deep-model");
-        assert.equal(body.max_output_tokens, 2_400);
+        assert.equal(body.max_output_tokens, 4_000);
         if (calls === 1)
           return Response.json({
             output: [
@@ -314,10 +314,7 @@ test("reports provider incompletion separately from conversation save failures",
     }),
   )(request());
   assert.equal(saveFailure.status, 502);
-  assert.equal(
-    (await saveFailure.json()).code,
-    "conversation_save_failed",
-  );
+  assert.equal((await saveFailure.json()).code, "conversation_save_failed");
 });
 
 test("keeps a valid answer when optional evidence, sources or actions are malformed", () => {
@@ -409,4 +406,120 @@ test("chat text remains untrusted user content and tool execution stops after th
   assert.equal(response.status, 200);
   assert.equal(providerCalls, 4);
   assert.equal(toolCalls, 3);
+});
+
+test("workout mode limits tools and actions while forwarding structured preferences", async () => {
+  let requestCount = 0;
+  let toolRuns = 0;
+  const { defaultWorkoutPreferences } =
+    await import("../_shared/workout-planning.ts");
+  const handler = createCoachHandler(
+    dependencies({
+      runTool: async () => {
+        toolRuns++;
+        return {};
+      },
+      fetch: async (_url, init) => {
+        const body = JSON.parse(String(init?.body));
+        assert.equal(body.model, "deep-model");
+        assert.deepEqual(
+          body.tools.map((tool: { name: string }) => tool.name),
+          ["get_training_summary"],
+        );
+        assert.ok(
+          body.input.some((item: { content?: string }) =>
+            item.content?.includes('"styles":["science"]'),
+          ),
+        );
+        requestCount++;
+        if (requestCount === 1)
+          return providerResponse(baseResult, [
+            {
+              type: "function_call",
+              name: "get_saved_food_candidates",
+              call_id: "forbidden",
+              arguments: "{}",
+            },
+          ]);
+        return providerResponse({
+          ...baseResult,
+          actions: [
+            {
+              kind: "next_meal",
+              title: "Meal",
+              rationale: "Unrelated",
+              mealType: null,
+              items: [
+                {
+                  profileId: "55555555-5555-4555-8555-555555555555",
+                  name: "Rice",
+                  amount: 1,
+                  unit: "serving",
+                },
+              ],
+            },
+          ],
+        });
+      },
+    }),
+  );
+  const response = await handler(
+    new Request("https://example.test", {
+      method: "POST",
+      headers: { Authorization: "Bearer token" },
+      body: JSON.stringify({
+        message: "Plan my workout",
+        timezone: "UTC",
+        localDate: "2026-09-17",
+        workoutPreferences: defaultWorkoutPreferences,
+      }),
+    }),
+  );
+  assert.equal(response.status, 200);
+  assert.equal(toolRuns, 0);
+  assert.deepEqual((await response.json()).actions, []);
+});
+
+test("removed weekly-frequency input does not block saving a complete planner profile", async () => {
+  const { coachProfileSchema } = await import("../_shared/coach.ts");
+  const saved = coachProfileSchema.parse({
+    ...profile,
+    trainingDaysPerWeek: undefined,
+  });
+  assert.equal(saved.trainingDaysPerWeek, 3);
+});
+test("missing planner numbers and goals return named field errors before quota or model calls", async () => {
+  const { defaultWorkoutPreferences } =
+    await import("../_shared/workout-planning.ts");
+  let calls = 0;
+  const handler = createCoachHandler(
+    dependencies({
+      consumeQuota: async () => {
+        calls++;
+        throw new Error("must not run");
+      },
+    }),
+  );
+  for (const patch of [{ minutes: undefined }, { goals: [] }]) {
+    const response = await handler(
+      new Request("https://example.test", {
+        method: "POST",
+        headers: { Authorization: "Bearer token" },
+        body: JSON.stringify({
+          message: "Plan workout",
+          timezone: "UTC",
+          localDate: "2026-09-18",
+          workoutPreferences: { ...defaultWorkoutPreferences, ...patch },
+        }),
+      }),
+    );
+    assert.equal(response.status, 400);
+    const body = await response.json();
+    assert.equal(body.code, "invalid_preferences");
+    assert.match(
+      body.message,
+      "minutes" in patch ? /session time/ : /workout goal/,
+    );
+  }
+  assert.equal(calls, 0);
 });

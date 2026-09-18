@@ -16,4 +16,3 @@ test("recognizes selected meal and food entries as draft content", () => {
   });
   assert.equal(parsed.mealType, "lunch");
 });
-

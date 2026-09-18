@@ -31,7 +31,7 @@ import {
   type DailyGoals,
 } from "../../src/features/goals/repository";
 import { mlToFluidOunces } from "../../src/features/hydration/model";
-import { getTodayHydrationMl } from "../../src/features/hydration/repository";
+import { getTodayHydrationTotals } from "../../src/features/hydration/repository";
 import {
   importHealthKitData,
   loadHealthKitSyncState,
@@ -88,6 +88,7 @@ export default function SummaryScreen() {
     calories: 0,
     protein: 0,
   });
+  const [pendingFluidMl, setPendingFluidMl] = useState(0);
   const [waterMl, setWaterMl] = useState(0);
   const [monthCalories, setMonthCalories] = useState<
     Record<string, DailyCalorieTotal>
@@ -197,12 +198,13 @@ export default function SummaryScreen() {
         const [today, savedGoals, todayWater] = await Promise.all([
           getTodaySummary(session.user.id),
           getDailyGoals(session.user.id),
-          getTodayHydrationMl(session.user.id),
+          getTodayHydrationTotals(session.user.id),
           loadMonthCalories(session.user.id, calendarMonthRef.current),
         ]);
         setSummary(today);
         setGoals(savedGoals);
-        setWaterMl(todayWater);
+        setWaterMl(todayWater.countedMl);
+        setPendingFluidMl(todayWater.pendingMl);
       } catch (error) {
         setStatus(
           error instanceof Error ? error.message : "Could not load summary.",
@@ -282,7 +284,10 @@ export default function SummaryScreen() {
       </Text>
       <View style={styles.summaryHeader}>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={[styles.title, width < 360 && { fontSize: 28 }]}>
+          <Text
+            accessibilityRole="header"
+            style={[styles.title, width < 360 && { fontSize: 28 }]}
+          >
             Hi {firstName},
           </Text>
           <Text style={styles.snapshot}>Your daily snapshot</Text>
@@ -406,7 +411,7 @@ export default function SummaryScreen() {
       </View>
       <View style={styles.waterMetric}>
         <NutritionProgressCard
-          label="Water"
+          label={pendingFluidMl > 0 ? "Fluids (some pending)" : "Fluids"}
           goal={
             goals.waterGoalMl === undefined
               ? undefined
@@ -581,7 +586,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     minHeight: 44,
   },
-  syncPressed: { backgroundColor: "#DCEBFF" },
+  syncPressed: { backgroundColor: colors.blueSoft },
   syncDisabled: { opacity: 0.55 },
   syncText: { color: colors.blue, fontWeight: "700" },
   syncTime: {

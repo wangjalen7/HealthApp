@@ -238,6 +238,17 @@ function pointsWithinWindow<T extends { at: string }>(
   });
 }
 
+function fitsConnectionWindow(
+  earlier: { at: string },
+  later: { at: string },
+  windowDurationMs: number,
+): boolean {
+  return (
+    new Date(later.at).getTime() - new Date(earlier.at).getTime() <=
+    windowDurationMs
+  );
+}
+
 export function pointsForRange(
   samples: VitalSample[],
   kind: VitalKind,
@@ -267,10 +278,21 @@ export function connectedPointsForRange(
     (point) => new Date(point.at) < start,
   );
   const nextPoint = allPoints.find((point) => new Date(point.at) >= end);
+  const windowDurationMs = end.getTime() - start.getTime();
+  const connectedPrevious =
+    previousPoint &&
+    fitsConnectionWindow(previousPoint, visible[0], windowDurationMs)
+      ? previousPoint
+      : undefined;
+  const connectedNext =
+    nextPoint &&
+    fitsConnectionWindow(visible.at(-1)!, nextPoint, windowDurationMs)
+      ? nextPoint
+      : undefined;
   return [
-    ...(previousPoint ? [previousPoint] : []),
+    ...(connectedPrevious ? [connectedPrevious] : []),
     ...visible,
-    ...(nextPoint ? [nextPoint] : []),
+    ...(connectedNext ? [connectedNext] : []),
   ];
 }
 
@@ -346,7 +368,20 @@ export function connectedBloodPressurePointsForRange(
   if (!visible.length) return visible;
   const previous = allPoints.findLast((point) => new Date(point.at) < start);
   const next = allPoints.find((point) => new Date(point.at) >= end);
-  return [...(previous ? [previous] : []), ...visible, ...(next ? [next] : [])];
+  const windowDurationMs = end.getTime() - start.getTime();
+  const connectedPrevious =
+    previous && fitsConnectionWindow(previous, visible[0], windowDurationMs)
+      ? previous
+      : undefined;
+  const connectedNext =
+    next && fitsConnectionWindow(visible.at(-1)!, next, windowDurationMs)
+      ? next
+      : undefined;
+  return [
+    ...(connectedPrevious ? [connectedPrevious] : []),
+    ...visible,
+    ...(connectedNext ? [connectedNext] : []),
+  ];
 }
 
 export function unitFor(kind: VitalKind): string {

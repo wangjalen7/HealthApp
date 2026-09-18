@@ -45,7 +45,10 @@ function fromProfileRow(row: Record<string, unknown>): CoachProfile {
         ? row.goals
         : [row.primary_goal],
     experienceLevel: row.experience_level,
-    trainingDaysPerWeek: Number(row.training_days_per_week),
+    trainingDaysPerWeek:
+      row.training_days_per_week == null
+        ? undefined
+        : Number(row.training_days_per_week),
     sessionMinutes: Number(row.session_minutes),
     equipment: splitList(row.equipment),
     limitations: row.limitations ?? undefined,
@@ -83,7 +86,24 @@ export async function getCoachProfile(userId: string) {
 }
 
 export async function saveCoachProfile(input: CoachProfile) {
-  const value = coachProfileSchema.parse(input);
+  const parsed = coachProfileSchema.safeParse(input);
+  if (!parsed.success) {
+    const labels: Record<string, string> = {
+      sessionMinutes: "session time",
+      trainingDaysPerWeek: "saved training schedule",
+      experienceLevel: "experience level",
+      goals: "workout goals",
+      equipment: "equipment",
+      limitations: "workout limitations",
+    };
+    const field = String(parsed.error.issues[0]?.path[0] ?? "preferences");
+    throw new Error(
+      "Could not save " +
+        (labels[field] ?? "saved planner settings") +
+        ". Review your preferences and try again.",
+    );
+  }
+  const value = parsed.data;
   const { error } = await supabase.from("coach_profiles").upsert({
     user_id: value.userId,
     goals: value.goals,

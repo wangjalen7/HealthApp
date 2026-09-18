@@ -1,57 +1,47 @@
-import { ConfirmationActions } from "../../src/ui/confirmation-actions";
-import { IconButton } from "../../src/ui/icon-button";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Linking,
+  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
-
 import type {
   CoachActionPayload,
   CoachProfile,
 } from "../../../../supabase/functions/_shared/coach";
-import { useAuth } from "../../src/features/auth/auth-provider";
-import { CoachActionReview } from "../../src/features/coach/coach-action-review";
-import { CoachSetup } from "../../src/features/coach/coach-setup";
 import {
-  deleteCoachThread,
-  getCoachMessages,
+  workoutPlanIssue,
+  workoutPreferencesSchema,
+  type WorkoutPreferences,
+} from "../../../../supabase/functions/_shared/workout-planning";
+import { useAuth } from "../../src/features/auth/auth-provider";
+import { WorkoutQuestionnaire } from "../../src/features/coach/workout-questionnaire";
+import { applyCoachWorkout } from "../../src/features/coach/draft-actions";
+import {
   getCoachProfile,
-  listCoachThreads,
   saveCoachProfile,
   sendCoachMessage,
   updateCoachActionStatus,
-  type CoachAction,
-  type CoachMessage,
-  type CoachThread,
 } from "../../src/features/coach/repository";
-import { createId } from "../../src/features/vitals/storage";
-import { Icon } from "../../src/ui/icon";
+import {
+  loadWorkoutDraft,
+  workoutDraftHasContent,
+} from "../../src/features/training/workout-draft";
+import {
+  loadCardioDraft,
+  cardioDraftHasContent,
+} from "../../src/features/training/cardio-draft";
 import { Pressable } from "../../src/ui/pressable";
 import { ScreenScrollView } from "../../src/ui/screen-scroll-view";
-import { colors } from "../../src/ui/profile-theme";
-import { trackingStyles as shared } from "../../src/ui/tracking-styles";
+import { colors } from "../../src/ui/theme";
 
-const quickPrompts = [
-  {
-    title: "What should I eat next?",
-    icon: "food" as const,
-  },
-  {
-    title: "Plan my next workout",
-    icon: "workout" as const,
-  },
-  {
-    title: "Review my progress",
-    icon: "history" as const,
-  },
-];
-
+type Plan = {
+  id: string;
+  payload: Extract<CoachActionPayload, { kind: "next_workout" }>;
+};
 function localDate() {
   const now = new Date();
   return [
@@ -61,975 +51,335 @@ function localDate() {
   ].join("-");
 }
 
-export default function CoachScreen() {
+export default function WorkoutPlannerScreen() {
   const { session } = useAuth();
   const userId = session?.user.id;
   const [profile, setProfile] = useState<CoachProfile>();
-  const [threads, setThreads] = useState<CoachThread[]>([]);
-  const [threadId, setThreadId] = useState<string>();
-  const [messages, setMessages] = useState<CoachMessage[]>([]);
+  const [preferences, setPreferences] = useState<WorkoutPreferences>();
   const [loading, setLoading] = useState(true);
-  const [loadingThread, setLoadingThread] = useState(false);
-  const [savingSetup, setSavingSetup] = useState(false);
-  const [editingSetup, setEditingSetup] = useState(false);
-  const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
-  const [feedback, setFeedback] = useState("");
-  const [quota, setQuota] = useState<{
-    standardRemaining: number;
-    deepRemaining: number;
-  }>();
-  const [expandedEvidence, setExpandedEvidence] = useState<Set<string>>(
-    new Set(),
-  );
-  const [reviewAction, setReviewAction] = useState<CoachAction>();
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [showThreads, setShowThreads] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [pending, setPending] = useState<Plan>();
+  const [conflicts, setConflicts] = useState<string[]>([]);
   const request = useRef<AbortController | undefined>(undefined);
-  const input = useRef<TextInput>(null);
-
-  const loadThread = useCallback(
-    async (nextThreadId: string) => {
-      if (!userId) return;
-      setLoadingThread(true);
-      setFeedback("");
-      try {
-        setMessages(await getCoachMessages(userId, nextThreadId));
-        setThreadId(nextThreadId);
-      } catch (error) {
-        setFeedback(
-          error instanceof Error
-            ? error.message
-            : "Could not load this conversation.",
-        );
-      } finally {
-        setLoadingThread(false);
-      }
-    },
-    [userId],
+  const active = useRef(false);
+  const applying = useRef(false);
+  const scroll = useRef<ScrollView>(null);
+  const scrollToStep = useCallback(
+    () => scroll.current?.scrollTo({ y: 0, animated: false }),
+    [],
   );
 
   useFocusEffect(
     useCallback(() => {
-      let active = true;
-      if (!userId) return () => undefined;
+      active.current = true;
+      let current = true;
       setLoading(true);
-      void Promise.all([getCoachProfile(userId), listCoachThreads(userId)])
-        .then(([savedProfile, savedThreads]) => {
-          if (!active) return;
-          setProfile(savedProfile);
-          setThreads(savedThreads);
-        })
-        .catch((error) => {
-          if (active)
-            setFeedback(
-              error instanceof Error
-                ? error.message
-                : "Could not load AI Coach.",
-            );
-        })
-        .finally(() => {
-          if (active) setLoading(false);
-        });
+      setError("");
+      setNotice("");
+      setPending(undefined);
+      setPreferences(undefined);
+      setProfile(undefined);
+      setBusy(false);
+      if (userId)
+        void Promise.all([
+          getCoachProfile(userId),
+          AsyncStorage.getItem("healthapp:workout-preferences:" + userId),
+        ])
+          .then(([savedProfile, stored]) => {
+            if (!current) return;
+            setProfile(savedProfile);
+            try {
+              const parsed = workoutPreferencesSchema.safeParse(
+                JSON.parse(stored ?? "null"),
+              );
+              if (parsed.success) {
+                const value = { ...parsed.data };
+                delete value.daysPerWeek;
+                setPreferences({
+                  ...value,
+                  focus: [],
+                  readiness: "ready",
+                  equipment:
+                    value.equipment.length > 1
+                      ? value.equipment.filter((item) => item !== "bodyweight")
+                      : value.equipment,
+                });
+              }
+            } catch {
+              /* Use defaults for obsolete preferences. */
+            }
+          })
+          .catch((e: unknown) => {
+            if (current)
+              setError(
+                e instanceof Error
+                  ? e.message
+                  : "Could not load planner preferences.",
+              );
+          })
+          .finally(() => {
+            if (current) setLoading(false);
+          });
+      else setLoading(false);
       return () => {
-        active = false;
+        current = false;
+        active.current = false;
         request.current?.abort();
       };
     }, [userId]),
   );
 
-  async function storeProfile(value: CoachProfile) {
-    setSavingSetup(true);
+  async function populate(plan: Plan) {
+    if (!userId || applying.current) return;
+    applying.current = true;
+    setBusy(true);
+    setError("");
     try {
-      const saved = await saveCoachProfile(value);
-      setProfile(saved);
-      setEditingSetup(false);
-      setFeedback("");
+      await applyCoachWorkout(userId, plan.payload, "replace");
+      // Draft persistence is the success boundary; status bookkeeping must not cause duplicate generation.
+      void updateCoachActionStatus(userId, plan.id, "applied").catch(
+        () => undefined,
+      );
+      if (active.current) {
+        setPending(undefined);
+        router.replace({
+          pathname: "/(app)/workout",
+          params: {
+            section:
+              plan.payload.recommendation === "cardio" ? "cardio" : "lifting",
+            planned: plan.payload.recommendation,
+          },
+        });
+      }
+    } catch (e) {
+      if (active.current) {
+        setPending(plan);
+        setError(
+          e instanceof Error
+            ? e.message
+            : "Could not fill your drafts. Try again.",
+        );
+      }
     } finally {
-      setSavingSetup(false);
+      applying.current = false;
+      if (active.current) setBusy(false);
     }
   }
 
-  function newChat() {
-    request.current?.abort();
-    setThreadId(undefined);
-    setMessages([]);
-    setText("");
-    setFeedback("");
-    setConfirmDelete(false);
-    setShowThreads(false);
-  }
-
-  async function chooseThread(id: string) {
-    if (busy || id === threadId) return;
-    await loadThread(id);
-    setShowThreads(false);
-  }
-
-  async function submit(prompt = text) {
-    const message = prompt.trim();
-    if (!userId || !message || busy) return;
+  async function generate(value: WorkoutPreferences) {
+    if (!userId || busy) return;
     const controller = new AbortController();
     request.current = controller;
-    const optimisticUser: CoachMessage = {
-      id: createId(),
-      role: "user",
-      content: message,
-      evidence: [],
-      sources: [],
-      actions: [],
-      createdAt: new Date().toISOString(),
-    };
-    setMessages((current) => [...current, optimisticUser]);
-    setText("");
     setBusy(true);
-    setFeedback("");
+    setError("");
+    setNotice("");
+    setConflicts([]);
+    setPreferences(value);
     try {
+      const saved = await saveCoachProfile({
+        ...profile,
+        userId,
+        goals: [
+          ...new Set(
+            value.goals.map((goal) =>
+              goal === "strength_muscle"
+                ? ("muscle_gain" as const)
+                : ["endurance", "power"].includes(goal)
+                  ? ("performance" as const)
+                  : ("general_health" as const),
+            ),
+          ),
+        ],
+        experienceLevel: value.experience,
+        // Legacy profile field only; not requested or used to size this session.
+        trainingDaysPerWeek: profile?.trainingDaysPerWeek ?? 3,
+        sessionMinutes: value.minutes,
+        equipment: value.equipment,
+        limitations: value.limitations,
+        dietaryPreferences: profile?.dietaryPreferences ?? [],
+        dietaryRestrictions: profile?.dietaryRestrictions ?? [],
+        dislikedFoods: profile?.dislikedFoods ?? [],
+        responseStyle: "concise",
+        useNutrition: false,
+        useTraining: true,
+        useVitals: false,
+        useHydration: false,
+        usePhotoMetadata: false,
+        consentedAt: new Date().toISOString(),
+      });
+      if (!active.current || controller.signal.aborted) return;
+      setProfile(saved);
+      await AsyncStorage.setItem(
+        "healthapp:workout-preferences:" + userId,
+        JSON.stringify(value),
+      );
       const response = await sendCoachMessage(
         {
-          threadId,
-          message,
+          workoutPreferences: value,
+          message:
+            "Generate one workout from my preferences and recent training as a structured next_workout action. Fill the appropriate lifting and cardio sections, sharing the total session time. I will edit the drafts in my log. Do not ask follow-up questions.",
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
           localDate: localDate(),
         },
         controller.signal,
       );
-      const assistant: CoachMessage = {
-        id: response.messageId,
-        role: "assistant",
-        content: response.answer,
-        evidence: response.evidence,
-        sources: response.sources,
-        actions: response.actions,
-        createdAt: new Date().toISOString(),
-      };
-      setMessages((current) => [...current, assistant]);
-      setThreadId(response.threadId);
-      setQuota(response.quota);
-      const updated = await listCoachThreads(userId);
-      setThreads(
-        updated.length
-          ? updated
-          : [
-              {
-                id: response.threadId,
-                title: message.slice(0, 60),
-                updatedAt: new Date().toISOString(),
-              },
-            ],
+      if (!active.current || controller.signal.aborted) return;
+      const action = response.actions.find(
+        (item) => item.payload.kind === "next_workout",
       );
-    } catch (error) {
-      setMessages((current) =>
-        current.filter((item) => item.id !== optimisticUser.id),
-      );
-      if (controller.signal.aborted) {
-        setFeedback("Coach response canceled. Your message is ready to retry.");
-      } else {
-        setFeedback(
-          error instanceof Error
-            ? error.message
-            : "AI Coach could not respond.",
+      if (
+        response.safetyLevel !== "normal" ||
+        !action ||
+        action.payload.kind !== "next_workout"
+      ) {
+        setNotice(
+          response.answer ||
+            "No workout was generated. Adjust your preferences and try again.",
         );
+        return;
       }
-      setText(message);
+      if (action.payload.recommendation === "rest") {
+        setNotice(action.payload.rationale);
+        return;
+      }
+      const issue = workoutPlanIssue(action.payload, value);
+      if (issue)
+        throw new Error(issue + " Adjust your preferences and generate again.");
+      const plan: Plan = { id: action.id, payload: action.payload };
+      const [lifting, cardio] = await Promise.all([
+        loadWorkoutDraft(userId),
+        loadCardioDraft(userId),
+      ]);
+      if (!active.current || controller.signal.aborted) return;
+      const occupied = [
+        ...(plan.payload.exercises.length &&
+        lifting &&
+        workoutDraftHasContent(lifting)
+          ? ["Lifting"]
+          : []),
+        ...(plan.payload.cardio && cardio && cardioDraftHasContent(cardio)
+          ? ["Cardio"]
+          : []),
+      ];
+      setPending(plan);
+      setConflicts(occupied);
+      if (!occupied.length) await populate(plan);
+    } catch (e) {
+      if (active.current && !controller.signal.aborted)
+        setError(
+          e instanceof Error
+            ? e.message
+            : "Could not generate your workout. Try again.",
+        );
     } finally {
-      if (request.current === controller) request.current = undefined;
-      setBusy(false);
+      if (active.current) setBusy(false);
     }
   }
-
-  async function removeThread() {
-    if (!userId || !threadId) return;
-    setLoadingThread(true);
-    try {
-      await deleteCoachThread(userId, threadId);
-      setThreads((current) => current.filter((item) => item.id !== threadId));
-      newChat();
-    } catch (error) {
-      setFeedback(
-        error instanceof Error
-          ? error.message
-          : "Could not delete conversation.",
-      );
-    } finally {
-      setLoadingThread(false);
-      setConfirmDelete(false);
-    }
-  }
-
-  function setActionStatus(actionId: string, status: "applied" | "dismissed") {
-    setMessages((current) =>
-      current.map((message) => ({
-        ...message,
-        actions: message.actions.map((action) =>
-          action.id === actionId ? { ...action, status } : action,
-        ),
-      })),
-    );
-  }
-
-  async function applied(actionId: string, payload: CoachActionPayload) {
-    if (!userId) return;
-    await updateCoachActionStatus(userId, actionId, "applied");
-    setActionStatus(actionId, "applied");
-    setReviewAction(undefined);
-    if (payload.kind === "next_meal") {
-      router.navigate("/(app)/nutrition");
-    } else if (payload.recommendation !== "rest") {
-      router.navigate({
-        pathname: "/(app)/workout",
-        params: {
-          section: payload.recommendation === "cardio" ? "cardio" : "lifting",
-        },
-      });
-    }
-  }
-
-  async function dismissed(actionId: string) {
-    if (!userId) return;
-    await updateCoachActionStatus(userId, actionId, "dismissed");
-    setActionStatus(actionId, "dismissed");
-    setReviewAction(undefined);
-  }
-
-  const activeThread = threads.find((thread) => thread.id === threadId);
-
-  if (!userId)
-    return (
-      <ScreenScrollView contentContainerStyle={shared.page}>
-        <Text style={shared.error}>Sign in to use AI Coach.</Text>
-      </ScreenScrollView>
-    );
-
-  if (loading)
-    return (
-      <ScreenScrollView contentContainerStyle={[shared.page, styles.center]}>
-        <ActivityIndicator accessibilityLabel="Loading AI Coach" />
-      </ScreenScrollView>
-    );
-
-  if (!profile || editingSetup)
-    return (
-      <ScreenScrollView contentContainerStyle={shared.page}>
-        <CoachSetup
-          key={editingSetup ? profile?.consentedAt : "new"}
-          userId={userId}
-          initial={profile}
-          saving={savingSetup}
-          onSave={storeProfile}
-          onCancel={profile ? () => setEditingSetup(false) : undefined}
-        />
-      </ScreenScrollView>
-    );
 
   return (
-    <>
-      <ScreenScrollView
-        style={{ backgroundColor: "#F7F8FA" }}
-        contentContainerStyle={shared.page}
+    <ScreenScrollView ref={scroll} contentContainerStyle={styles.content}>
+      <Text accessibilityRole="header" style={styles.title}>
+        Plan a workout
+      </Text>
+      <Pressable
+        accessibilityRole="button"
+        disabled={busy}
+        onPress={() => router.replace("/(app)/workout")}
+        style={styles.button}
       >
-        <View style={styles.topRow}>
-          <View style={styles.brand}>
-            <View style={styles.brandIcon}>
-              <Icon name="sparkles" size={20} color="#FFFFFF" />
-            </View>
-            <View style={styles.headingWrap}>
-              <Text accessibilityRole="header" style={styles.title}>
-                Coach
-              </Text>
-              <Text style={styles.subtitle}>Personal guidance</Text>
-            </View>
-          </View>
-          <View style={styles.headerActions}>
-            <Pressable
-              accessibilityLabel="Coach conversations"
-              accessibilityState={{ expanded: showThreads }}
-              onPress={() => setShowThreads((current) => !current)}
-              style={[
-                styles.iconButton,
-                showThreads && styles.iconButtonActive,
-              ]}
-            >
-              <Icon
-                name="history"
-                size={19}
-                color={showThreads ? colors.blue : colors.secondary}
-              />
-              {threads.length ? (
-                <View style={styles.threadBadge}>
-                  <Text style={styles.threadBadgeText}>{threads.length}</Text>
-                </View>
-              ) : null}
-            </Pressable>
-            <Pressable
-              accessibilityLabel="New Coach chat"
-              onPress={newChat}
-              style={styles.iconButton}
-            >
-              <Icon name="plus" size={20} color={colors.secondary} />
-            </Pressable>
-            <Pressable
-              accessibilityLabel="Coach settings"
-              onPress={() => setEditingSetup(true)}
-              style={styles.iconButton}
-            >
-              <Icon name="edit" size={18} color={colors.secondary} />
-            </Pressable>
-          </View>
-        </View>
-
-        {showThreads ? (
-          <View style={styles.threadPanel}>
-            <View style={styles.panelHeader}>
-              <Text style={styles.panelTitle}>Conversations</Text>
-              <Pressable onPress={newChat} style={styles.newButton}>
-                <Icon name="plus" size={16} color={colors.blue} />
-                <Text style={styles.newButtonText}>New</Text>
-              </Pressable>
-            </View>
-            {threads.length ? (
-              threads.map((thread) => (
-                <Pressable
-                  key={thread.id}
-                  accessibilityState={{ selected: thread.id === threadId }}
-                  onPress={() => void chooseThread(thread.id)}
-                  style={[
-                    styles.threadRow,
-                    thread.id === threadId && styles.threadRowActive,
-                  ]}
-                >
-                  <Icon
-                    name="history"
-                    size={16}
-                    color={
-                      thread.id === threadId ? colors.blue : colors.tertiary
-                    }
-                  />
-                  <Text
-                    numberOfLines={1}
-                    style={[
-                      styles.threadText,
-                      thread.id === threadId && styles.threadTextActive,
-                    ]}
-                  >
-                    {thread.title}
-                  </Text>
-                  <Icon name="chevron" size={15} color={colors.tertiary} />
-                </Pressable>
-              ))
-            ) : (
-              <Text style={styles.panelEmpty}>No saved conversations yet.</Text>
-            )}
-          </View>
-        ) : null}
-
-        {threadId ? (
-          <View style={styles.activeThreadBar}>
-            {confirmDelete ? (
-              <View style={styles.deleteConfirm}>
-                <Text style={styles.activeThreadText}>
-                  Delete this conversation?
-                </Text>
-                <ConfirmationActions
-                  onCancel={() => setConfirmDelete(false)}
-                  onConfirm={() => void removeThread()}
-                  busy={loadingThread}
-                />
-              </View>
-            ) : (
-              <>
-                <Text numberOfLines={1} style={styles.activeThreadText}>
-                  {activeThread?.title ?? "Conversation"}
-                </Text>
-                <IconButton
-                  name="delete"
-                  label="Delete current conversation"
-                  onPress={() => setConfirmDelete(true)}
-                  destructive
-                />
-              </>
-            )}
-          </View>
-        ) : null}
-
-        {!messages.length && !loadingThread ? (
-          <View style={styles.hero}>
-            <Text style={styles.eyebrow}>BUILT AROUND YOUR ROUTINE</Text>
-            <Text style={styles.heroTitle}>How can I help today?</Text>
-            <Text style={styles.heroCopy}>
-              Make your next step a little clearer. Start with your meals,
-              training, or progress.
-            </Text>
-            <View style={styles.quickGrid}>
-              {quickPrompts.map((prompt) => (
-                <Pressable
-                  key={prompt.title}
-                  onPress={() => void submit(prompt.title)}
-                  style={styles.quickCard}
-                >
-                  <View style={styles.promptIcon}>
-                    <Icon name={prompt.icon} size={20} color={colors.blue} />
-                  </View>
-                  <Text style={styles.quickTitle}>{prompt.title}</Text>
-                  <Icon name="chevron" size={16} color={colors.tertiary} />
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        ) : null}
-
-        {loadingThread ? (
-          <ActivityIndicator accessibilityLabel="Loading conversation" />
-        ) : null}
-        <View style={styles.messages}>
-          {messages.map((message) => (
-            <MessageBubble
-              key={message.id}
-              message={message}
-              evidenceExpanded={expandedEvidence.has(message.id)}
-              onToggleEvidence={() =>
-                setExpandedEvidence((current) => {
-                  const next = new Set(current);
-                  if (next.has(message.id)) next.delete(message.id);
-                  else next.add(message.id);
-                  return next;
-                })
-              }
-              onReview={setReviewAction}
-            />
-          ))}
-          {busy ? (
-            <View style={styles.typing}>
-              <ActivityIndicator
-                accessibilityLabel="Coach is responding"
-                size="small"
-              />
-              <Text style={styles.muted}>Reviewing your data...</Text>
-            </View>
-          ) : null}
-        </View>
-
-        {feedback ? (
-          <View style={styles.errorCard}>
-            <Text accessibilityLiveRegion="polite" style={shared.error}>
-              {feedback}
-            </Text>
-            {text ? (
-              <Pressable
-                onPress={() => void submit()}
-                style={styles.retryButton}
-              >
-                <Text style={styles.link}>Retry message</Text>
-              </Pressable>
-            ) : null}
-          </View>
-        ) : null}
-
-        <View style={styles.composer}>
-          <TextInput
-            ref={input}
-            accessibilityLabel="Message AI Coach"
-            editable={!busy}
-            maxLength={4000}
-            multiline
-            onChangeText={setText}
-            placeholder="Ask your coach..."
-            placeholderTextColor={colors.tertiary}
-            style={styles.composerInput}
-            value={text}
-          />
-          {busy ? (
-            <Pressable
-              accessibilityLabel="Cancel Coach response"
-              onPress={() => request.current?.abort()}
-              style={styles.sendButton}
-            >
-              <Icon name="close" color={colors.surface} size={19} />
-            </Pressable>
-          ) : (
-            <Pressable
-              accessibilityLabel="Send message to AI Coach"
-              disabled={!text.trim()}
-              onPress={() => void submit()}
-              style={[styles.sendButton, !text.trim() && { opacity: 0.35 }]}
-            >
-              <Icon name="arrow-up" color={colors.surface} size={20} />
-            </Pressable>
-          )}
-        </View>
-        <View style={styles.footerRow}>
-          <Text style={styles.quota}>
-            {quota
-              ? `${quota.standardRemaining} standard • ${quota.deepRemaining} deep left today`
-              : "30 standard • 3 deep per day"}
+        <Text style={styles.link}>Back to Workout</Text>
+      </Pressable>
+      {loading ? (
+        <ActivityIndicator accessibilityLabel="Loading workout planner" />
+      ) : pending ? (
+        <View style={styles.card}>
+          <Text accessibilityRole="header" style={styles.heading}>
+            {conflicts.length
+              ? "You already have unfinished drafts"
+              : "Your plan is ready"}
+          </Text>
+          <Text style={styles.copy}>
+            {conflicts.length
+              ? "Replace your existing " +
+                conflicts.join(" and ") +
+                " draft with the new plan? You can edit every suggestion in the log."
+              : "Fill your editable workout drafts with the generated plan."}
           </Text>
           <Pressable
-            accessibilityLabel="Open AI meal estimator"
-            onPress={() =>
-              router.navigate({
-                pathname: "/(app)/nutrition",
-                params: { estimate: "true" },
-              })
-            }
-            style={styles.mealEstimatorLink}
+            accessibilityRole="button"
+            disabled={busy}
+            onPress={() => void populate(pending)}
+            style={styles.primary}
           >
-            <Icon name="camera" size={16} color={colors.blue} />
-            <Text style={styles.link}>Estimate a meal</Text>
+            <Text style={styles.primaryText}>
+              {busy
+                ? "Filling drafts..."
+                : conflicts.length
+                  ? "Replace existing drafts"
+                  : "Fill workout drafts"}
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            disabled={busy}
+            onPress={() => {
+              setPending(undefined);
+              setError("");
+            }}
+            style={styles.button}
+          >
+            <Text style={styles.link}>Keep existing drafts</Text>
           </Pressable>
         </View>
-      </ScreenScrollView>
-      <CoachActionReview
-        userId={userId}
-        action={reviewAction}
-        onClose={() => setReviewAction(undefined)}
-        onApplied={applied}
-        onDismissed={dismissed}
-      />
-    </>
-  );
-}
-
-function MessageBubble({
-  message,
-  evidenceExpanded,
-  onToggleEvidence,
-  onReview,
-}: {
-  message: CoachMessage;
-  evidenceExpanded: boolean;
-  onToggleEvidence: () => void;
-  onReview: (action: CoachAction) => void;
-}) {
-  const assistant = message.role === "assistant";
-  return (
-    <View style={[styles.bubbleRow, !assistant && styles.userBubbleRow]}>
-      <View
-        style={[
-          styles.bubble,
-          assistant ? styles.assistantBubble : styles.userBubble,
-        ]}
-      >
-        <Text
-          style={[styles.messageText, !assistant && styles.userMessageText]}
-        >
-          {message.content}
+      ) : (
+        <WorkoutQuestionnaire
+          initial={preferences}
+          profile={profile}
+          busy={busy}
+          onGenerate={generate}
+          onStepChange={scrollToStep}
+        />
+      )}
+      {busy ? (
+        <ActivityIndicator accessibilityLabel="Generating workout drafts" />
+      ) : null}
+      {notice ? (
+        <Text accessibilityLiveRegion="polite" style={styles.copy}>
+          {notice}
         </Text>
-        {assistant && (message.evidence.length || message.sources.length) ? (
-          <View style={styles.evidence}>
-            <Pressable
-              accessibilityState={{ expanded: evidenceExpanded }}
-              onPress={onToggleEvidence}
-              style={styles.evidenceButton}
-            >
-              <Text style={styles.evidenceButtonText}>Data used</Text>
-              <Text style={styles.evidenceButtonText}>
-                {evidenceExpanded ? "Hide" : "Show"}
-              </Text>
-            </Pressable>
-            {evidenceExpanded ? (
-              <View style={styles.evidenceBody}>
-                {message.evidence.map((item, index) => (
-                  <View key={`${item.label}-${index}`}>
-                    <Text style={styles.evidenceLabel}>{item.label}</Text>
-                    <Text style={styles.evidenceValue}>
-                      {item.value} · {item.period}
-                    </Text>
-                  </View>
-                ))}
-                {message.sources.map((source) => (
-                  <Pressable
-                    key={source.url}
-                    onPress={() => void Linking.openURL(source.url)}
-                    style={styles.sourceButton}
-                  >
-                    <Text style={styles.link}>{source.title}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            ) : null}
-          </View>
-        ) : null}
-        {assistant
-          ? message.actions.map((action) => (
-              <View key={action.id} style={styles.actionCard}>
-                <View style={styles.actionHeader}>
-                  <Icon
-                    name={
-                      action.payload.kind === "next_meal" ? "food" : "workout"
-                    }
-                    size={21}
-                    color={colors.blue}
-                  />
-                  <View style={styles.quickText}>
-                    <Text style={styles.actionTitle}>
-                      {action.payload.title}
-                    </Text>
-                    <Text style={styles.quickDetail}>
-                      {action.payload.kind === "next_meal"
-                        ? `${action.payload.items.length} food${action.payload.items.length === 1 ? "" : "s"}`
-                        : action.payload.recommendation === "rest"
-                          ? "Recovery recommendation"
-                          : action.payload.recommendation === "cardio"
-                            ? `${action.payload.cardio?.durationMinutes ?? 0} minutes cardio`
-                            : action.payload.recommendation === "combo"
-                              ? `${action.payload.exercises.length} exercises + cardio`
-                              : `${action.payload.exercises.length} exercise${action.payload.exercises.length === 1 ? "" : "s"}`}
-                    </Text>
-                  </View>
-                </View>
-                {action.status === "pending" ? (
-                  <Pressable
-                    accessibilityLabel={`Review ${action.payload.title}`}
-                    onPress={() => onReview(action)}
-                    style={styles.reviewButton}
-                  >
-                    <Text style={styles.reviewButtonText}>Review and edit</Text>
-                  </Pressable>
-                ) : (
-                  <Text style={styles.actionStatus}>
-                    {action.status === "applied"
-                      ? action.payload.kind === "next_workout" &&
-                        action.payload.recommendation === "rest"
-                        ? "Rest day confirmed"
-                        : "Applied to draft"
-                      : "Dismissed"}
-                  </Text>
-                )}
-              </View>
-            ))
-          : null}
-      </View>
-    </View>
+      ) : null}
+      {error ? (
+        <Text accessibilityRole="alert" style={styles.error}>
+          {error}
+        </Text>
+      ) : null}
+    </ScreenScrollView>
   );
 }
-
 const styles = StyleSheet.create({
-  eyebrow: {
-    color: colors.tertiary,
-    fontSize: 11,
-    fontWeight: "600",
-    letterSpacing: 1.2,
-    marginBottom: 8,
-  },
-  promptIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: colors.blueSoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  center: { alignItems: "center", justifyContent: "center" },
-  topRow: {
-    flexWrap: "wrap",
-    rowGap: 8,
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 18,
-  },
-  brand: { alignItems: "center", flex: 1, flexDirection: "row", gap: 10 },
-  brandIcon: {
-    alignItems: "center",
-    backgroundColor: "#183D68",
-    borderRadius: 12,
-    height: 38,
-    justifyContent: "center",
-    width: 38,
-  },
-  headingWrap: { flex: 1, gap: 1 },
-  title: {
-    color: colors.text,
-    fontSize: 24,
-    fontWeight: "700",
-    letterSpacing: -0.7,
-  },
-  subtitle: {
-    color: colors.secondary,
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  headerActions: { alignItems: "center", flexDirection: "row", gap: 0 },
-  iconButton: {
-    alignItems: "center",
-    borderRadius: 11,
-    justifyContent: "center",
-    minHeight: 44,
-    width: 44,
-  },
-  iconButtonActive: { backgroundColor: colors.blueSoft },
-  threadBadge: {
-    alignItems: "center",
-    backgroundColor: colors.blue,
-    borderRadius: 8,
-    justifyContent: "center",
-    minWidth: 15,
-    paddingHorizontal: 3,
-    position: "absolute",
-    right: 1,
-    top: 1,
-  },
-  threadBadgeText: { color: colors.surface, fontSize: 9, fontWeight: "700" },
-  threadPanel: {
-    backgroundColor: colors.surface,
-    borderColor: colors.separator,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    gap: 2,
-    marginBottom: 12,
-    padding: 8,
-  },
-  panelHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    minHeight: 38,
-    paddingHorizontal: 7,
-  },
-  panelTitle: { color: colors.text, fontSize: 15, fontWeight: "600" },
-  newButton: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 4,
-    minHeight: 36,
-    paddingHorizontal: 6,
-  },
-  newButtonText: { color: colors.blue, fontSize: 14, fontWeight: "600" },
-  threadRow: {
-    alignItems: "center",
-    borderRadius: 10,
-    flexDirection: "row",
-    gap: 9,
-    minHeight: 46,
-    paddingHorizontal: 10,
-  },
-  threadRowActive: { backgroundColor: colors.blueSoft },
-  threadText: { color: colors.secondary, flex: 1, fontSize: 14 },
-  threadTextActive: { color: colors.text, fontWeight: "600" },
-  panelEmpty: {
-    color: colors.secondary,
-    fontSize: 14,
-    paddingHorizontal: 8,
-    paddingVertical: 12,
-  },
-  activeThreadBar: {
-    alignItems: "center",
-    borderBottomColor: colors.separator,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 8,
-    minHeight: 38,
-  },
-  activeThreadText: {
-    color: colors.secondary,
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "500",
-  },
-  compactDelete: {
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 38,
-    paddingLeft: 12,
-  },
-  deleteConfirm: { flex: 1, paddingVertical: 12 },
-  textButton: {
-    justifyContent: "center",
-    minHeight: 40,
-    paddingHorizontal: 4,
-  },
-  deleteText: { color: "#B42318", fontSize: 14, fontWeight: "600" },
-  muted: { color: colors.secondary, fontSize: 14, lineHeight: 20 },
-  mutedLink: { color: colors.secondary, fontSize: 13 },
-  link: { color: colors.blue, fontSize: 14, fontWeight: "600" },
-  hero: {
-    alignItems: "flex-start",
-    gap: 8,
-    paddingBottom: 10,
-    paddingTop: 26,
-  },
-  heroIcon: {
-    alignItems: "center",
-    backgroundColor: "#F3ECFC",
-    borderRadius: 20,
-    height: 48,
-    justifyContent: "center",
-    width: 48,
-  },
-  heroTitle: {
-    color: colors.text,
-    fontSize: 30,
-    lineHeight: 37,
-    fontWeight: "700",
-    letterSpacing: -0.4,
-    textAlign: "left",
-  },
-  heroCopy: {
-    color: colors.secondary,
-    fontSize: 14,
-    lineHeight: 20,
-    maxWidth: 420,
-    textAlign: "left",
-  },
-  quickGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 12,
-    maxWidth: 580,
+  content: {
+    padding: 20,
+    paddingBottom: 50,
+    gap: 14,
+    maxWidth: 760,
     width: "100%",
+    alignSelf: "center",
   },
-  quickCard: {
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.separator,
-    borderRadius: 13,
-    borderWidth: StyleSheet.hairlineWidth,
-    flexBasis: "100%",
-    flexGrow: 1,
-    flexDirection: "row",
-    gap: 8,
-    minHeight: 68,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-  },
-  quickText: { flex: 1, gap: 3 },
-  quickTitle: { color: colors.text, flex: 1, fontSize: 14, fontWeight: "600" },
-  quickDetail: {
-    color: colors.secondary,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  messages: { gap: 16, marginTop: 14 },
-  bubbleRow: { alignItems: "flex-start" },
-  userBubbleRow: { alignItems: "flex-end" },
-  bubble: { borderRadius: 18, gap: 10, maxWidth: "94%" },
-  assistantBubble: {
-    maxWidth: "100%",
-    paddingHorizontal: 2,
-  },
-  userBubble: {
+  title: { fontSize: 28, fontWeight: "700", color: colors.text },
+  heading: { fontSize: 20, fontWeight: "600", color: colors.text },
+  card: { gap: 14 },
+  copy: { fontSize: 15, lineHeight: 22, color: colors.secondary },
+  button: { minHeight: 44, justifyContent: "center" },
+  link: { color: colors.blue, fontSize: 16 },
+  primary: {
     backgroundColor: colors.blue,
-    borderBottomRightRadius: 5,
-    maxWidth: "86%",
-    paddingHorizontal: 13,
-    paddingVertical: 10,
-  },
-  typing: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 9,
-    paddingHorizontal: 2,
-    paddingVertical: 12,
-  },
-  messageText: { color: colors.text, fontSize: 16, lineHeight: 23 },
-  userMessageText: { color: colors.surface },
-  evidence: {
-    borderTopColor: colors.separator,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: 7,
-  },
-  evidenceButton: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    minHeight: 38,
-  },
-  evidenceButtonText: {
-    color: colors.blue,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  evidenceBody: { gap: 10, paddingBottom: 5 },
-  evidenceLabel: { color: colors.text, fontSize: 13, fontWeight: "600" },
-  evidenceValue: { color: colors.secondary, fontSize: 13, lineHeight: 18 },
-  sourceButton: {
-    alignSelf: "flex-start",
-    minHeight: 36,
-    justifyContent: "center",
-  },
-  actionCard: {
-    backgroundColor: colors.surface,
-    borderColor: colors.separator,
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    gap: 10,
-    padding: 13,
-  },
-  actionHeader: { alignItems: "center", flexDirection: "row", gap: 9 },
-  actionTitle: { color: colors.text, fontSize: 15, fontWeight: "700" },
-  reviewButton: {
-    alignItems: "center",
-    backgroundColor: colors.blue,
-    borderRadius: 11,
-    justifyContent: "center",
-    minHeight: 44,
-  },
-  reviewButtonText: { color: colors.surface, fontSize: 14, fontWeight: "600" },
-  actionStatus: { color: colors.blue, fontSize: 13, fontWeight: "600" },
-  errorCard: {
-    backgroundColor: "#FFF1F0",
+    minHeight: 48,
     borderRadius: 12,
-    marginTop: 14,
-    paddingHorizontal: 12,
-    paddingTop: 12,
-  },
-  retryButton: {
-    alignSelf: "flex-start",
-    minHeight: 40,
+    padding: 14,
     justifyContent: "center",
   },
-  composer: {
-    alignItems: "flex-end",
-    backgroundColor: colors.surface,
-    borderColor: colors.separator,
-    borderRadius: 16,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 6,
-    marginTop: 16,
-    padding: 6,
-  },
-  composerInput: {
-    color: colors.text,
-    flex: 1,
-    fontSize: 16,
-    lineHeight: 22,
-    maxHeight: 150,
-    minHeight: 64,
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-    textAlignVertical: "top",
-  },
-  sendButton: {
-    alignItems: "center",
-    backgroundColor: colors.blue,
-    borderRadius: 14,
-    height: 44,
-    justifyContent: "center",
-    width: 44,
-  },
-  footerRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    justifyContent: "space-between",
-    paddingTop: 8,
-  },
-  quota: { color: colors.secondary, fontSize: 12 },
-  mealEstimatorLink: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 5,
-    minHeight: 38,
-  },
-  disclaimer: {
-    color: colors.tertiary,
-    fontSize: 12,
-    lineHeight: 17,
-    paddingBottom: 4,
-    textAlign: "left",
-  },
+  primaryText: { color: "#fff", fontWeight: "600", fontSize: 16 },
+  error: { color: colors.danger, fontSize: 15 },
 });

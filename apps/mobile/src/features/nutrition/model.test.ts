@@ -17,6 +17,7 @@ import {
   formatFoodMeasurementAmount,
   hasReproducibleServingBasis,
   isSpecificHouseholdUnit,
+  mealDraftEntrySchema,
   shouldPreferSavedFoodProfile,
   normalizeHouseholdUnit,
   parseFoodMeasurementAmount,
@@ -45,6 +46,25 @@ test("scales an existing paired serving measurement by the same ratio", () => {
     paired: undefined,
   });
   assert.deepEqual(calculateServingScale(undefined, 30, 200), { ratio: 1 });
+});
+
+test("meal drafts retain an AI label-saving opt-out", () => {
+  const parsed = mealDraftEntrySchema.parse({
+    id: "15419fd0-9c2a-4f74-89fc-c6da1cc9db77",
+    name: "Estimated soup",
+    source: "ai",
+    isUserCorrected: false,
+    servingVolumeMl: 240,
+    nutrientsPerServing: { calories: 120, proteinGrams: 5 },
+    amount: 1,
+    unit: "serving",
+    servingCount: 1,
+    consumedVolumeMl: 240,
+    totalNutrients: { calories: 120, proteinGrams: 5 },
+    entryMethod: "ai",
+    saveToMyFoods: false,
+  });
+  assert.equal(parsed.saveToMyFoods, false);
 });
 
 test("reconstructs a per-serving basis for editing historical amounts", () => {

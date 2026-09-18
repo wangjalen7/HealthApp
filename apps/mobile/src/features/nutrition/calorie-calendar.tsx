@@ -120,7 +120,9 @@ export function CalorieCalendar({
         >
           <Text style={styles.monthButtonText}>‹</Text>
         </Pressable>
-        <Text style={styles.title}>{title} Calories</Text>
+        <Text accessibilityRole="header" style={styles.title}>
+          {title} Calories
+        </Text>
         <Pressable
           accessibilityLabel="Show next month"
           accessibilityRole="button"
@@ -165,7 +167,7 @@ export function CalorieCalendar({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     borderColor: colors.separator,
     borderRadius: 22,
     borderCurve: "continuous",

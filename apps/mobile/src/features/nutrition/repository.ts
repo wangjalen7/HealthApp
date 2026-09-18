@@ -16,8 +16,78 @@ import {
   type MealDraftEntry,
   type NutrientValues,
 } from "./model";
+import {
+  foodRecipeInputSchema,
+  foodRecipeSchema,
+  recipeFoodBasis,
+  type FoodRecipe,
+  type FoodRecipeInput,
+} from "./recipe";
 
 export type MealType = "breakfast" | "lunch" | "dinner" | "snack";
+
+const recipeSelect =
+  "id, name, description, yield_servings, ingredients, created_at, updated_at" as const;
+
+function rowRecipe(row: Record<string, unknown>): FoodRecipe {
+  return foodRecipeSchema.parse({
+    id: String(row.id),
+    name: String(row.name),
+    description: row.description ? String(row.description) : undefined,
+    yieldServings: Number(row.yield_servings),
+    ingredients: row.ingredients,
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at),
+  });
+}
+
+export async function getFoodRecipes(userId: string): Promise<FoodRecipe[]> {
+  const { data, error } = await supabase
+    .from("food_recipes")
+    .select(recipeSelect)
+    .eq("user_id", userId)
+    .is("archived_at", null)
+    .order("updated_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => rowRecipe(row));
+}
+
+export async function saveFoodRecipe(
+  userId: string,
+  input: FoodRecipeInput,
+): Promise<FoodRecipe> {
+  const recipe = foodRecipeInputSchema.parse(input);
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("food_recipes")
+    .insert({
+      id: recipe.id ?? createId(),
+      user_id: userId,
+      name: recipe.name,
+      description: recipe.description ?? null,
+      yield_servings: recipe.yieldServings,
+      ingredients: recipe.ingredients,
+      updated_at: now,
+    })
+    .select(recipeSelect)
+    .single();
+  if (error) throw new Error(error.message);
+  return rowRecipe(data);
+}
+
+export async function archiveFoodRecipe(
+  userId: string,
+  recipeId: string,
+): Promise<void> {
+  const id = z.string().uuid().parse(recipeId);
+  const archivedAt = new Date().toISOString();
+  const { error } = await supabase
+    .from("food_recipes")
+    .update({ archived_at: archivedAt, updated_at: archivedAt })
+    .eq("user_id", userId)
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
 
 const nullableNumber = z.number().min(0).nullable();
 const barcodeProductSchema = z.object({
@@ -392,11 +462,12 @@ export async function archiveFoodProfile(
 
 export type FoodSuggestion = {
   key: string;
-  kind: "recent" | "profile";
+  kind: "recent" | "profile" | "recipe";
   basis: FoodBasis;
   defaultAmount: number;
   defaultUnit: FoodUnit;
   lastLoggedAt?: string;
+  recipeId?: string;
 };
 
 function searchScore(name: string, brand: string | undefined, query: string) {
@@ -419,7 +490,7 @@ export async function getFoodSuggestions(
   userId: string,
   query: string,
 ): Promise<FoodSuggestion[]> {
-  const [profilesResult, recentResult] = await Promise.all([
+  const [profilesResult, recentResult, recipes] = await Promise.all([
     supabase
       .from("user_food_profiles")
       .select(profileSelect)
@@ -430,11 +501,12 @@ export async function getFoodSuggestions(
     supabase
       .from("nutrition_entries")
       .select(
-        "id, food_profile_id, food_name, brand, barcode, serving_label, household_quantity_per_serving, household_unit, quantity, quantity_unit, serving_count, consumed_weight_grams, consumed_volume_ml, calories, protein_grams, carbohydrate_grams, fat_grams, fiber_grams, sugar_grams, sodium_mg, nutrition_source, occurred_at",
+        "id, food_profile_id, food_name, brand, barcode, serving_label, household_quantity_per_serving, household_unit, quantity, quantity_unit, serving_count, consumed_weight_grams, consumed_volume_ml, calories, protein_grams, carbohydrate_grams, fat_grams, fiber_grams, sugar_grams, sodium_mg, nutrition_source, entry_method, occurred_at",
       )
       .eq("user_id", userId)
       .order("occurred_at", { ascending: false })
       .limit(250),
+    getFoodRecipes(userId),
   ]);
   if (profilesResult.error) throw new Error(profilesResult.error.message);
   if (recentResult.error) throw new Error(recentResult.error.message);
@@ -445,7 +517,20 @@ export async function getFoodSuggestions(
   const profileMap = new Map(
     (profilesResult.data ?? []).map((row) => [String(row.id), rowBasis(row)]),
   );
+  for (const recipe of recipes) {
+    const basis = recipeFoodBasis(recipe);
+    if (!searchScore(basis.name, undefined, normalized)) continue;
+    suggestions.push({
+      key: `recipe:${recipe.id}`,
+      kind: "recipe",
+      basis,
+      defaultAmount: 1,
+      defaultUnit: "serving",
+      recipeId: recipe.id,
+    });
+  }
   for (const row of recentResult.data ?? []) {
+    if (row.entry_method === "recipe") continue;
     const servingCount = optionalNumber(row.serving_count) ?? 1;
     const unitResult = foodUnitSchema.safeParse(row.quantity_unit);
     const profileId = row.food_profile_id
@@ -568,7 +653,7 @@ export async function saveNutritionMeal(
   if (!values.length) throw new Error("Add at least one food.");
   const profiledValues: MealDraftEntry[] = [];
   for (const food of values) {
-    if (food.profileId) {
+    if (food.profileId || food.recipeId || food.saveToMyFoods === false) {
       profiledValues.push(food);
       continue;
     }
@@ -583,6 +668,7 @@ export async function saveNutritionMeal(
       user_id: userId,
       meal_log_id: mealLogId,
       food_profile_id: food.profileId ?? null,
+      recipe_id: food.recipeId ?? null,
       food_name: food.name,
       brand: food.brand ?? null,
       barcode: food.barcode ?? null,
@@ -635,12 +721,20 @@ export type FoodHistoryEntry = {
   note?: string;
   occurredAt: string;
   source: "manual" | "open_food_facts" | "import" | "ai";
+  recipeId?: string;
   entryMethod:
-    "basic" | "history" | "profile" | "label" | "barcode" | "import" | "ai";
+    | "basic"
+    | "history"
+    | "profile"
+    | "label"
+    | "barcode"
+    | "import"
+    | "ai"
+    | "recipe";
 };
 
 const foodHistorySelect =
-  "id, food_name, brand, meal_type, calories, protein_grams, carbohydrate_grams, fat_grams, fiber_grams, sugar_grams, sodium_mg, quantity, quantity_unit, serving_count, consumed_weight_grams, consumed_volume_ml, serving_label, household_quantity_per_serving, household_unit, note, occurred_at, nutrition_source, entry_method" as const;
+  "id, recipe_id, food_name, brand, meal_type, calories, protein_grams, carbohydrate_grams, fat_grams, fiber_grams, sugar_grams, sodium_mg, quantity, quantity_unit, serving_count, consumed_weight_grams, consumed_volume_ml, serving_label, household_quantity_per_serving, household_unit, note, occurred_at, nutrition_source, entry_method" as const;
 
 function foodHistoryEntry(row: Record<string, unknown>): FoodHistoryEntry {
   const unit = foodUnitSchema.safeParse(row.quantity_unit);
@@ -680,6 +774,7 @@ function foodHistoryEntry(row: Record<string, unknown>): FoodHistoryEntry {
           : row.nutrition_source === "import"
             ? "import"
             : "manual",
+    recipeId: row.recipe_id ? String(row.recipe_id) : undefined,
     entryMethod: [
       "history",
       "profile",
@@ -687,6 +782,7 @@ function foodHistoryEntry(row: Record<string, unknown>): FoodHistoryEntry {
       "barcode",
       "import",
       "ai",
+      "recipe",
     ].includes(String(row.entry_method))
       ? (row.entry_method as FoodHistoryEntry["entryMethod"])
       : "basic",
