@@ -1,3 +1,4 @@
+import { completePendingDraftSave } from "../../src/lib/mutations";
 import { AiActionCard } from "../../src/ui/ai-action-card";
 import { ExerciseHelp } from "../../src/features/training/exercise-help";
 import { ExerciseSetFields } from "../../src/features/training/exercise-set-fields";
@@ -146,7 +147,8 @@ export default function WorkoutScreen() {
     }),
     [entries, location, notes, selectedGroups],
   );
-  draftRef.current = draft;
+  const savingDraftRef = useRef(false);
+  if (!savingDraftRef.current) draftRef.current = draft;
 
   useEffect(() => {
     let active = true;
@@ -244,14 +246,14 @@ export default function WorkoutScreen() {
   }, [userId]);
 
   useEffect(() => {
-    if (!userId || !draftLoaded) return;
+    if (!userId || !draftLoaded || saving) return;
     void persistWorkoutDraft(userId, draft).catch(() => undefined);
-  }, [draft, draftLoaded, userId]);
+  }, [draft, draftLoaded, userId, saving]);
 
   useEffect(() => {
     if (!userId || !draftLoaded) return;
     const subscription = AppState.addEventListener("change", (nextState) => {
-      if (nextState !== "active") {
+      if (nextState !== "active" && !savingDraftRef.current) {
         const latest = draftRef.current;
         void persistWorkoutDraft(userId, latest).catch(() => undefined);
       }
@@ -489,6 +491,8 @@ export default function WorkoutScreen() {
     setFeedback("");
     const savedLocation = location.trim();
     try {
+      savingDraftRef.current = true;
+      await persistWorkoutDraft(userId!, draftRef.current);
       await saveWorkout(session.user.id, {
         title: `${selectedGroups.join(", ")} lift`,
         muscleGroups: selectedGroups,
@@ -496,7 +500,14 @@ export default function WorkoutScreen() {
         notes,
         sets,
       });
+      draftRef.current = {
+        muscleGroups: [],
+        entries: [],
+        location: "",
+        notes: "",
+      };
       await clearWorkoutDraft(session.user.id);
+      await completePendingDraftSave(session.user.id, "workout:create");
       setFeedback(
         "Workout saved. New exercise names will be suggested next time.",
       );
@@ -516,6 +527,7 @@ export default function WorkoutScreen() {
         error instanceof Error ? error.message : "Could not save workout.",
       );
     } finally {
+      savingDraftRef.current = false;
       setSaving(false);
     }
   }

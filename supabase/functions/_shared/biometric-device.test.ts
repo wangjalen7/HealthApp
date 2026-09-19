@@ -4,16 +4,50 @@ import test from "node:test";
 import {
   bytesToBase64Url,
   hashDeviceSecret,
+  isLegacyBiometricAuthentication,
   parseBiometricDeviceRequest,
 } from "./biometric-device";
 
 const credentialId = "2ecb0193-ec57-4a71-88c0-8ab33edb1034";
 const secret = "abcdefghijklmnopqrstuvwxyzABCDEFGH012345678";
 
+test("recognizes the legacy protocol for rejection without accepting it as authentication", () => {
+  const old = { action: "authenticate", credentialId, secret };
+  assert.equal(isLegacyBiometricAuthentication(old), true);
+  assert.equal(parseBiometricDeviceRequest(old), undefined);
+  assert.equal(
+    isLegacyBiometricAuthentication({ ...old, deviceId: credentialId }),
+    false,
+  );
+  assert.equal(
+    isLegacyBiometricAuthentication({ ...old, secret: "short" }),
+    false,
+  );
+  assert.equal(isLegacyBiometricAuthentication({ action: "enroll" }), false);
+});
+
 test("accepts only bounded biometric device requests", () => {
-  assert.deepEqual(parseBiometricDeviceRequest({ action: "enroll" }), {
-    action: "enroll",
-  });
+  assert.equal(parseBiometricDeviceRequest({ action: "enroll" }), undefined);
+  assert.equal(
+    parseBiometricDeviceRequest({ action: "enroll", verified: true }),
+    undefined,
+  );
+  assert.deepEqual(
+    parseBiometricDeviceRequest({
+      action: "enroll",
+      userId: credentialId,
+      password: "current-password",
+      deviceId: credentialId,
+      deviceName: "iPhone",
+    }),
+    {
+      action: "enroll",
+      userId: credentialId,
+      password: "current-password",
+      deviceId: credentialId,
+      deviceName: "iPhone",
+    },
+  );
   assert.deepEqual(
     parseBiometricDeviceRequest({ action: "revoke", credentialId }),
     { action: "revoke", credentialId },
@@ -23,8 +57,9 @@ test("accepts only bounded biometric device requests", () => {
       action: "authenticate",
       credentialId,
       secret,
+      deviceId: credentialId,
     }),
-    { action: "authenticate", credentialId, secret },
+    { action: "authenticate", credentialId, secret, deviceId: credentialId },
   );
   assert.equal(
     parseBiometricDeviceRequest({

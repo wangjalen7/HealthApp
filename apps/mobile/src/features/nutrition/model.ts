@@ -28,6 +28,7 @@ export const nutrientValuesSchema = z.object({
 export type NutrientValues = z.infer<typeof nutrientValuesSchema>;
 
 export const foodBasisSchema = z.object({
+  version: z.number().int().positive().optional(),
   profileId: z.string().uuid().optional(),
   catalogProductId: z.string().uuid().optional(),
   name: z.string().trim().min(1).max(160),

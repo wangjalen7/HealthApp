@@ -1,13 +1,19 @@
-import { Icon } from "../../src/ui/icon";
-import { SegmentedControl } from "../../src/ui/segmented-control";
-import { surfaces } from "../../src/ui/theme";
 import { ScreenScrollView } from "../../src/ui/screen-scroll-view";
 import { Pressable } from "../../src/ui/pressable";
 import { colors } from "../../src/ui/theme";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useFocusEffect, useRouter } from "expo-router";
+import { Dashboard } from "../../src/features/summary/dashboard";
+import { widgetRegistry } from "../../src/features/summary/widget-renderers";
+import {
+  loadSummaryData,
+  type SummaryData,
+} from "../../src/features/summary/data";
+import { type Widget } from "../../src/features/summary/layout";
+import { dayKey, deviceZone } from "../../src/features/summary/calendar";
+import { useFocusEffect } from "expo-router";
 import {
   ActivityIndicator,
+  AppState,
   Platform,
   RefreshControl,
   StyleSheet,
@@ -18,19 +24,12 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
-import {
-  deduplicateVitalSamples,
-  latestSample,
-  trendRanges,
-  type TrendRange,
-  type VitalSample,
-} from "../../src/domain/vitals";
+import type { VitalSample } from "../../src/domain/vitals";
 import { useAuth } from "../../src/features/auth/auth-provider";
 import {
   getDailyGoals,
   type DailyGoals,
 } from "../../src/features/goals/repository";
-import { mlToFluidOunces } from "../../src/features/hydration/model";
 import { getTodayHydrationTotals } from "../../src/features/hydration/repository";
 import {
   importHealthKitData,
@@ -41,38 +40,26 @@ import {
   startOfCalendarMonth,
   type DailyCalorieTotal,
 } from "../../src/features/nutrition/calendar";
-import { CalorieCalendar } from "../../src/features/nutrition/calorie-calendar";
 import { getCurrentMonthCalorieTotals } from "../../src/features/nutrition/repository";
 import {
   getTodaySummary,
   type TodaySummary,
 } from "../../src/features/training/repository";
-import { NutritionProgressCard } from "../../src/features/training/nutrition-progress-card";
-import { classifyBloodPressure } from "../../src/features/vitals/blood-pressure";
-import {
-  BloodPressureTrendCard,
-  TrendCard,
-} from "../../src/features/vitals/trend-card";
 import {
   loadCachedVitals,
   loadLastVitalSyncAt,
   syncVitals,
 } from "../../src/features/vitals/sync";
 
-function formatDateTime(value: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
 type UnifiedSyncResult = {
   lastSyncedAt?: string;
   message: string;
 };
 export default function SummaryScreen() {
-  const router = useRouter();
+  const { session } = useAuth();
+  return <SummaryContent key={session?.user.id ?? "signed-out"} />;
+}
+function SummaryContent() {
   const { width } = useWindowDimensions();
   const { session, configured } = useAuth();
   const insets = useSafeAreaInsets();
@@ -81,8 +68,22 @@ export default function SummaryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [status, setStatus] = useState("");
+  const [baseError, setBaseError] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<string>();
-  const [range, setRange] = useState<TrendRange>("W");
+  const [widgets, setWidgets] = useState<Widget[]>([]);
+  const [extraData, setExtraData] = useState<SummaryData>();
+  const [extraLoading, setExtraLoading] = useState(false);
+  const [revision, setRevision] = useState(0);
+  const [now, setNow] = useState(() => new Date());
+  const [editing, setEditing] = useState(false);
+  const calendarClock = dayKey(now) + deviceZone();
+  const live = useRef(true);
+  useEffect(() => {
+    live.current = true;
+    return () => {
+      live.current = false;
+    };
+  }, []);
   const [chartSwipeActive, setChartSwipeActive] = useState(false);
   const [summary, setSummary] = useState<TodaySummary>({
     calories: 0,
@@ -106,13 +107,28 @@ export default function SummaryScreen() {
   const loadedUserId = useRef<string | undefined>(undefined);
   const calendarMonthRef = useRef(calendarMonth);
   const monthRequestId = useRef(0);
+  const monthLoads = useRef(
+    new Map<string, Promise<Record<string, DailyCalorieTotal>>>(),
+  );
   calendarMonthRef.current = calendarMonth;
   const loadMonthCalories = useCallback(
     async (userId: string, reference: Date) => {
       const requestId = monthRequestId.current + 1;
       monthRequestId.current = requestId;
-      const totals = await getCurrentMonthCalorieTotals(userId, reference);
-      if (monthRequestId.current === requestId) setMonthCalories(totals);
+      const key = userId + ":" + reference.getTime();
+      let operation = monthLoads.current.get(key);
+      if (!operation) {
+        operation = getCurrentMonthCalorieTotals(userId, reference);
+        monthLoads.current.set(key, operation);
+      }
+      try {
+        const totals = await operation;
+        if (live.current && monthRequestId.current === requestId)
+          setMonthCalories(totals);
+      } finally {
+        if (monthLoads.current.get(key) === operation)
+          monthLoads.current.delete(key);
+      }
     },
     [],
   );
@@ -201,15 +217,18 @@ export default function SummaryScreen() {
           getTodayHydrationTotals(session.user.id),
           loadMonthCalories(session.user.id, calendarMonthRef.current),
         ]);
+        setBaseError(false);
         setSummary(today);
         setGoals(savedGoals);
         setWaterMl(todayWater.countedMl);
         setPendingFluidMl(todayWater.pendingMl);
       } catch (error) {
+        setBaseError(true);
         setStatus(
           error instanceof Error ? error.message : "Could not load summary.",
         );
       } finally {
+        if (live.current) setRevision((value) => value + 1);
         loadedUserId.current = session.user.id;
         if (isInitialLoad) setLoading(false);
         if (isPullRefresh) setRefreshing(false);
@@ -233,22 +252,50 @@ export default function SummaryScreen() {
       void load(true);
     }, [load]),
   );
-  const combinedSamples = deduplicateVitalSamples(samples);
-  const weight = latestSample(combinedSamples, "weight");
-  const systolic = latestSample(combinedSamples, "systolic_bp");
-  const diastolic = latestSample(combinedSamples, "diastolic_bp");
-  const bloodPressureCategory =
-    systolic && diastolic
-      ? classifyBloodPressure(systolic.value, diastolic.value)
-      : undefined;
-  const weightPounds = weight
-    ? weight.unit === "kg"
-      ? weight.value * 2.20462
-      : weight.value
-    : undefined;
-  const automaticProteinGoal =
-    weightPounds === undefined ? undefined : Math.round(weightPounds * 0.7);
-  const proteinGoal = goals.proteinGoal ?? automaticProteinGoal;
+  const previousClock = useRef(calendarClock);
+  useEffect(() => {
+    if (previousClock.current !== calendarClock) {
+      previousClock.current = calendarClock;
+      void load(false);
+    }
+  }, [calendarClock, load]);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 30000);
+    const listener = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        setNow(new Date());
+        void load(true);
+      }
+    });
+    return () => {
+      clearInterval(timer);
+      listener.remove();
+    };
+  }, [load]);
+  useEffect(() => {
+    if (!session || !widgets.length) return;
+    let current = true;
+    setExtraLoading(true);
+    void loadSummaryData(session.user.id, widgets, new Date(), samples)
+      .then((data) => {
+        if (current) setExtraData(data);
+      })
+      .catch((error) => {
+        if (current)
+          setStatus(
+            error instanceof Error
+              ? error.message
+              : "Could not refresh dashboard.",
+          );
+      })
+      .finally(() => {
+        if (current) setExtraLoading(false);
+      });
+    return () => {
+      current = false;
+    };
+    // Samples are refreshed as part of revision; do not reload once per setter.
+  }, [session?.user.id, widgets, revision, calendarClock]);
   const rawFirstName = session?.user.user_metadata?.first_name;
   const rawDisplayName = session?.user.user_metadata?.display_name;
   const firstName =
@@ -273,7 +320,7 @@ export default function SummaryScreen() {
           onRefresh={() => void load(true, true)}
         />
       }
-      scrollEnabled={!chartSwipeActive}
+      scrollEnabled={!chartSwipeActive && !editing}
     >
       <Text style={styles.date}>
         {new Intl.DateTimeFormat(undefined, {
@@ -340,168 +387,38 @@ export default function SummaryScreen() {
         </View>
       </View>
       {status ? <Text style={styles.copy}>{status}</Text> : null}
-      <Text style={styles.sectionTitle}>Latest readings</Text>
-      <View style={styles.metrics}>
-        <Metric
-          label="Weight"
-          onPress={() =>
-            router.push({
-              pathname: "/(app)/history",
-              params: { view: "weight" },
+      {session ? (
+        <Dashboard
+          user={session.user.id}
+          onLayoutChange={setWidgets}
+          onEditingChange={(value) => {
+            setEditing(value);
+            setChartSwipeActive(false);
+          }}
+          render={(widget) =>
+            widgetRegistry[widget.type].render(widget, {
+              samples,
+              goals,
+              summary,
+              waterMl,
+              pendingFluidMl,
+              calendarMonth,
+              monthCalories,
+              moveCalendarMonth,
+              loading,
+              setChartSwipeActive,
+              baseError,
+              retry: () => void load(false),
+              extraData,
+              extraLoading,
+              now,
+              user: session.user.id,
+              reloadExtras: () => setRevision((v) => v + 1),
             })
           }
-          value={weight ? `${weight.value} ${weight.unit}` : "--"}
-          detail={
-            weight
-              ? `Measured ${formatDateTime(weight.occurredAt)}${goals.weightGoalLb ? ` · Goal: ${goals.weightGoalLb} lb` : ""}`
-              : goals.weightGoalLb
-                ? `Goal: ${goals.weightGoalLb} lb`
-                : "No measurement"
-          }
         />
-        <Metric
-          label="Blood pressure"
-          onPress={() =>
-            router.push({
-              pathname: "/(app)/history",
-              params: { view: "blood_pressure" },
-            })
-          }
-          value={
-            systolic && diastolic
-              ? `${systolic.value}/${diastolic.value}`
-              : "--"
-          }
-          valueColor={bloodPressureCategory?.color}
-          detail={
-            systolic
-              ? `Measured ${formatDateTime(systolic.occurredAt)} · Goal: ${goals.systolicGoal ?? 120}/${goals.diastolicGoal ?? 80}`
-              : `Goal: ${goals.systolicGoal ?? 120}/${goals.diastolicGoal ?? 80}`
-          }
-        />
-      </View>
-      <Text style={styles.sectionTitle}>Today's nutrition</Text>
-      <View style={styles.nutritionMetrics}>
-        <NutritionProgressCard
-          accessibilityHint="Opens Food history."
-          label="Calories"
-          goal={goals.calorieGoal}
-          onPress={() =>
-            router.push({
-              pathname: "/(app)/history",
-              params: { view: "food" },
-            })
-          }
-          unit="cal"
-          value={summary.calories}
-        />
-        <NutritionProgressCard
-          accessibilityHint="Opens Food history."
-          label="Protein"
-          goal={proteinGoal}
-          onPress={() =>
-            router.push({
-              pathname: "/(app)/history",
-              params: { view: "food" },
-            })
-          }
-          unit="g"
-          value={summary.protein}
-        />
-      </View>
-      <View style={styles.waterMetric}>
-        <NutritionProgressCard
-          label={pendingFluidMl > 0 ? "Fluids (some pending)" : "Fluids"}
-          goal={
-            goals.waterGoalMl === undefined
-              ? undefined
-              : mlToFluidOunces(goals.waterGoalMl)
-          }
-          onPress={() => router.push("/(app)/water")}
-          unit="fl oz"
-          value={mlToFluidOunces(waterMl)}
-        />
-      </View>
-      <CalorieCalendar
-        canGoNext={
-          calendarMonth.getTime() < startOfCalendarMonth(new Date()).getTime()
-        }
-        goal={goals.calorieGoal}
-        onNext={() => moveCalendarMonth(1)}
-        onPrevious={() => moveCalendarMonth(-1)}
-        reference={calendarMonth}
-        totals={monthCalories}
-      />
-      <Text style={styles.sectionTitle}>Trends</Text>
-      <SegmentedControl
-        label="Trend time range"
-        options={trendRanges.map((item) => ({ value: item, label: item }))}
-        value={range}
-        onChange={setRange}
-      />
-      {loading && samples.length === 0 ? (
-        <ActivityIndicator color={colors.blue} />
-      ) : (
-        <>
-          <TrendCard
-            title="Weight"
-            kind="weight"
-            samples={combinedSamples}
-            range={range}
-            onHorizontalGestureChange={setChartSwipeActive}
-          />
-          <BloodPressureTrendCard
-            onHorizontalGestureChange={setChartSwipeActive}
-            samples={combinedSamples}
-            range={range}
-          />
-        </>
-      )}
+      ) : null}
     </ScreenScrollView>
-  );
-}
-function Metric({
-  label,
-  value,
-  detail,
-  onPress,
-  valueColor,
-}: {
-  label: string;
-  value: string;
-  detail?: string;
-  onPress?: () => void;
-  valueColor?: string;
-}) {
-  return (
-    <Pressable
-      accessibilityHint={
-        onPress ? "Opens the matching detailed log." : undefined
-      }
-      accessibilityRole={onPress ? "button" : undefined}
-      disabled={!onPress}
-      onPress={onPress}
-      style={[surfaces.card, styles.metric]}
-    >
-      <View style={styles.metricHeading}>
-        <Icon
-          name={label === "Weight" ? "weight" : "heart"}
-          size={17}
-          color={label === "Weight" ? colors.purple : colors.pink}
-        />
-        <Text style={styles.metricLabel}>{label}</Text>
-        <Icon name="chevron" size={11} color={colors.tertiary} />
-      </View>
-      <Text
-        style={[
-          styles.metricValue,
-          valueColor ? { color: valueColor } : undefined,
-        ]}
-      >
-        {value}
-      </Text>
-      {detail ? <Text style={styles.metricDetail}>{detail}</Text> : null}
-    </Pressable>
   );
 }
 const styles = StyleSheet.create({

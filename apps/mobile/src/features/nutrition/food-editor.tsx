@@ -254,6 +254,7 @@ export function FoodEditor({
   const [catalogProductId, setCatalogProductId] = useState<string>();
   const [barcode, setBarcode] = useState<string>();
   const [providerSignature, setProviderSignature] = useState<string>();
+  const [labelVersion, setLabelVersion] = useState<number>();
   const [labelProfileId, setLabelProfileId] = useState<string>();
   const [labelAlreadyCorrected, setLabelAlreadyCorrected] = useState(false);
   const [basis, setBasis] = useState<FoodBasis>();
@@ -286,6 +287,7 @@ export function FoodEditor({
     setManualBarcode("");
     setEditingProfileId(undefined);
     setLabelProfileId(undefined);
+    setLabelVersion(undefined);
     setLabelAlreadyCorrected(false);
     setPendingProfileDeletion(undefined);
     if (!initial) {
@@ -303,6 +305,7 @@ export function FoodEditor({
     setNote(initial.note ?? "");
     const nextBasis: FoodBasis = {
       profileId: initial.profileId,
+      version: initial.version,
       catalogProductId: initial.catalogProductId,
       name: initial.name,
       description: initial.description,
@@ -373,6 +376,7 @@ export function FoodEditor({
     setRecipeId(undefined);
     setEditingProfileId(undefined);
     setLabelProfileId(undefined);
+    setLabelVersion(undefined);
     setLabelAlreadyCorrected(false);
     setLabelSource("manual");
     setCatalogProductId(undefined);
@@ -389,6 +393,7 @@ export function FoodEditor({
     setRecipeId(undefined);
     setEditingProfileId(undefined);
     setLabelProfileId(undefined);
+    setLabelVersion(undefined);
     setLabelAlreadyCorrected(false);
     setLabelSource("manual");
     setCatalogProductId(undefined);
@@ -460,6 +465,7 @@ export function FoodEditor({
     }
     return {
       profileId: editingProfileId ?? labelProfileId,
+      version: labelVersion,
       catalogProductId,
       name: label.name.trim(),
       description: label.description.trim() || undefined,
@@ -533,6 +539,7 @@ export function FoodEditor({
       );
       setEditingProfileId(undefined);
       setLabelProfileId(undefined);
+      setLabelVersion(undefined);
       setLabelAlreadyCorrected(false);
       setMode("search");
       setFeedback("Food label updated.");
@@ -559,6 +566,7 @@ export function FoodEditor({
     );
     setEditingProfileId(item.basis.profileId);
     setLabelProfileId(item.basis.profileId);
+    setLabelVersion(item.basis.version);
     setLabelAlreadyCorrected(item.basis.isUserCorrected);
     setPendingProfileDeletion(undefined);
     setFeedback("");
@@ -594,7 +602,9 @@ export function FoodEditor({
     setFeedback("");
     try {
       const shouldUpdateProfile =
-        basis.profileId && ["label", "barcode"].includes(entryMethod);
+        !initial &&
+        basis.profileId &&
+        ["label", "barcode"].includes(entryMethod);
       const shouldSkipProfile =
         Boolean(recipeId) || initial?.saveToMyFoods === false;
       const finalBasis = shouldUpdateProfile
@@ -663,6 +673,7 @@ export function FoodEditor({
     setLabel(nextForm);
     setEditingProfileId(undefined);
     setLabelProfileId(savedProfile.profileId);
+    setLabelVersion(savedProfile.version);
     setLabelAlreadyCorrected(savedProfile.isUserCorrected);
     setLabelSource(savedProfile.source);
     setCatalogProductId(savedProfile.catalogProductId);
@@ -713,6 +724,7 @@ export function FoodEditor({
       setLabel(nextForm);
       setEditingProfileId(undefined);
       setLabelProfileId(undefined);
+      setLabelVersion(undefined);
       setLabelAlreadyCorrected(false);
       setLabelSource("open_food_facts");
       setCatalogProductId(product.catalogProductId);
@@ -758,6 +770,7 @@ export function FoodEditor({
         setLabel(blankLabel());
         setEditingProfileId(undefined);
         setLabelProfileId(undefined);
+        setLabelVersion(undefined);
         setLabelAlreadyCorrected(false);
         setLabelSource("manual");
         setCatalogProductId(undefined);

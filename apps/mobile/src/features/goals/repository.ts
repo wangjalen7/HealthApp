@@ -1,4 +1,7 @@
+import { runMutation } from "../../lib/mutations";
+import { canonicalJson } from "../../lib/mutation-model";
 import { z } from "zod";
+import { deviceZone } from "../summary/calendar";
 import { normalizeWeightGoal } from "./calculator";
 
 import { supabase } from "../../lib/supabase";
@@ -14,6 +17,29 @@ const goalsSchema = z.object({
   diastolicGoal: z.number().int().positive().max(200).optional(),
 });
 export type DailyGoals = z.infer<typeof goalsSchema>;
+const goalColumns: Record<keyof DailyGoals, string> = {
+  calorieCalculation: "calorie_goal_calculation",
+  fluidCalculation: "fluid_goal_calculation",
+  calorieGoal: "daily_calorie_goal",
+  proteinGoal: "daily_protein_goal",
+  waterGoalMl: "daily_water_goal_ml",
+  weightGoalLb: "weight_goal_lb",
+  systolicGoal: "bp_systolic_goal",
+  diastolicGoal: "bp_diastolic_goal",
+};
+const rawGoals = new WeakMap<DailyGoals, Record<string, unknown>>();
+function parseGoals(data: Record<string, unknown>): DailyGoals {
+  const parsed = goalsSchema.parse(
+    Object.fromEntries(
+      Object.entries(goalColumns).map(([key, column]) => [
+        key,
+        data[column] ?? undefined,
+      ]),
+    ),
+  );
+  rawGoals.set(parsed, data);
+  return parsed;
+}
 export async function getDailyGoals(userId: string): Promise<DailyGoals> {
   const { data, error } = await supabase
     .from("profiles")
@@ -24,49 +50,54 @@ export async function getDailyGoals(userId: string): Promise<DailyGoals> {
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) return {};
-  return goalsSchema.parse({
-    calorieCalculation: data.calorie_goal_calculation ?? undefined,
-    fluidCalculation: data.fluid_goal_calculation ?? undefined,
-    calorieGoal: data.daily_calorie_goal ?? undefined,
-    proteinGoal: data.daily_protein_goal ?? undefined,
-    waterGoalMl:
-      data.daily_water_goal_ml === null
-        ? undefined
-        : Number(data.daily_water_goal_ml),
-    weightGoalLb:
-      data.weight_goal_lb === null
-        ? undefined
-        : normalizeWeightGoal(Number(data.weight_goal_lb)),
-    systolicGoal: data.bp_systolic_goal ?? undefined,
-    diastolicGoal: data.bp_diastolic_goal ?? undefined,
-  });
+  return parseGoals(data);
 }
+
 export async function saveDailyGoals(
   userId: string,
   input: DailyGoals,
-): Promise<void> {
+  previous: DailyGoals,
+): Promise<DailyGoals> {
   const goals = goalsSchema.parse(input);
-  const { error } = await supabase
-    .from("profiles")
-    .update({
-      calorie_goal_calculation: goals.calorieCalculation ?? {
-        method: "custom",
-        acceptedAt: new Date().toISOString(),
-      },
-      fluid_goal_calculation: goals.fluidCalculation ?? {
-        method: "custom",
-        acceptedAt: new Date().toISOString(),
-      },
-      daily_calorie_goal: goals.calorieGoal ?? null,
-      daily_protein_goal: goals.proteinGoal ?? null,
-      daily_water_goal_ml: goals.waterGoalMl ?? null,
-      weight_goal_lb:
-        goals.weightGoalLb === undefined
-          ? null
-          : normalizeWeightGoal(goals.weightGoalLb),
-      bp_systolic_goal: goals.systolicGoal ?? null,
-      bp_diastolic_goal: goals.diastolicGoal ?? null,
-    })
-    .eq("id", userId);
-  if (error) throw new Error(error.message);
+  const changes: Record<string, unknown> = {};
+  const baseline: Record<string, unknown> = {};
+  const before =
+    rawGoals.get(previous) ??
+    Object.fromEntries(
+      Object.entries(goalColumns).map(([key, column]) => [
+        column,
+        previous[key as keyof DailyGoals] ?? null,
+      ]),
+    );
+  for (const key of Object.keys(goalColumns) as (keyof DailyGoals)[]) {
+    if (
+      canonicalJson(goals[key] ?? null) === canonicalJson(previous[key] ?? null)
+    )
+      continue;
+    const column = goalColumns[key];
+    changes[column] =
+      key === "weightGoalLb" && goals.weightGoalLb !== undefined
+        ? normalizeWeightGoal(goals.weightGoalLb)
+        : (goals[key] ?? null);
+    baseline[column] = before[column] ?? null;
+  }
+  // Calculation provenance and the corresponding numeric goal are one edit.
+  for (const [value, metadata] of [
+    ["daily_calorie_goal", "calorie_goal_calculation"],
+    ["daily_water_goal_ml", "fluid_goal_calculation"],
+  ]) {
+    if (!(value in changes) && !(metadata in changes)) continue;
+    if (!(value in changes)) changes[value] = before[value] ?? null;
+    if (!(metadata in changes)) changes[metadata] = before[metadata] ?? null;
+    baseline[value] = before[value] ?? null;
+    baseline[metadata] = before[metadata] ?? null;
+  }
+  if (!Object.keys(changes).length) return previous;
+  const result = await runMutation<Record<string, unknown>>(
+    userId,
+    "goals",
+    { changes, baseline },
+    () => ({ action: "goals", changes, baseline, zone: deviceZone() }),
+  );
+  return parseGoals(result);
 }

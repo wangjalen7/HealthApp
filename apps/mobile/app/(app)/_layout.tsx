@@ -45,6 +45,7 @@ export default function AppLayout() {
   if (!session) return <Redirect href="/(auth)/sign-in" />;
   return (
     <PrivacyBoundary
+      key={session.user.id}
       locked={biometricLocked}
       lockScreen={
         <FaceIdLockScreen

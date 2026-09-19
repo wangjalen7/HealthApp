@@ -1,3 +1,6 @@
+import { AppState } from "react-native";
+import { serviceErrorMessage } from "../../src/lib/service-errors";
+import { FoodCompletionControl } from "../../src/features/streaks/food-completion";
 import { ConfirmationActions } from "../../src/ui/confirmation-actions";
 import { IconButton } from "../../src/ui/icon-button";
 import type { ScrollView } from "react-native";
@@ -226,31 +229,50 @@ export default function HistoryScreen() {
       if (isInitialLoad) setLoading(true);
       if (isPullRefresh) setRefreshing(true);
       try {
-        if (configured) await syncVitals(session.user.id);
+        const problems: string[] = [];
+        if (configured) {
+          const synced = await syncVitals(session.user.id);
+          if (synced.error) problems.push(synced.error);
+        }
         const [
           workouts,
           cardioEntries,
           foodEntries,
           hydrationEntries,
           readings,
-        ] = await Promise.all([
+        ] = await Promise.allSettled([
           getWorkoutHistory(session.user.id),
           getCardioHistory(session.user.id),
           getFoodHistory(session.user.id),
           getHydrationHistory(session.user.id),
           loadCachedVitals(session.user.id),
         ]);
-        setHistory(workouts);
-        setCardio(cardioEntries);
-        setFood(foodEntries);
-        setHydration(hydrationEntries);
-        setVitals(readings);
-        void refreshProgressPhotoIndicators(readings);
-        setError("");
+        if (workouts.status === "fulfilled") setHistory(workouts.value);
+        if (cardioEntries.status === "fulfilled")
+          setCardio(cardioEntries.value);
+        if (foodEntries.status === "fulfilled") setFood(foodEntries.value);
+        if (hydrationEntries.status === "fulfilled")
+          setHydration(hydrationEntries.value);
+        if (readings.status === "fulfilled") {
+          setVitals(readings.value);
+          void refreshProgressPhotoIndicators(readings.value);
+        }
+        const labels = ["Workouts", "Cardio", "Food", "Fluids", "Readings"];
+        [
+          workouts,
+          cardioEntries,
+          foodEntries,
+          hydrationEntries,
+          readings,
+        ].forEach((result, index) => {
+          if (result.status === "rejected")
+            problems.push(
+              `${labels[index]}: ${serviceErrorMessage(result.reason)}`,
+            );
+        });
+        setError(problems.join("\n"));
       } catch (caught) {
-        setError(
-          caught instanceof Error ? caught.message : "Could not load history.",
-        );
+        setError(serviceErrorMessage(caught, "Could not load history."));
       } finally {
         loadedUserId.current = session.user.id;
         if (isInitialLoad) setLoading(false);
@@ -262,6 +284,10 @@ export default function HistoryScreen() {
   useFocusEffect(
     useCallback(() => {
       void load();
+      const foreground = AppState.addEventListener("change", (state) => {
+        if (state === "active") void load();
+      });
+      return () => foreground.remove();
     }, [load]),
   );
   useEffect(() => {
@@ -271,7 +297,11 @@ export default function HistoryScreen() {
   async function removeCardio(cardioId: string) {
     if (!session) return;
     try {
-      await deleteCardio(session.user.id, cardioId);
+      await deleteCardio(
+        session.user.id,
+        cardioId,
+        cardio.find((item) => item.id === cardioId)?.version ?? 0,
+      );
       setCardio((current) => current.filter((entry) => entry.id !== cardioId));
     } catch (caught) {
       setError(
@@ -289,7 +319,11 @@ export default function HistoryScreen() {
   async function removeWorkout(sessionId: string) {
     if (!session) return;
     try {
-      await deleteWorkout(session.user.id, sessionId);
+      await deleteWorkout(
+        session.user.id,
+        sessionId,
+        history.find((item) => item.id === sessionId)?.version ?? 0,
+      );
       setHistory((current) =>
         current.filter((entry) => entry.id !== sessionId),
       );
@@ -310,7 +344,11 @@ export default function HistoryScreen() {
   async function removeFood(foodId: string) {
     if (!session) return;
     try {
-      await deleteFood(session.user.id, foodId);
+      await deleteFood(
+        session.user.id,
+        foodId,
+        food.find((item) => item.id === foodId)?.version ?? 0,
+      );
       setFood((current) => current.filter((entry) => entry.id !== foodId));
     } catch (caught) {
       setError(
@@ -331,7 +369,7 @@ export default function HistoryScreen() {
       message: `Remove ${entry.fluidName} from your history and daily total?`,
       confirm: () => {
         if (!session) return;
-        void deleteHydration(session.user.id, entry.id)
+        void deleteHydration(session.user.id, entry.id, entry.version)
           .then(() => {
             setHydration((current) =>
               current.filter((item) => item.id !== entry.id),
@@ -355,13 +393,10 @@ export default function HistoryScreen() {
       setVitals((current) =>
         current.filter((sample) => !deletedIds.has(sample.id)),
       );
+      setError("Deleted on this device. Waiting to sync.");
       if (configured && session) {
         const result = await syncVitals(session.user.id);
-        setError(
-          result.error
-            ? "Deleted on this device. Sync will retry when available."
-            : "",
-        );
+        setError(result.error ? `Deleted on this device. ${result.error}` : "");
       }
     } catch (caught) {
       setError(
@@ -1309,6 +1344,7 @@ function DailyTotalsModal({
               />
             </View>
           ) : null}
+          {day ? <FoodCompletionControl key={day.key} day={day.key} /> : null}
           {incomplete ? (
             <Text style={styles.dailyTotalsNote}>
               “Recorded” or “Not available” means at least one food did not

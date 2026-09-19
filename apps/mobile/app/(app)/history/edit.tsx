@@ -245,7 +245,7 @@ export default function EditHistoryScreen() {
             "Duration must be a positive whole number of minutes.",
           );
         }
-        await updateCardio(session.user.id, id, {
+        await updateCardio(session.user.id, id, cardio?.version ?? 0, {
           activityType,
           durationMinutes,
           distanceMiles,
@@ -257,7 +257,7 @@ export default function EditHistoryScreen() {
         if (!Number.isFinite(amount) || amount <= 0)
           throw new Error("Enter an amount greater than zero.");
         const calculated = calculateFoodAmount(foodBasis, amount, foodUnit);
-        await updateFoodHistoryEntry(session.user.id, id, {
+        await updateFoodHistoryEntry(session.user.id, id, food?.version ?? 0, {
           mealType,
           amount,
           unit: foodUnit,
@@ -272,7 +272,13 @@ export default function EditHistoryScreen() {
         if (!Number.isFinite(value) || value <= 0)
           throw new Error("Enter a positive weight.");
         await queueLocalVitals([{ ...sample, value }]);
-        if (configured) await syncVitals(session.user.id);
+        if (configured) {
+          const result = await syncVitals(session.user.id);
+          if (result.error) {
+            setError(`Saved on this device. ${result.error}`);
+            return;
+          }
+        }
       } else {
         const systolicValue = Number(systolic);
         const diastolicValue = Number(diastolic);
@@ -328,7 +334,13 @@ export default function EditHistoryScreen() {
           });
         }
         await queueLocalVitals(updated);
-        if (configured) await syncVitals(session.user.id);
+        if (configured) {
+          const result = await syncVitals(session.user.id);
+          if (result.error) {
+            setError(`Saved on this device. ${result.error}`);
+            return;
+          }
+        }
       }
       router.replace({
         pathname: "/(app)/history",

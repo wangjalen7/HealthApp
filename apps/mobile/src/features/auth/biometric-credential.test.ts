@@ -38,7 +38,7 @@ test("rejects a Face ID credential that does not match its account marker", () =
   };
   assert.deepEqual(
     parseFaceIdLoginCredential(JSON.stringify({ ...account, secret }), account),
-    { ...account, secret },
+    { ...account, secret, deviceId: undefined },
   );
   assert.equal(
     parseFaceIdLoginCredential(
@@ -78,10 +78,16 @@ test("validates biometric enrollment and session responses", () => {
   );
   assert.deepEqual(
     parseBiometricSessionResponse({
+      nextSecret: secret,
       accessToken: "access",
       refreshToken: "refresh",
       userId: "user-1",
     }),
-    { accessToken: "access", refreshToken: "refresh", userId: "user-1" },
+    {
+      accessToken: "access",
+      refreshToken: "refresh",
+      userId: "user-1",
+      nextSecret: secret,
+    },
   );
 });

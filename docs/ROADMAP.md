@@ -29,6 +29,10 @@ Status key: `[ ]` planned, `[-]` in progress, `[x]` complete.
 - [x] Move Apple Health connection to Profile and consolidate foreground Apple Health import into Summary's automatic and manual sync path.
 - [ ] Validate HealthKit permissions, imports, duplicate prevention, and deletion handling on the registered iPhone using the replacement development build.
 
+- [x] Harden authentication, concurrent writes, durable retries, paginated sync and account isolation; prepare migrations and regression evidence.
+- [x] Verify the complete biometric exchange with a disposable hosted account and prevent a second iOS Face ID prompt when persisting a rotated credential.
+- [x] After explicit approval, deploy hardening migrations 003-005 and biometric-auth v6; verify hosted schema/API readiness and SQL regressions, and keep partial History queries usable when one category fails.
+
 ## Release 3 â€” Training, cardio, and nutrition core
 
 - [x] Add secure remote tables and RLS policies for workouts, workout sets, cardio, and nutrition entries.
@@ -76,11 +80,16 @@ Status key: `[ ]` planned, `[-]` in progress, `[x]` complete.
 - [x] Simplify fluid and drink entry, correct goal precision, and move Coach into research-informed workout planning with beginner guidance; deploy the updated planner function.
 - [x] Reduce the gap between fluid-history category and delete actions.
 - [x] Retain a two-line preview when workout/cardio history notes are collapsed.
+- [x] Implement the customizable Summary widget editor, Training Summary, Recent PR, Quick Actions, dated streak rules/targets and reversible food-day confirmation; verify domain/storage, browser and isolated SQL/RLS behavior.
+- [x] Fix Edit Summary calling browser-only window event methods on native; verify editor opening, canceling, saving and reopening with a native-style component regression and the browser flow.
+- [x] Make Edit Summary a live widget preview with original-only defaults, whole-widget hold-and-drag, stable insertion feedback, Small/Large sizes and separate options without visible manual move buttons.
+- [x] Verify `202609180001_summary_streaks.sql` is applied, deploy `202609180002_summary_function_permissions.sql`, and pass hosted SQL/RLS verification for Profile goal-save and streak/confirmation RPCs.
+- [x] Use a workout-history consent toggle and keep exercise guidance text-only without demo/website links.
 - [x] Collapse workout-history notes, simplify fluid row quantities and unify AI action button styling.
 - [x] Support multiple workout goals/styles, simplify overlapping choices and fix preference validation errors.
 - [x] Replace workout chat with single-session lifting/cardio draft generation and expanded custom preferences.
 - [x] Separate fluid entries and daily totals into their own History tab.
-- [-] Validate the revised interface, native Face ID, progress-photo, unified nutrition/barcode, and expanded tracking flows on the registered iPhone, including hydration, workout ordering/location, Summary navigation/calendar, manual-history editing, Dynamic Type, VoiceOver, and keyboard behavior.
+- [-] Validate the revised interface, native Face ID, progress-photo, unified nutrition/barcode, and expanded tracking flows on the registered iPhone, including hydration, workout ordering/location, Summary widgets/drag/auto-scroll/streaks, chart gesture competition, privacy-lock/resume, manual-history editing, Dynamic Type, VoiceOver, and keyboard behavior.
 - [x] Complete local app review, usability/save-flow fixes, and repeatable browser regression coverage; document outstanding live-backend and iPhone checks separately.
 - [x] Correct repository-root Expo startup instructions and workspace script forwarding; verify the iOS development bundle uses Expo Router.
 - [x] Match Food History fluid entries to meal formatting within the daily card, retaining daily totals and confirmed deletion.

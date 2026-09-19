@@ -9,6 +9,7 @@ export const vitalSources = ["manual", "healthkit", "omron_import"] as const;
 export type VitalSource = (typeof vitalSources)[number];
 
 export type VitalSample = {
+  version?: number;
   id: string;
   userId: string;
   kind: VitalKind;

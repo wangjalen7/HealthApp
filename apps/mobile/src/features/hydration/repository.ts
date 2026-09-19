@@ -1,3 +1,5 @@
+import { createRecords, changeRecord } from "../../lib/mutations";
+import { collectPages } from "../../lib/pagination";
 import { supabase } from "../../lib/supabase";
 import { createId } from "../vitals/storage";
 import {
@@ -13,17 +15,24 @@ export async function saveHydration(
   input: HydrationInput,
 ): Promise<void> {
   const value = hydrationInputSchema.parse(input);
-  const { error } = await supabase.from("hydration_entries").insert({
-    id: createId(),
-    user_id: userId,
-    fluid_name: value.fluidName,
-    volume_ml: hydrationAmountToMl(value.amount, value.unit),
-    category_id: value.categoryId,
-    alcohol_status: value.alcoholStatus,
-    counting_policy: "beverage_volume_v1",
-    occurred_at: new Date().toISOString(),
-  });
-  if (error) throw new Error(error.message);
+  await createRecords(
+    userId,
+    "hydration_entries",
+    "hydration:create",
+    value,
+    () => [
+      {
+        id: createId(),
+        user_id: userId,
+        fluid_name: value.fluidName,
+        volume_ml: hydrationAmountToMl(value.amount, value.unit),
+        category_id: value.categoryId,
+        alcohol_status: value.alcoholStatus,
+        counting_policy: "beverage_volume_v1",
+        occurred_at: new Date().toISOString(),
+      },
+    ],
+  );
 }
 
 export async function getTodayHydrationTotals(userId: string) {
@@ -31,25 +40,18 @@ export async function getTodayHydrationTotals(userId: string) {
   start.setHours(0, 0, 0, 0);
   const end = new Date(start);
   end.setDate(end.getDate() + 1);
-  const rows: {
-    volume_ml: unknown;
-    counting_policy?: unknown;
-    alcohol_status?: unknown;
-  }[] = [];
-  for (let offset = 0; ; offset += 1000) {
-    const { data, error } = await supabase
+  const rows = await collectPages((after) => {
+    let query = supabase
       .from("hydration_entries")
-      .select("volume_ml, counting_policy, alcohol_status")
+      .select("id, volume_ml, counting_policy, alcohol_status")
       .eq("user_id", userId)
       .gte("occurred_at", start.toISOString())
       .lt("occurred_at", end.toISOString())
-      .order("occurred_at")
       .order("id")
-      .range(offset, offset + 999);
-    if (error) throw new Error(error.message);
-    rows.push(...(data ?? []));
-    if (!data || data.length < 1000) break;
-  }
+      .limit(200);
+    if (after) query = query.gt("id", after);
+    return query;
+  });
   return fluidTotals(rows);
 }
 export async function getTodayHydrationMl(userId: string): Promise<number> {
@@ -58,6 +60,7 @@ export async function getTodayHydrationMl(userId: string): Promise<number> {
 
 export type HydrationHistoryEntry = {
   id: string;
+  version: number;
   fluidName: string;
   volumeMl: number;
   countedMl: number | null;
@@ -70,29 +73,31 @@ export type HydrationHistoryEntry = {
 export async function deleteHydration(
   userId: string,
   id: string,
+  version: number,
 ): Promise<void> {
-  const { error } = await supabase
-    .from("hydration_entries")
-    .delete()
-    .eq("user_id", userId)
-    .eq("id", id);
-  if (error) throw new Error(error.message);
+  await changeRecord(userId, "hydration_entries", id, version);
 }
 
 export async function getHydrationHistory(
   userId: string,
 ): Promise<HydrationHistoryEntry[]> {
-  const { data, error } = await supabase
-    .from("hydration_entries")
-    .select(
-      "id, fluid_name, volume_ml, occurred_at, category_id, alcohol_status, counting_policy",
-    )
-    .eq("user_id", userId)
-    .order("occurred_at", { ascending: false })
-    .limit(500);
-  if (error) throw new Error(error.message);
+  const data = await collectPages((after) => {
+    let query = supabase
+      .from("hydration_entries")
+      .select("*")
+      .eq("user_id", userId)
+      .order("id")
+      .limit(200);
+    if (after) query = query.gt("id", after);
+    return query;
+  });
+  data.sort(
+    (a, b) =>
+      b.occurred_at.localeCompare(a.occurred_at) || b.id.localeCompare(a.id),
+  );
   return (data ?? []).map((entry) => ({
     id: String(entry.id),
+    version: Number(entry.version),
     fluidName: String(entry.fluid_name),
     volumeMl: Number(entry.volume_ml),
     countedMl: fluidContribution(entry),
@@ -131,36 +136,51 @@ export async function saveDrinkPreset(userId: string, input: HydrationInput) {
   // Resolve by name so retrying a failed log does not create duplicate favorites.
   const { data, error: lookupError } = await supabase
     .from("saved_drinks")
-    .select("id")
+    .select("id,version")
     .eq("user_id", userId)
     .eq("name", value.fluidName)
     .maybeSingle();
   if (lookupError) throw new Error(lookupError.message);
-  const { error } = await supabase.from("saved_drinks").upsert(
-    {
-      id: data?.id ?? createId(),
-      user_id: userId,
-      name: value.fluidName,
-      category_id: value.categoryId,
-      alcohol_status: value.alcoholStatus,
-      default_volume_ml: hydrationAmountToMl(value.amount, value.unit),
-      archived_at: null,
-    },
-    { onConflict: "user_id,name" },
-  );
-  if (error) throw new Error(error.message);
+  const fields = {
+    name: value.fluidName,
+    category_id: value.categoryId,
+    alcohol_status: value.alcoholStatus,
+    default_volume_ml: hydrationAmountToMl(value.amount, value.unit),
+    archived_at: null,
+  };
+  if (data)
+    await changeRecord(
+      userId,
+      "saved_drinks",
+      data.id,
+      Number(data.version),
+      fields,
+    );
+  else
+    await createRecords(
+      userId,
+      "saved_drinks",
+      "drink-preset:create",
+      value,
+      () => [{ id: createId(), ...fields }],
+    );
 }
 export async function archiveDrinkPreset(userId: string, id: string) {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("saved_drinks")
-    .update({ archived_at: new Date().toISOString() })
+    .select("version")
     .eq("user_id", userId)
-    .eq("id", id);
+    .eq("id", id)
+    .single();
   if (error) throw new Error(error.message);
+  await changeRecord(userId, "saved_drinks", id, Number(data.version), {
+    archived_at: new Date().toISOString(),
+  });
 }
 export async function classifyHydration(
   userId: string,
   id: string,
+  version: number,
   categoryId: HydrationInput["categoryId"],
   alcoholStatus: HydrationInput["alcoholStatus"],
 ) {
@@ -171,14 +191,9 @@ export async function classifyHydration(
     categoryId,
     alcoholStatus,
   });
-  const { error } = await supabase
-    .from("hydration_entries")
-    .update({
-      category_id: categoryId,
-      alcohol_status: alcoholStatus,
-      counting_policy: "beverage_volume_v1",
-    })
-    .eq("user_id", userId)
-    .eq("id", id);
-  if (error) throw new Error(error.message);
+  await changeRecord(userId, "hydration_entries", id, version, {
+    category_id: categoryId,
+    alcohol_status: alcoholStatus,
+    counting_policy: "beverage_volume_v1",
+  });
 }

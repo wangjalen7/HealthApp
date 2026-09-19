@@ -1,0 +1,401 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  evaluateStreak,
+  foodFingerprint,
+  pairedReadings,
+  type Sources,
+} from "./engine";
+import { ruleConfigSchema, type Rule } from "./model";
+import type { Habit } from "../summary/layout";
+import type { VitalSample } from "../../domain/vitals";
+import { createReminder } from "../reminders/model";
+const now = new Date(2026, 8, 18, 12),
+  zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+const at = (day: number) => new Date(2026, 8, day, 8).toISOString();
+function sources(): Sources {
+  return {
+    food: [],
+    fluids: [],
+    sessions: [],
+    sets: [],
+    cardio: [],
+    vitals: [],
+    reminders: [],
+    schedules: [],
+    confirmations: [],
+    goals: [],
+    coverage: Object.fromEntries(
+      [
+        "food",
+        "fluids",
+        "training",
+        "vitals",
+        "reminders",
+        "goals",
+        "confirmations",
+      ].map((k) => [k, { from: "2026-09-01", complete: true }]),
+    ),
+  };
+}
+const rule = (habit: Habit, patch: Partial<Rule> = {}): Rule => ({
+  habit,
+  effective_day: "2026-09-16",
+  activation_day: "2026-09-16",
+  enabled: true,
+  version: 1,
+  config: ruleConfigSchema.parse({}),
+  ...patch,
+});
+const food = (day: number) => ({
+  id: String(day),
+  occurred_at: at(day),
+  calories: 2000,
+  protein_grams: 100,
+  revision: 1,
+});
+test("unfinished day retains the prior run, met current day extends provisionally, closed missing day breaks", () => {
+  const data = sources();
+  data.food = [food(16), food(17)];
+  let value = evaluateStreak(
+    "food_logging",
+    [rule("food_logging")],
+    data,
+    now,
+    zone,
+  );
+  assert.equal(value.current, 2);
+  assert.equal(value.best, 2);
+  assert.equal(value.periods.at(-1)!.state, "open");
+  data.food.push(food(18));
+  value = evaluateStreak(
+    "food_logging",
+    [rule("food_logging")],
+    data,
+    now,
+    zone,
+  );
+  assert.equal(value.current, 3);
+  assert.equal(value.best, 2);
+  data.food = data.food.filter((f) => f.id !== "17");
+  assert.equal(
+    evaluateStreak("food_logging", [rule("food_logging")], data, now, zone)
+      .current,
+    1,
+  );
+});
+test("unknown query cannot establish an empty day or a verified run; activation and pauses are prospective", () => {
+  const data = sources();
+  data.coverage.food = { from: "2026-09-16", complete: false };
+  const value = evaluateStreak(
+    "food_logging",
+    [rule("food_logging")],
+    data,
+    now,
+    zone,
+  );
+  assert.equal(value.unknown, true);
+  assert.equal(value.periods[0].state, "unknown");
+  const paused = evaluateStreak(
+    "food_logging",
+    [
+      rule("food_logging"),
+      rule("food_logging", { effective_day: "2026-09-18", enabled: false }),
+    ],
+    sources(),
+    now,
+    zone,
+  );
+  assert.equal(paused.periods[0].state, "not_met");
+  assert.equal(paused.periods.at(-1)!.explanation, "paused");
+});
+test("inclusive calorie bounds require explicit valid confirmation and positive historical goals", () => {
+  const data = sources();
+  data.food = [food(18)];
+  data.goals = [
+    {
+      effective_day: "2026-09-18",
+      calorie_goal: 2000,
+      protein_goal: 100,
+      fluid_goal_ml: 1000,
+    },
+  ];
+  const r = rule("calorie_target", {
+    activation_day: "2026-09-18",
+    effective_day: "2026-09-18",
+  });
+  assert.equal(
+    evaluateStreak("calorie_target", [r], data, now, zone).periods[0].state,
+    "unconfirmed",
+  );
+  for (const calories of [1800, 2200]) {
+    data.food[0].calories = calories;
+    data.confirmations = [
+      {
+        local_day: "2026-09-18",
+        time_zone: zone,
+        fingerprint: foodFingerprint(data.food),
+        confirmed_at: at(18),
+      },
+    ];
+    assert.equal(
+      evaluateStreak("calorie_target", [r], data, now, zone).current,
+      1,
+    );
+  }
+  data.food[0].revision = 2;
+  assert.equal(
+    evaluateStreak("calorie_target", [r], data, now, zone).periods[0].state,
+    "unconfirmed",
+  );
+  data.confirmations[0].fingerprint = foodFingerprint(data.food);
+  assert.equal(
+    evaluateStreak("calorie_target", [r], data, now, "Pacific/Auckland")
+      .periods[0].state,
+    "unconfirmed",
+  );
+  data.goals[0].calorie_goal = 0;
+  assert.equal(
+    evaluateStreak("calorie_target", [r], data, now, zone).periods[0]
+      .explanation,
+    "goal_unavailable",
+  );
+});
+test("canonical fluid credit uses legacy, alcohol and pending rules; pending does not block already-met target", () => {
+  const data = sources();
+  data.goals = [
+    {
+      effective_day: "2026-09-16",
+      calorie_goal: 2000,
+      protein_goal: 100,
+      fluid_goal_ml: 1000,
+    },
+  ];
+  data.fluids = [
+    {
+      id: "water",
+      occurred_at: at(18),
+      volume_ml: 1000,
+      counting_policy: "beverage_volume_v1",
+      alcohol_status: "nonalcoholic",
+    },
+    {
+      id: "wine",
+      occurred_at: at(18),
+      volume_ml: 500,
+      counting_policy: "beverage_volume_v1",
+      alcohol_status: "alcoholic",
+    },
+    {
+      id: "pending",
+      occurred_at: at(18),
+      volume_ml: 1000,
+      counting_policy: "beverage_volume_v1",
+      alcohol_status: "unknown",
+    },
+  ];
+  const value = evaluateStreak(
+    "fluid_target",
+    [rule("fluid_target")],
+    data,
+    now,
+    zone,
+  );
+  assert.equal(value.periods.at(-1)!.count, 1000);
+  assert.equal(value.current, 1);
+  data.fluids[0].alcohol_status = "alcoholic";
+  assert.equal(
+    evaluateStreak("fluid_target", [rule("fluid_target")], data, now, zone)
+      .current,
+    0,
+  );
+  data.fluids[0].counting_policy = "legacy_volume_v1";
+  assert.equal(
+    evaluateStreak("fluid_target", [rule("fluid_target")], data, now, zone)
+      .current,
+    1,
+  );
+});
+test("weekly periods use distinct days and do not break an unfinished week", () => {
+  const data = sources();
+  data.cardio = [7, 8, 9, 14, 14].map((day, i) => ({
+    id: String(i),
+    occurred_at: at(day),
+    duration_minutes: 10,
+  }));
+  const r = rule("training", {
+    activation_day: "2026-09-07",
+    effective_day: "2026-09-07",
+  });
+  const value = evaluateStreak("training", [r], data, now, zone);
+  assert.equal(value.current, 1);
+  assert.equal(value.periods.at(-1)!.count, 1);
+  assert.equal(value.periods.at(-1)!.state, "open");
+});
+test("scheduled off-days are neutral, imports opt-in, unrelated BP readings never form a pair", () => {
+  const data = sources();
+  const weight: VitalSample = {
+    id: "w",
+    userId: "u",
+    kind: "weight",
+    value: 180,
+    unit: "lb",
+    occurredAt: at(16),
+    createdAt: at(16),
+    source: "healthkit",
+  };
+  data.vitals = [weight];
+  const r = rule("weight", {
+    config: ruleConfigSchema.parse({ weekdays: [3, 5] }),
+  });
+  assert.equal(evaluateStreak("weight", [r], data, now, zone).current, 0);
+  r.config.includeImports = true;
+  const result = evaluateStreak("weight", [r], data, now, zone);
+  assert.equal(result.current, 1);
+  assert.equal(result.periods[1].state, "not_scheduled");
+  assert.equal(
+    pairedReadings([
+      { ...weight, kind: "systolic_bp", correlationId: "a" },
+      { ...weight, id: "d", kind: "diastolic_bp", correlationId: "b" },
+    ]).length,
+    0,
+  );
+  assert.equal(
+    pairedReadings([
+      { ...weight, kind: "systolic_bp", correlationId: "a" },
+      { ...weight, id: "d", kind: "diastolic_bp", correlationId: "a" },
+    ]).length,
+    1,
+  );
+});
+test("multiple reminder occurrences each require a completion; retention gap is unknown; undo recomputes", () => {
+  const data = sources(),
+    reminder = createReminder({
+      userId: "u",
+      kind: "custom",
+      name: "Routine",
+      repeat: "multiple_daily",
+      time: "08:00",
+      additionalTimes: ["10:00"],
+      startDate: "2026-09-18",
+      weekdays: [],
+    });
+  data.schedules = [{ effective_day: "2026-09-18", reminders: [reminder] }];
+  data.reminders = [
+    {
+      reminderId: reminder.id,
+      localDay: "2026-09-18",
+      scheduledTime: "08:00",
+      completedAt: at(18),
+    },
+  ];
+  const r = rule("reminder", {
+    activation_day: "2026-09-18",
+    effective_day: "2026-09-18",
+    config: ruleConfigSchema.parse({ reminderId: reminder.id }),
+  });
+  assert.equal(evaluateStreak("reminder", [r], data, now, zone).current, 0);
+  data.reminders.push({ ...data.reminders[0], scheduledTime: "10:00" });
+  assert.equal(evaluateStreak("reminder", [r], data, now, zone).current, 1);
+  data.reminders.pop();
+  assert.equal(evaluateStreak("reminder", [r], data, now, zone).current, 0);
+  data.coverage.reminders = { from: "2026-09-19", complete: true };
+  assert.equal(
+    evaluateStreak("reminder", [r], data, now, zone).periods[0].state,
+    "unknown",
+  );
+});
+test("manual daily logging excludes imports and unfinished shells; repeated entries count once", () => {
+  const data = sources();
+  data.food = [{ ...food(18), entry_method: "import" }];
+  data.food.push({ ...food(18), id: "legacy-import", source: "import" });
+  data.sessions = [{ id: "shell", completed_at: at(18) }];
+  assert.equal(
+    evaluateStreak("daily_logging", [rule("daily_logging")], data, now, zone)
+      .current,
+    0,
+  );
+  data.food = [food(18), { ...food(18), id: "second" }];
+  assert.equal(
+    evaluateStreak("daily_logging", [rule("daily_logging")], data, now, zone)
+      .current,
+    1,
+  );
+});
+test("dated protein goals apply prospectively and absent historical targets are not invented", () => {
+  const data = sources();
+  data.food = [food(16), food(17), food(18)];
+  data.goals = [
+    {
+      effective_day: "2026-09-16",
+      calorie_goal: 2000,
+      protein_goal: 100,
+      fluid_goal_ml: 1000,
+    },
+    {
+      effective_day: "2026-09-18",
+      calorie_goal: 2000,
+      protein_goal: 200,
+      fluid_goal_ml: 1000,
+    },
+  ];
+  const r = rule("protein_target");
+  let result = evaluateStreak("protein_target", [r], data, now, zone);
+  assert.deepEqual(
+    result.periods.map((p) => p.state),
+    ["met", "met", "open"],
+  );
+  assert.equal(result.current, 2);
+  data.goals.shift();
+  result = evaluateStreak("protein_target", [r], data, now, zone);
+  assert.equal(result.periods[0].explanation, "goal_unavailable");
+  assert.equal(result.periods[0].state, "not_scheduled");
+  data.coverage.goals = { from: "2026-09-16", complete: false };
+  assert.equal(
+    evaluateStreak("protein_target", [r], data, now, zone).periods[0].state,
+    "unknown",
+  );
+});
+test("dated reminder schedule changes do not rewrite earlier occurrence requirements", () => {
+  const data = sources();
+  const original = createReminder({
+    userId: "u",
+    kind: "custom",
+    repeat: "daily",
+    time: "08:00",
+    additionalTimes: [],
+    startDate: "2026-09-17",
+    weekdays: [],
+  });
+  data.schedules = [
+    { effective_day: "2026-09-17", reminders: [original] },
+    {
+      effective_day: "2026-09-18",
+      reminders: [
+        { ...original, repeat: "multiple_daily", additionalTimes: ["10:00"] },
+      ],
+    },
+  ];
+  data.reminders = [17, 18].map((day) => ({
+    reminderId: original.id,
+    localDay: `2026-09-${day}`,
+    scheduledTime: "08:00",
+    completedAt: at(day),
+  }));
+  const r = rule("reminder", {
+    activation_day: "2026-09-17",
+    effective_day: "2026-09-17",
+    config: ruleConfigSchema.parse({ reminderId: original.id }),
+  });
+  const result = evaluateStreak("reminder", [r], data, now, zone);
+  assert.equal(result.current, 1);
+  assert.deepEqual(
+    result.periods.map((p) => p.target),
+    [1, 2],
+  );
+  data.schedules[1].reminders[0].repeat = "once";
+  assert.equal(
+    evaluateStreak("reminder", [r], data, now, zone).periods.at(-1)!.state,
+    "not_scheduled",
+  );
+});

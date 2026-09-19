@@ -89,6 +89,7 @@ export function ClassifyDrink({
                   await classifyHydration(
                     session.user.id,
                     entry.id,
+                    entry.version,
                     category,
                     alcohol,
                   );

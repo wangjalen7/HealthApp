@@ -160,7 +160,7 @@ test("planner retries generation and fills an editable workout directly without 
   await page.getByRole("radio", { name: "Home", exact: true }).click();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page
-    .getByRole("checkbox", {
+    .getByRole("switch", {
       name: "Use my workout history for AI planning",
       exact: true,
     })
@@ -203,11 +203,17 @@ test("planner retries generation and fills an editable workout directly without 
     })
     .click();
   await expect(
+    page.getByText(
+      "Keep your feet grounded. Bend hips and knees together, lower to a comfortable depth, then stand steadily.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(
     page.getByRole("link", {
-      name: "View ACE instructions and photos",
+      name: /ACE/,
       exact: true,
     }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await expect(
     page.getByText("Unfinished workout saved on this device.", { exact: true }),
   ).toBeVisible();
@@ -345,7 +351,7 @@ for (const sessionType of ["cardio", "combo"] as const) {
       await page.getByRole("radio", { name: "Home", exact: true }).click();
       await page.getByRole("button", { name: "Continue", exact: true }).click();
       await page
-        .getByRole("checkbox", {
+        .getByRole("switch", {
           name: "Use my workout history for AI planning",
           exact: true,
         })

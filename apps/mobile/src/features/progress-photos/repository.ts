@@ -1,20 +1,15 @@
-import { decode } from "base64-arraybuffer";
+import { runMutation, changeRecord } from "../../lib/mutations";
 import { z } from "zod";
 
 import { supabase } from "../../lib/supabase";
 import { createId } from "../vitals/storage";
 import type { PreparedProgressPhoto } from "./image";
-import {
-  isProgressPhotoStorageFullError,
-  localPhotoDay,
-  progressPhotoEntryLimit,
-  progressPhotoMaxBytes,
-  progressPhotoStorageFullMessage,
-} from "./model";
+import { localPhotoDay, progressPhotoMaxBytes } from "./model";
 
 const bucket = "progress-photos";
 const rowSchema = z.object({
   id: z.string().uuid(),
+  version: z.coerce.number().int().positive(),
   user_id: z.string().uuid(),
   weight_sample_id: z.string().uuid().nullable(),
   object_path: z.string().min(1),
@@ -27,6 +22,7 @@ const rowSchema = z.object({
 
 export type ProgressPhoto = {
   id: string;
+  version: number;
   userId: string;
   weightSampleId?: string;
   objectPath: string;
@@ -48,6 +44,7 @@ function mapRow(
 ): ProgressPhoto {
   return {
     id: row.id,
+    version: row.version,
     userId: row.user_id,
     weightSampleId: row.weight_sample_id ?? undefined,
     objectPath: row.object_path,
@@ -69,7 +66,7 @@ export async function getProgressPhotos(
   const { data, error } = await supabase
     .from("progress_photos")
     .select(
-      "id, user_id, weight_sample_id, object_path, taken_at, local_day, width, height, byte_size",
+      "id, version, user_id, weight_sample_id, object_path, taken_at, local_day, width, height, byte_size",
     )
     .eq("user_id", userId)
     .eq("weight_sample_id", weightSampleId)
@@ -139,74 +136,48 @@ export async function uploadProgressPhoto(
   if (photo.byteSize > progressPhotoMaxBytes) {
     throw new Error("Progress photos must be 2 MB or smaller.");
   }
-  const takenAt = new Date().toISOString();
-  const localDay = localPhotoDay(takenAt);
-  const count = await getEntryProgressPhotoCount(userId, weightSampleId);
-  if (count >= progressPhotoEntryLimit) {
-    throw new Error("Three progress photos are allowed per weight entry.");
-  }
-
-  const id = createId();
-  const objectPath = `${userId}/${localDay}/${id}.jpg`;
-  const { error: uploadError } = await supabase.storage
-    .from(bucket)
-    .upload(objectPath, decode(photo.base64), {
-      cacheControl: "31536000",
-      contentType: "image/jpeg",
-      upsert: false,
-    });
-  if (uploadError) {
-    if (isProgressPhotoStorageFullError(uploadError)) {
-      throw new Error(progressPhotoStorageFullMessage);
-    }
-    throw new Error(uploadError.message);
-  }
-  const { data: url, error: signedUrlError } = await supabase.storage
-    .from(bucket)
-    .createSignedUrl(objectPath, 60 * 60);
-  if (signedUrlError) {
-    await supabase.storage.from(bucket).remove([objectPath]);
-    throw new Error(signedUrlError.message);
-  }
-
-  const row = {
-    byte_size: photo.byteSize,
-    height: photo.height,
-    id,
-    local_day: localDay,
-    object_path: objectPath,
-    taken_at: takenAt,
-    user_id: userId,
-    weight_sample_id: weightSampleId,
-    width: photo.width,
-  };
-  const { data, error } = await supabase
-    .from("progress_photos")
-    .insert(row)
-    .select(
-      "id, user_id, weight_sample_id, object_path, taken_at, local_day, width, height, byte_size",
-    )
-    .single();
-  if (error) {
-    await supabase.storage.from(bucket).remove([objectPath]);
-    throw new Error(error.message);
-  }
-  const parsed = rowSchema.parse(data);
-  return mapRow(parsed, url.signedUrl);
+  const rows = await runMutation<Record<string, unknown>[]>(
+    userId,
+    `photo:create:${weightSampleId}`,
+    {
+      weightSampleId,
+      base64: photo.base64,
+      width: photo.width,
+      height: photo.height,
+    },
+    () => {
+      const takenAt = new Date().toISOString();
+      const localDay = localPhotoDay(takenAt);
+      const id = createId();
+      const objectPath = `${userId}/${localDay}/${id}.jpg`;
+      return {
+        table: "progress_photos",
+        action: "create",
+        upload: { base64: photo.base64, path: objectPath },
+        rows: [
+          {
+            id,
+            version: 0,
+            values: {
+              byte_size: photo.byteSize,
+              height: photo.height,
+              local_day: localDay,
+              object_path: objectPath,
+              taken_at: takenAt,
+              weight_sample_id: weightSampleId,
+              width: photo.width,
+            },
+          },
+        ],
+      };
+    },
+  );
+  return mapRow(rowSchema.parse(rows[0]), String(rows[0].signed_url));
 }
 
 export async function deleteProgressPhoto(
   userId: string,
   photo: ProgressPhoto,
 ): Promise<void> {
-  const { error: storageError } = await supabase.storage
-    .from(bucket)
-    .remove([photo.objectPath]);
-  if (storageError) throw new Error(storageError.message);
-  const { error } = await supabase
-    .from("progress_photos")
-    .delete()
-    .eq("id", photo.id)
-    .eq("user_id", userId);
-  if (error) throw new Error(error.message);
+  await changeRecord(userId, "progress_photos", photo.id, photo.version);
 }

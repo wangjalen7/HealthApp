@@ -88,6 +88,7 @@ export default function EditWorkoutScreen() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [location, setLocation] = useState("");
   const [notes, setNotes] = useState("");
+  const [version, setVersion] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState("");
@@ -107,6 +108,7 @@ export default function EditWorkoutScreen() {
       ).filter((group): group is MuscleGroup =>
         muscleGroups.includes(group as MuscleGroup),
       ) as MuscleGroup[];
+      setVersion(workout.version);
       setSelectedGroups(savedGroups);
       setEntries(
         groupedEntries(workout.sets).map((entry) => ({
@@ -270,7 +272,7 @@ export default function EditWorkoutScreen() {
     setSaving(true);
     setFeedback("");
     try {
-      await replaceWorkout(session.user.id, id, {
+      await replaceWorkout(session.user.id, id, version, {
         title: `${selectedGroups.join(", ")} lift`,
         muscleGroups: selectedGroups,
         location,

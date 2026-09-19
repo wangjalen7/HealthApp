@@ -1,6 +1,10 @@
 import type { VitalSample } from "../../domain/vitals";
-import { supabase } from "../../lib/supabase";
-import { loadCachedVitals, queueLocalVitals, syncVitals } from "../vitals/sync";
+import {
+  loadCachedVitals,
+  queueLocalVitals,
+  syncVitals,
+  markVitalsDeleted,
+} from "../vitals/sync";
 import { healthKitRecordId } from "./identity";
 import {
   healthKitAvailability,
@@ -36,13 +40,13 @@ async function tombstoneVitalIds(
   deletedAt: string,
 ): Promise<void> {
   if (!ids.length) return;
-  const { error } = await supabase
-    .from("vital_samples")
-    .update({ deleted_at: deletedAt })
-    .eq("user_id", userId)
-    .eq("source", "healthkit")
-    .in("id", unique(ids));
-  if (error) throw new Error(error.message);
+  const matches = (await loadCachedVitals(userId)).filter(
+    (sample) =>
+      sample.source === "healthkit" &&
+      unique(ids).includes(sample.id) &&
+      !sample.deletedAt,
+  );
+  await markVitalsDeleted(matches.map((sample) => ({ ...sample, deletedAt })));
 }
 
 export async function importHealthKitData(
@@ -64,9 +68,7 @@ export async function importHealthKitData(
   });
   const now = new Date().toISOString();
   const cached = await loadCachedVitals(userId);
-  const hiddenIds = new Set(
-    cached.filter((sample) => sample.deletedAt).map((sample) => sample.id),
-  );
+  const hiddenIds = new Set(cached.map((sample) => sample.id));
   const samples: VitalSample[] = batch.vitals
     .map((reading) => {
       const id = healthKitRecordId(userId, reading.kind, reading.externalId);

@@ -1,104 +1,143 @@
-import {
-  vitalSources,
-  type VitalSample,
-  type VitalSource,
-} from "../../domain/vitals";
+import type { VitalSample } from "../../domain/vitals";
+import { serviceErrorMessage } from "../../lib/service-errors";
 import { supabase } from "../../lib/supabase";
 import {
+  assertAccount,
+  sendMutation,
+  signOutRejectedSession,
+} from "../../lib/mutations";
+import { readVitalRow } from "./store-model";
+import {
   cachedVitals,
-  completeChange,
-  enqueueVitals,
-  failChange,
-  lastVitalSyncAt,
+  queueVitals,
   queuedChanges,
-  saveCachedVitals,
+  prepareChange,
+  acceptChange,
+  failChange,
+  applyRemotePage,
+  syncCursor,
+  lastVitalSyncAt,
   saveVitalSyncAt,
 } from "./storage";
 
-const remoteRow = (sample: VitalSample) => ({
-  id: sample.id,
-  user_id: sample.userId,
-  kind: sample.kind,
-  value: sample.value,
-  unit: sample.unit,
-  occurred_at: sample.occurredAt,
-  correlation_id: sample.correlationId ?? null,
-  source: sample.source,
-  external_id: sample.externalId ?? null,
-  source_name: sample.sourceName ?? null,
-  created_at: sample.createdAt,
-  deleted_at: sample.deletedAt ?? null,
-});
-
-const readSource = (value: unknown): VitalSource =>
-  vitalSources.includes(value as VitalSource)
-    ? (value as VitalSource)
-    : "manual";
-const localSample = (row: Record<string, unknown>): VitalSample => ({
-  id: String(row.id),
-  userId: String(row.user_id),
-  kind: row.kind as VitalSample["kind"],
-  value: Number(row.value),
-  unit: String(row.unit),
-  occurredAt: String(row.occurred_at),
-  correlationId: row.correlation_id ? String(row.correlation_id) : undefined,
-  source: readSource(row.source),
-  externalId: row.external_id ? String(row.external_id) : undefined,
-  sourceName: row.source_name ? String(row.source_name) : undefined,
-  createdAt: String(row.created_at),
-  deletedAt: row.deleted_at ? String(row.deleted_at) : undefined,
-});
-
-export async function queueLocalVitals(samples: VitalSample[]): Promise<void> {
-  await saveCachedVitals(samples);
-  await enqueueVitals(samples);
-}
-
+export const queueLocalVitals = queueVitals;
 export async function markVitalsDeleted(
   samples: VitalSample[],
 ): Promise<VitalSample[]> {
-  if (!samples.length) return [];
-  const deletedAt = new Date().toISOString();
-  const tombstones = samples.map((sample) => ({ ...sample, deletedAt }));
-  await queueLocalVitals(tombstones);
+  const tombstones = samples.map((sample) => ({
+    ...sample,
+    deletedAt: new Date().toISOString(),
+  }));
+  await queueVitals(tombstones);
   return tombstones;
 }
-
-export async function syncVitals(userId: string): Promise<{
+type SyncResult = {
   synced: number;
   pending: number;
   lastSyncedAt?: string;
   error?: string;
-}> {
-  let synced = 0;
-  const changes = await queuedChanges();
-  for (const change of changes) {
-    const samples = JSON.parse(change.payload) as VitalSample[];
-    if (samples.some((sample) => sample.userId !== userId)) continue;
-    const { error } = await supabase
-      .from("vital_samples")
-      .upsert(samples.map(remoteRow), { onConflict: "id" });
-    if (error) {
-      await failChange(change.id, error.message);
-      return { synced, pending: changes.length - synced, error: error.message };
-    }
-    await completeChange(change.id);
-    synced += 1;
-  }
-
-  const { data, error } = await supabase
-    .from("vital_samples")
-    .select("*")
-    .eq("user_id", userId)
-    .order("occurred_at", { ascending: false });
-  if (error) return { synced, pending: 0, error: error.message };
-  await saveCachedVitals(
-    (data ?? []).map((row) => localSample(row as Record<string, unknown>)),
-  );
-  const lastSyncedAt = new Date().toISOString();
-  await saveVitalSyncAt(userId, lastSyncedAt);
-  return { synced, pending: 0, lastSyncedAt };
+};
+const running = new Map<string, Promise<SyncResult>>();
+export function syncVitals(userId: string): Promise<SyncResult> {
+  const existing = running.get(userId);
+  if (existing) return existing.then(() => syncVitals(userId));
+  const work = performSync(userId).finally(() => running.delete(userId));
+  running.set(userId, work);
+  return work;
 }
-
+async function performSync(userId: string): Promise<SyncResult> {
+  let synced = 0;
+  let issue: string | undefined;
+  try {
+    await assertAccount(userId);
+    for (const candidate of await queuedChanges(userId)) {
+      await assertAccount(userId);
+      const operation = await prepareChange(userId, candidate.id);
+      if (!operation?.request) continue;
+      try {
+        const reply = await sendMutation(
+          userId,
+          operation.id,
+          operation.request,
+        );
+        await assertAccount(userId);
+        if (reply.status === "conflict") {
+          issue =
+            "Some readings changed on another device. Your local edits are retained. Review Pending readings in Settings.";
+          await failChange(userId, operation.id, issue, {
+            id: reply.id,
+            current: reply.current
+              ? readVitalRow(reply.current as Record<string, unknown>)
+              : null,
+          });
+        } else {
+          await acceptChange(
+            userId,
+            operation.id,
+            (reply.data as Record<string, unknown>[]).map(readVitalRow),
+          );
+          synced++;
+        }
+      } catch (error) {
+        issue =
+          error instanceof Error
+            ? error.message
+            : "Sync could not be confirmed. Pending readings are retained.";
+        await failChange(userId, operation.id, issue);
+        break;
+      }
+    }
+    let cursor = await syncCursor(userId);
+    let through: number | undefined;
+    for (;;) {
+      await assertAccount(userId);
+      const checkedSession = (await supabase.auth.getSession()).data.session;
+      const { data, error } = await supabase.rpc("read_vital_changes", {
+        p_user_id: userId,
+        p_after: cursor,
+        p_through: through ?? null,
+        p_limit: 200,
+      });
+      if (error) {
+        if (error.code === "28000")
+          await signOutRejectedSession(checkedSession);
+        throw new Error(serviceErrorMessage(error));
+      }
+      await assertAccount(userId);
+      if (
+        !data ||
+        !Array.isArray(data.rows) ||
+        !Number.isSafeInteger(data.cursor) ||
+        data.cursor < cursor
+      )
+        throw new Error(
+          "Invalid sync response. Pending readings are retained.",
+        );
+      const next = Number(data.cursor);
+      if (!data.done && next === cursor)
+        throw new Error("Sync did not advance. Retry when connected.");
+      await applyRemotePage(userId, data.rows.map(readVitalRow), next);
+      cursor = next;
+      through = Number(data.through);
+      if (data.done) break;
+    }
+    const pending = (await queuedChanges(userId)).length;
+    if (pending && !issue)
+      issue =
+        "Readings are saved on this device and waiting to sync. Review Pending readings in Settings.";
+    const lastSyncedAt = new Date().toISOString();
+    await saveVitalSyncAt(userId, lastSyncedAt);
+    return { synced, pending, lastSyncedAt, error: issue };
+  } catch (error) {
+    return {
+      synced,
+      pending: (await queuedChanges(userId)).length,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Sync failed. Pending readings are retained.",
+    };
+  }
+}
 export const loadCachedVitals = cachedVitals;
 export const loadLastVitalSyncAt = lastVitalSyncAt;

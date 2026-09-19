@@ -1,3 +1,4 @@
+import { recordReminderSchedule } from "../streaks/repository";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import {
@@ -26,40 +27,57 @@ function queueWrite(key: string, operation: () => Promise<void>) {
 async function readList<T>(
   key: string,
   parse: (value: unknown) => { success: boolean; data?: T },
+  strict = false,
 ): Promise<T[]> {
   try {
     const raw = await AsyncStorage.getItem(key);
     if (!raw) return [];
     const values: unknown = JSON.parse(raw);
-    if (!Array.isArray(values)) return [];
+    if (!Array.isArray(values)) {
+      if (strict) throw new Error("Reminder data could not be read.");
+      return [];
+    }
     return values.flatMap((value) => {
       const result = parse(value);
+      if (strict && !result.success)
+        throw new Error("Reminder data could not be read.");
       return result.success && result.data ? [result.data] : [];
     });
-  } catch {
+  } catch (error) {
+    if (strict) throw error;
     return [];
   }
 }
 
-export async function listReminders(userId: string): Promise<Reminder[]> {
-  const reminders = await readList(remindersKey(userId), (value) =>
-    reminderSchema.safeParse(value),
+export async function listReminders(
+  userId: string,
+  strict = false,
+): Promise<Reminder[]> {
+  const reminders = await readList(
+    remindersKey(userId),
+    (value) => reminderSchema.safeParse(value),
+    strict,
   );
   return reminders.sort((left, right) => left.time.localeCompare(right.time));
 }
 
 export function saveReminders(userId: string, reminders: Reminder[]) {
   const parsed = reminders.map((reminder) => reminderSchema.parse(reminder));
-  return queueWrite(remindersKey(userId), () =>
-    AsyncStorage.setItem(remindersKey(userId), JSON.stringify(parsed)),
-  );
+  return queueWrite(remindersKey(userId), async () => {
+    await recordReminderSchedule(userId, await listReminders(userId), true);
+    await recordReminderSchedule(userId, parsed);
+    await AsyncStorage.setItem(remindersKey(userId), JSON.stringify(parsed));
+  });
 }
 
 export async function listReminderCompletions(
   userId: string,
+  strict = false,
 ): Promise<ReminderCompletion[]> {
-  return readList(completionsKey(userId), (value) =>
-    reminderCompletionSchema.safeParse(value),
+  return readList(
+    completionsKey(userId),
+    (value) => reminderCompletionSchema.safeParse(value),
+    strict,
   );
 }
 

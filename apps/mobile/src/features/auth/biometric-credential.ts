@@ -6,6 +6,7 @@ export type FaceIdLoginAccount = {
 
 export type FaceIdLoginCredential = FaceIdLoginAccount & {
   secret: string;
+  deviceId?: string;
 };
 
 export type RememberedLoginAccount = {
@@ -63,6 +64,10 @@ export function parseFaceIdLoginCredential(
       credentialId: parsed.credentialId,
       email: parsed.email,
       secret: parsed.secret,
+      deviceId:
+        typeof parsed.deviceId === "string" && uuidPattern.test(parsed.deviceId)
+          ? parsed.deviceId
+          : undefined,
       userId: parsed.userId,
     };
   } catch {
@@ -108,10 +113,19 @@ export function parseBiometricEnrollmentResponse(
 
 export function parseBiometricSessionResponse(
   input: unknown,
-): { accessToken: string; refreshToken: string; userId: string } | undefined {
+):
+  | {
+      accessToken: string;
+      refreshToken: string;
+      userId: string;
+      nextSecret: string;
+    }
+  | undefined {
   if (!input || typeof input !== "object") return undefined;
   const value = input as Record<string, unknown>;
   if (
+    typeof value.nextSecret !== "string" ||
+    !secretPattern.test(value.nextSecret) ||
     typeof value.accessToken !== "string" ||
     !value.accessToken ||
     typeof value.refreshToken !== "string" ||
@@ -122,6 +136,7 @@ export function parseBiometricSessionResponse(
     return undefined;
   }
   return {
+    nextSecret: value.nextSecret,
     accessToken: value.accessToken,
     refreshToken: value.refreshToken,
     userId: value.userId,

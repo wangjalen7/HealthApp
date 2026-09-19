@@ -184,9 +184,13 @@ test("water save, retry and deletion stay separate from food history", async ({
   await page.getByRole("tab", { name: "History", exact: true }).click();
   await page.getByRole("tab", { name: "Food", exact: true }).click();
   await expect(page.getByText("Review oats", { exact: true })).toBeVisible();
-  await expect(page.getByText("12 fl oz fluids", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("12 fl oz fluids", { exact: true })).toHaveCount(
+    0,
+  );
   await page.getByRole("tab", { name: "Fluids", exact: true }).click();
-  await expect(page.getByText("12 fl oz fluids", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("12 fl oz fluids", { exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Fluids", exact: true }),
   ).toBeVisible();
@@ -253,9 +257,12 @@ test("weight and blood pressure persist and appear in history", async ({
   await expect(
     page.getByText("No blood-pressure readings", { exact: true }),
   ).toBeVisible();
-  expect(
-    backend.tables.vital_samples.filter((row) => !row.deleted_at),
-  ).toHaveLength(1);
+  await expect
+    .poll(
+      () =>
+        backend.tables.vital_samples.filter((row) => !row.deleted_at).length,
+    )
+    .toBe(1);
 });
 
 test("meal label, draft restoration, amount editing, save and deletion", async ({
@@ -338,6 +345,9 @@ test("meal label, draft restoration, amount editing, save and deletion", async (
   await expect
     .poll(() => backend.tables.nutrition_entries[0].calories)
     .toBe(225);
+  // The tab can appear before its foreground refresh finishes. Review the
+  // newly saved row before opening a version-bound delete confirmation.
+  await expect(page.getByText(/1\.5 servings/)).toBeVisible();
   await expect(
     page.getByRole("tab", { name: "Food", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
@@ -616,7 +626,7 @@ test("populated Summary, calendar and chart ranges link to matching history", as
     page.getByRole("button", { name: "Show next month" }),
   ).toBeEnabled();
   await page.getByRole("button", { name: "Show next month" }).click();
-  await page.getByRole("tab", { name: "M", exact: true }).click();
+  await page.getByRole("tab", { name: "M", exact: true }).first().click();
   await expect(
     page.getByText("Monthly average", { exact: true }).first(),
   ).toBeVisible();

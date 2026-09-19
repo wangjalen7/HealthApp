@@ -1,18 +1,66 @@
 export type BiometricDeviceRequest =
-  | { action: "authenticate"; credentialId: string; secret: string }
-  | { action: "enroll" }
+  | {
+      action: "authenticate";
+      credentialId: string;
+      secret: string;
+      deviceId: string;
+    }
+  | {
+      action: "enroll";
+      password: string;
+      deviceId: string;
+      deviceName: string;
+      userId: string;
+    }
+  | { action: "list" | "revokeAll" }
   | { action: "revoke"; credentialId: string };
 
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const secretPattern = /^[A-Za-z0-9_-]{43}$/;
 
+// Identify the previous protocol only to return an actionable rejection.
+// Legacy credentials must never be upgraded into a session without reenrollment.
+export function isLegacyBiometricAuthentication(input: unknown): boolean {
+  if (!input || typeof input !== "object") return false;
+  const value = input as Record<string, unknown>;
+  return (
+    value.action === "authenticate" &&
+    value.deviceId === undefined &&
+    typeof value.credentialId === "string" &&
+    uuidPattern.test(value.credentialId) &&
+    typeof value.secret === "string" &&
+    secretPattern.test(value.secret)
+  );
+}
+
 export function parseBiometricDeviceRequest(
   input: unknown,
 ): BiometricDeviceRequest | undefined {
   if (!input || typeof input !== "object") return undefined;
   const value = input as Record<string, unknown>;
-  if (value.action === "enroll") return { action: "enroll" };
+  if (value.action === "list" || value.action === "revokeAll")
+    return { action: value.action };
+  if (
+    value.action === "enroll" &&
+    typeof value.userId === "string" &&
+    uuidPattern.test(value.userId) &&
+    typeof value.password === "string" &&
+    value.password.length > 0 &&
+    value.password.length <= 1024 &&
+    typeof value.deviceId === "string" &&
+    uuidPattern.test(value.deviceId) &&
+    typeof value.deviceName === "string" &&
+    value.deviceName.trim().length > 0 &&
+    value.deviceName.length <= 80
+  )
+    return {
+      action: "enroll",
+      userId: value.userId,
+      password: value.password,
+      deviceId: value.deviceId,
+      deviceName: value.deviceName.trim(),
+    };
   if (
     value.action === "revoke" &&
     typeof value.credentialId === "string" &&
@@ -22,6 +70,8 @@ export function parseBiometricDeviceRequest(
   }
   if (
     value.action === "authenticate" &&
+    typeof value.deviceId === "string" &&
+    uuidPattern.test(value.deviceId) &&
     typeof value.credentialId === "string" &&
     uuidPattern.test(value.credentialId) &&
     typeof value.secret === "string" &&
@@ -31,6 +81,7 @@ export function parseBiometricDeviceRequest(
       action: "authenticate",
       credentialId: value.credentialId,
       secret: value.secret,
+      deviceId: value.deviceId,
     };
   }
   return undefined;

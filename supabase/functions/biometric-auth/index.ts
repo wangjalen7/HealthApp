@@ -1,8 +1,10 @@
+import { verifyEnrollmentPassword } from "../_shared/biometric-enrollment.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.112.4";
 
 import {
   bytesToBase64Url,
   hashDeviceSecret,
+  isLegacyBiometricAuthentication,
   parseBiometricDeviceRequest,
 } from "../_shared/biometric-device.ts";
 import { corsHeaders } from "../_shared/cors.ts";
@@ -64,6 +66,16 @@ Deno.serve(async (request) => {
   } catch {
     return json({ code: "invalid_request", message: "Invalid request." }, 400);
   }
+  if (isLegacyBiometricAuthentication(input)) {
+    return json(
+      {
+        code: "device_upgrade_required",
+        message:
+          "Reload or update HealthApp, sign in with your password, then enable Face ID again in Profile Settings.",
+      },
+      401,
+    );
+  }
   const body = parseBiometricDeviceRequest(input);
   if (!body) {
     return json({ code: "invalid_request", message: "Invalid request." }, 400);
@@ -74,14 +86,22 @@ Deno.serve(async (request) => {
   });
 
   if (body.action === "authenticate") {
+    const nextSecret = bytesToBase64Url(
+      crypto.getRandomValues(new Uint8Array(32)),
+    );
     const tokenHash = await hashDeviceSecret(body.secret);
-    const { data: credential, error: credentialError } = await admin
-      .from("biometric_device_credentials")
-      .select("id,user_id")
-      .eq("id", body.credentialId)
-      .eq("token_hash", tokenHash)
-      .is("revoked_at", null)
-      .maybeSingle();
+    const { data: credentialUserId, error: credentialError } = await admin.rpc(
+      "consume_biometric_device",
+      {
+        p_id: body.credentialId,
+        p_device_id: body.deviceId,
+        p_hash: tokenHash,
+        p_next_hash: await hashDeviceSecret(nextSecret),
+      },
+    );
+    const credential = credentialUserId
+      ? { user_id: credentialUserId as string }
+      : undefined;
     if (credentialError || !credential) {
       return json(
         {
@@ -121,18 +141,38 @@ Deno.serve(async (request) => {
         token_hash: linkData.properties.hashed_token,
         type: "magiclink",
       });
-    if (sessionError || !sessionData.session) {
+    if (
+      sessionError ||
+      !sessionData.session ||
+      sessionData.user?.id !== credential.user_id
+    ) {
+      if (sessionData.session) await verifier.auth.signOut({ scope: "local" });
       return json(
         { code: "session_unavailable", message: "Could not complete sign-in." },
         503,
       );
     }
 
-    await admin
+    const { data: stillValid } = await admin
       .from("biometric_device_credentials")
-      .update({ last_used_at: new Date().toISOString() })
-      .eq("id", credential.id);
+      .select("id")
+      .eq("id", body.credentialId)
+      .eq("token_hash", await hashDeviceSecret(nextSecret))
+      .is("revoked_at", null)
+      .gt("expires_at", new Date().toISOString())
+      .maybeSingle();
+    if (!stillValid) {
+      await verifier.auth.signOut({ scope: "local" });
+      return json(
+        {
+          code: "invalid_device_credential",
+          message: "Face ID login was revoked. Use your password.",
+        },
+        401,
+      );
+    }
     return json({
+      nextSecret,
       accessToken: sessionData.session.access_token,
       refreshToken: sessionData.session.refresh_token,
       userId: sessionData.user?.id,
@@ -157,6 +197,38 @@ Deno.serve(async (request) => {
     );
   }
 
+  const { error: sessionCheck } = await userClient.rpc(
+    "require_active_session",
+    { p_user_id: authData.user.id },
+  );
+  if (sessionCheck)
+    return json(
+      { code: "unauthorized", message: "Sign in again to continue." },
+      401,
+    );
+  if (body.action === "list") {
+    const { data, error } = await admin
+      .from("biometric_device_credentials")
+      .select(
+        "id,device_id,device_name,created_at,last_used_at,expires_at,revoked_at",
+      )
+      .eq("user_id", authData.user.id)
+      .is("revoked_at", null)
+      .order("created_at", { ascending: false });
+    return error
+      ? json({ message: "Could not load devices." }, 503)
+      : json({ devices: data });
+  }
+  if (body.action === "revokeAll") {
+    const { error } = await admin
+      .from("biometric_device_credentials")
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("user_id", authData.user.id)
+      .is("revoked_at", null);
+    return error
+      ? json({ message: "Could not revoke devices." }, 503)
+      : json({ success: true });
+  }
   if (body.action === "revoke") {
     const { error } = await admin
       .from("biometric_device_credentials")
@@ -173,19 +245,63 @@ Deno.serve(async (request) => {
     return json({ success: true });
   }
 
-  const secretBytes = crypto.getRandomValues(new Uint8Array(32));
-  const secret = bytesToBase64Url(secretBytes);
-  const tokenHash = await hashDeviceSecret(secret);
-  const { data: credential, error } = await admin
-    .from("biometric_device_credentials")
-    .insert({ user_id: authData.user.id, token_hash: tokenHash })
-    .select("id")
-    .single();
-  if (error || !credential) {
+  if (body.userId !== authData.user.id)
     return json(
-      { code: "enrollment_failed", message: "Could not enable Face ID." },
-      500,
+      {
+        code: "account_changed",
+        message: "Reopen Settings for the signed-in account.",
+      },
+      401,
+    );
+  // Never trust a client reauthentication flag or the existing bearer session.
+  const verifier = createClient(supabaseUrl, publishableKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const verified = await verifyEnrollmentPassword(
+    authData.user.id,
+    body.password,
+    (password) =>
+      verifier.auth.signInWithPassword({
+        email: authData.user!.email!,
+        password,
+      }),
+  );
+  if (!verified?.session || !verified.user) {
+    return json(
+      {
+        code: "reauthentication_required",
+        message: "Verify your current password to enable Face ID.",
+      },
+      401,
     );
   }
-  return json({ credentialId: credential.id, secret });
+  try {
+    const claims = JSON.parse(
+      atob(
+        verified.session.access_token
+          .split(".")[1]
+          .replaceAll("-", "+")
+          .replaceAll("_", "/"),
+      ),
+    ) as { session_id: string };
+    const secret = bytesToBase64Url(crypto.getRandomValues(new Uint8Array(32)));
+    const { data: credentialId, error } = await admin.rpc(
+      "enroll_biometric_device",
+      {
+        p_user_id: verified.user.id,
+        p_device_id: body.deviceId,
+        p_name: body.deviceName,
+        p_hash: await hashDeviceSecret(secret),
+        p_verified_session: claims.session_id,
+      },
+    );
+    if (error || !credentialId)
+      return json(
+        { code: "enrollment_failed", message: "Could not enable Face ID." },
+        503,
+      );
+    return json({ credentialId, secret });
+  } finally {
+    await verifier.auth.signOut({ scope: "local" });
+  }
 });

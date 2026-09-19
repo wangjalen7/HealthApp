@@ -1,3 +1,4 @@
+import { completePendingDraftSave } from "../../src/lib/mutations";
 import { ConfirmationActions } from "../../src/ui/confirmation-actions";
 import { IconButton } from "../../src/ui/icon-button";
 import { trackingStyles } from "../../src/ui/tracking-styles";
@@ -69,7 +70,8 @@ export default function NutritionScreen() {
     [entries, mealType],
   );
   const draftRef = useRef(draft);
-  draftRef.current = draft;
+  const savingDraftRef = useRef(false);
+  if (!savingDraftRef.current) draftRef.current = draft;
 
   useEffect(() => {
     if (estimate === "true" && draftLoaded) {
@@ -139,14 +141,14 @@ export default function NutritionScreen() {
   );
 
   useEffect(() => {
-    if (!userId || !draftLoaded) return;
+    if (!userId || !draftLoaded || saving) return;
     void persistDraft(userId, draft).catch(() => undefined);
-  }, [draft, draftLoaded, userId]);
+  }, [draft, draftLoaded, userId, saving]);
 
   useEffect(() => {
     if (!userId || !draftLoaded) return;
     const subscription = AppState.addEventListener("change", (state) => {
-      if (state !== "active") {
+      if (state !== "active" && !savingDraftRef.current) {
         void persistDraft(userId, draftRef.current).catch(() => undefined);
       }
     });
@@ -196,8 +198,12 @@ export default function NutritionScreen() {
     setSaving(true);
     setFeedback("");
     try {
+      savingDraftRef.current = true;
+      await persistDraft(userId!, draftRef.current);
       await saveNutritionMeal(userId, mealType, entries);
+      draftRef.current = { mealType: undefined, entries: [] };
       await clearNutritionDraft(userId);
+      await completePendingDraftSave(userId, "meal:create");
       setEntries([]);
       setMealType(undefined);
       setFeedback("Meal saved.");
@@ -206,6 +212,7 @@ export default function NutritionScreen() {
         error instanceof Error ? error.message : "Could not save this meal.",
       );
     } finally {
+      savingDraftRef.current = false;
       setSaving(false);
     }
   }

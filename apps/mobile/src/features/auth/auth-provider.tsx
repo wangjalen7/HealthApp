@@ -65,10 +65,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const authenticatingRef = useRef(false);
 
   useEffect(() => {
-    sessionRef.current = session;
-  }, [session]);
-
-  useEffect(() => {
     faceIdEnabledRef.current = faceIdEnabled;
   }, [faceIdEnabled]);
 
@@ -78,6 +74,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     let active = true;
+    let generation = 0;
+    const initialGeneration = generation;
     void removeLegacyPersistedSupabaseSession()
       .catch(() => {
         // The client no longer reads persisted sessions; cleanup can retry on
@@ -86,24 +84,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .then(() => supabase.auth.getSession())
       .then(async ({ data }) => {
         const restoredSession = data.session;
-        if (!active) return;
+        if (!active || generation !== initialGeneration) return;
         if (restoredSession) {
           const [enabled, availability] = await Promise.all([
             isFaceIdEnabled(restoredSession.user.id),
             getFaceIdAvailability(),
           ]);
-          if (!active) return;
+          if (!active || generation !== initialGeneration) return;
           setFaceIdEnabledState(enabled);
           setFaceIdAvailability(availability);
           setBiometricLocked(enabled);
         }
+        sessionRef.current = restoredSession;
         setSession(restoredSession);
         setLoading(false);
       });
     const { data: subscription } = supabase.auth.onAuthStateChange(
       (event, nextSession) => {
         if (event === "INITIAL_SESSION") return;
+        const authGeneration = ++generation;
+        sessionRef.current = nextSession;
         setSession(nextSession);
+        setLoading(false);
         if (!nextSession) {
           setBiometricLocked(false);
           setFaceIdEnabledState(false);
@@ -114,7 +116,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             isFaceIdEnabled(nextSession.user.id),
             getFaceIdAvailability(),
           ]).then(([enabled, availability]) => {
-            if (!active) return;
+            if (
+              !active ||
+              generation !== authGeneration ||
+              sessionRef.current?.user.id !== nextSession.user.id
+            )
+              return;
             setFaceIdEnabledState(enabled);
             setFaceIdAvailability(availability);
             setBiometricLocked(false);
@@ -171,6 +178,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
+      const checkedSession = sessionRef.current;
+      const userId = checkedSession?.user.id;
+      if (nextState === "active" && userId) {
+        void supabase
+          .rpc("require_active_session", { p_user_id: userId })
+          .then(({ error }) => {
+            if (
+              error?.code === "28000" &&
+              sessionRef.current === checkedSession
+            )
+              void supabase.auth.signOut({ scope: "local" });
+          });
+      }
       if (
         nextState !== "active" &&
         sessionRef.current &&
@@ -214,27 +234,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           message: "Enter your current password to enable Face ID sign-in.",
         };
       }
-      const { error: passwordError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (passwordError) {
-        return {
-          success: false,
-          message:
-            passwordError.code === "invalid_credentials"
-              ? "The current password is incorrect."
-              : passwordError.message,
-        };
-      }
       const authentication = await authenticateWithFaceId(
         "Enable Face ID for HealthApp",
       );
       if (!authentication.success) return authentication;
-      await enrollFaceIdLoginCredential({
-        email,
-        userId: currentSession.user.id,
-      });
+      await enrollFaceIdLoginCredential(
+        {
+          email,
+          userId: currentSession.user.id,
+        },
+        password,
+      );
+      if (sessionRef.current?.user.id !== currentSession.user.id)
+        return { success: false };
       setFaceIdEnabledState(true);
       setBiometricLocked(false);
       return { success: true };

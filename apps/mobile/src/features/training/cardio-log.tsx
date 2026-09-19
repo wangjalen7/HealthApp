@@ -1,3 +1,4 @@
+import { completePendingDraftSave } from "../../lib/mutations";
 import { trackingStyles } from "../../ui/tracking-styles";
 import { Pressable } from "../../ui/pressable";
 import { colors } from "../../ui/theme";
@@ -123,6 +124,7 @@ export function CardioLog() {
         notes,
       });
       await clearCardioDraft(session.user.id);
+      await completePendingDraftSave(session.user.id, "cardio:create");
       setActivityType(undefined);
       setDuration("");
       setDistance("");

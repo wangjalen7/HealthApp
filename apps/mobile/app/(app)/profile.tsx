@@ -1,3 +1,5 @@
+import { SecuritySettings } from "../../src/features/auth/security-settings";
+import { dayKey, shiftDay } from "../../src/features/summary/calendar";
 import {
   colors,
   surfaces,
@@ -320,8 +322,34 @@ export default function ProfileScreen() {
         goals.waterGoalMl = savedGoals.waterGoalMl;
         goals.fluidCalculation = savedGoals.fluidCalculation;
       }
-      await saveDailyGoals(session.user.id, goals);
-      setSavedGoals(goals);
+      const accepted = await saveDailyGoals(session.user.id, goals, savedGoals);
+      setSavedGoals(accepted);
+      setCalorieGoal(
+        accepted.calorieGoal === undefined ? "" : String(accepted.calorieGoal),
+      );
+      setProteinGoal(
+        accepted.proteinGoal === undefined ? "" : String(accepted.proteinGoal),
+      );
+      setWaterGoal(
+        accepted.waterGoalMl === undefined
+          ? ""
+          : String(mlToFluidOunces(accepted.waterGoalMl)),
+      );
+      setWeightGoal(
+        accepted.weightGoalLb === undefined
+          ? ""
+          : String(accepted.weightGoalLb),
+      );
+      setSystolicGoal(
+        accepted.systolicGoal === undefined
+          ? ""
+          : String(accepted.systolicGoal),
+      );
+      setDiastolicGoal(
+        accepted.diastolicGoal === undefined
+          ? ""
+          : String(accepted.diastolicGoal),
+      );
       setGoalsFeedback("Goals saved.");
     } catch (error) {
       setGoalsFeedback(
@@ -345,8 +373,8 @@ export default function ProfileScreen() {
         ? {}
         : { weightGoalLb: calculatedWeightGoal }),
     };
-    await saveDailyGoals(session.user.id, goals);
-    setSavedGoals(goals);
+    const accepted = await saveDailyGoals(session.user.id, goals, savedGoals);
+    setSavedGoals(accepted);
     setCalorieGoal(String(calories));
     if (calculatedWeightGoal !== undefined)
       setWeightGoal(String(calculatedWeightGoal));
@@ -363,8 +391,8 @@ export default function ProfileScreen() {
       waterGoalMl: milliliters,
       fluidCalculation: calculation,
     };
-    await saveDailyGoals(session.user.id, goals);
-    setSavedGoals(goals);
+    const accepted = await saveDailyGoals(session.user.id, goals, savedGoals);
+    setSavedGoals(accepted);
     setWaterGoal(String(ounces));
     setGoalsFeedback("Fluid goal saved.");
   }
@@ -641,6 +669,11 @@ export default function ProfileScreen() {
             ) : null}
           </View>
         ) : null}
+        {profileSection === "settings" && session ? (
+          <View style={styles.card}>
+            <SecuritySettings userId={session.user.id} />
+          </View>
+        ) : null}
         {profileSection === "profile" ? (
           <View style={styles.card}>
             <Text accessibilityRole="header" style={styles.cardTitle}>
@@ -724,6 +757,10 @@ export default function ProfileScreen() {
                     {savingGoals ? "Saving..." : "Save goals"}
                   </Text>
                 </Pressable>
+                <Text style={styles.healthKitStatus}>
+                  Streak targets for changes saved today start{" "}
+                  {shiftDay(dayKey(), 1)}.
+                </Text>
                 {goalsFeedback ? (
                   <Text
                     accessibilityLiveRegion="polite"

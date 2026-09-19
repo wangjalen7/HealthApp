@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Switch, Text, View } from "react-native";
 import {
   workoutPreferencesSchema,
   workoutGoalOptions,
@@ -374,22 +374,23 @@ export function WorkoutQuestionnaire({
             style={styles.input}
           />
           {fieldError("limitations")}
-          <Pressable
-            accessibilityRole="checkbox"
-            accessibilityLabel="Use my workout history for AI planning"
-            accessibilityState={{ checked: consent }}
-            disabled={busy}
-            onPress={() => {
-              setConsent(!consent);
-              setErrors({});
-            }}
-            style={[styles.chip, consent && styles.selected]}
-          >
-            <Text style={[styles.text, consent && styles.selectedText]}>
-              {consent ? "Checked: " : "Enable: "}Use my workout history for AI
-              planning
+          <View style={styles.consentRow}>
+            <Text style={[styles.label, styles.consentLabel]}>
+              Use my workout history for AI planning
             </Text>
-          </Pressable>
+            <Switch
+              accessibilityLabel="Use my workout history for AI planning"
+              accessibilityState={{ checked: consent }}
+              disabled={busy}
+              value={consent}
+              onValueChange={(enabled) => {
+                setConsent(enabled);
+                setErrors({});
+              }}
+              trackColor={{ false: colors.separator, true: colors.blue }}
+              ios_backgroundColor={colors.separator}
+            />
+          </View>
           {fieldError("consent")}
           <Text style={styles.copy}>
             Your preferences and relevant workout history are sent to OpenAI to
@@ -493,6 +494,13 @@ const styles = StyleSheet.create({
   caption: { fontSize: 12, color: colors.secondary },
   copy: { fontSize: 14, lineHeight: 21, color: colors.secondary },
   choices: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  consentRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    minHeight: 48,
+  },
+  consentLabel: { flex: 1 },
   chip: {
     minHeight: 44,
     borderWidth: 1,

@@ -1,3 +1,6 @@
+import { serviceErrorMessage } from "../../lib/service-errors";
+import { createRecords, changeRecord } from "../../lib/mutations";
+import { collectPages } from "../../lib/pagination";
 import { z } from "zod";
 import { sameEstimatedFoodName } from "../../../../../supabase/functions/_shared/meal-estimate";
 
@@ -48,7 +51,7 @@ export async function getFoodRecipes(userId: string): Promise<FoodRecipe[]> {
     .eq("user_id", userId)
     .is("archived_at", null)
     .order("updated_at", { ascending: false });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(serviceErrorMessage(error));
   return (data ?? []).map((row) => rowRecipe(row));
 }
 
@@ -57,22 +60,22 @@ export async function saveFoodRecipe(
   input: FoodRecipeInput,
 ): Promise<FoodRecipe> {
   const recipe = foodRecipeInputSchema.parse(input);
-  const now = new Date().toISOString();
-  const { data, error } = await supabase
-    .from("food_recipes")
-    .insert({
-      id: recipe.id ?? createId(),
-      user_id: userId,
-      name: recipe.name,
-      description: recipe.description ?? null,
-      yield_servings: recipe.yieldServings,
-      ingredients: recipe.ingredients,
-      updated_at: now,
-    })
-    .select(recipeSelect)
-    .single();
-  if (error) throw new Error(error.message);
-  return rowRecipe(data);
+  const rows = await createRecords(
+    userId,
+    "food_recipes",
+    "recipe:create",
+    recipe,
+    () => [
+      {
+        id: recipe.id ?? createId(),
+        name: recipe.name,
+        description: recipe.description ?? null,
+        yield_servings: recipe.yieldServings,
+        ingredients: recipe.ingredients,
+      },
+    ],
+  );
+  return rowRecipe(rows[0]);
 }
 
 export async function archiveFoodRecipe(
@@ -80,13 +83,16 @@ export async function archiveFoodRecipe(
   recipeId: string,
 ): Promise<void> {
   const id = z.string().uuid().parse(recipeId);
-  const archivedAt = new Date().toISOString();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("food_recipes")
-    .update({ archived_at: archivedAt, updated_at: archivedAt })
+    .select("version")
     .eq("user_id", userId)
-    .eq("id", id);
-  if (error) throw new Error(error.message);
+    .eq("id", id)
+    .single();
+  if (error) throw new Error(serviceErrorMessage(error));
+  await changeRecord(userId, "food_recipes", id, Number(data.version), {
+    archived_at: new Date().toISOString(),
+  });
 }
 
 const nullableNumber = z.number().min(0).nullable();
@@ -191,6 +197,7 @@ function rowNutrients(row: Record<string, unknown>): NutrientValues {
 function rowBasis(row: Record<string, unknown>): FoodBasis {
   return foodBasisSchema.parse({
     profileId: String(row.id),
+    version: optionalNumber(row.version),
     catalogProductId:
       row.catalog_product_id === null || row.catalog_product_id === undefined
         ? undefined
@@ -219,7 +226,7 @@ function rowBasis(row: Record<string, unknown>): FoodBasis {
 }
 
 const profileSelect =
-  "id, catalog_product_id, food_name, description, brand, barcode, source, is_user_corrected, serving_label, serving_weight_grams, serving_volume_ml, household_quantity_per_serving, household_unit, servings_per_container, calories_per_serving, protein_grams_per_serving, carbohydrate_grams_per_serving, fat_grams_per_serving, fiber_grams_per_serving, sugar_grams_per_serving, sodium_mg_per_serving, archived_at, updated_at" as const;
+  "id, version, catalog_product_id, food_name, description, brand, barcode, source, is_user_corrected, serving_label, serving_weight_grams, serving_volume_ml, household_quantity_per_serving, household_unit, servings_per_container, calories_per_serving, protein_grams_per_serving, carbohydrate_grams_per_serving, fat_grams_per_serving, fiber_grams_per_serving, sugar_grams_per_serving, sodium_mg_per_serving, archived_at, updated_at" as const;
 
 export async function getFoodProfilesByIds(
   userId: string,
@@ -233,7 +240,7 @@ export async function getFoodProfilesByIds(
     .eq("user_id", userId)
     .in("id", ids)
     .is("archived_at", null);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(serviceErrorMessage(error));
   return (data ?? []).map((row) => rowBasis(row));
 }
 
@@ -274,7 +281,6 @@ export async function saveFoodProfile(
   if (basis.profileId) return basis;
   const canonicalBarcode = canonicalFoodBarcode(basis.barcode);
   let current: Record<string, unknown> | null = null;
-  let redundantAiProfileIds: string[] = [];
   if (basis.catalogProductId) {
     const { data, error: currentError } = await supabase
       .from("user_food_profiles")
@@ -323,7 +329,6 @@ export async function saveFoodProfile(
         );
       });
     current = matches[0] ?? null;
-    redundantAiProfileIds = matches.slice(1).map((row) => String(row.id));
   }
   if (
     !current &&
@@ -345,56 +350,27 @@ export async function saveFoodProfile(
         (row) => foodProfileContentKey(rowBasis(row)) === contentKey,
       ) ?? null;
   }
-  const archiveRedundantAiProfiles = async () => {
-    if (!redundantAiProfileIds.length) return;
-    const archivedAt = new Date().toISOString();
-    for (const profileId of redundantAiProfileIds) {
-      const { error } = await supabase
-        .from("user_food_profiles")
-        .update({ archived_at: archivedAt, updated_at: archivedAt })
-        .eq("user_id", userId)
-        .eq("id", profileId);
-      if (error) throw new Error(error.message);
-    }
-  };
-  if (current && current.is_user_corrected && !basis.isUserCorrected) {
-    if (!current.archived_at) {
-      await archiveRedundantAiProfiles();
-      return rowBasis(current);
-    }
-    const { data, error } = await supabase
-      .from("user_food_profiles")
-      .update({
-        archived_at: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("user_id", userId)
-      .eq("id", current.id)
-      .select(profileSelect)
-      .single();
-    if (error) throw new Error(error.message);
-    await archiveRedundantAiProfiles();
-    return rowBasis(data);
-  }
+  // Do not archive or overwrite another device's label as a side effect of logging.
+  if (current && !basis.isUserCorrected && !current.archived_at)
+    return rowBasis(current);
   if (current) {
-    const { data, error } = await supabase
-      .from("user_food_profiles")
-      .update(profileFields(userId, basis))
-      .eq("user_id", userId)
-      .eq("id", current.id)
-      .select(profileSelect)
-      .single();
-    if (error) throw new Error(error.message);
-    await archiveRedundantAiProfiles();
-    return rowBasis(data);
+    const rows = await changeRecord(
+      userId,
+      "user_food_profiles",
+      String(current.id),
+      basis.version ?? Number(current.version),
+      profileFields(userId, basis),
+    );
+    return rowBasis(rows[0]);
   }
-  const { data, error } = await supabase
-    .from("user_food_profiles")
-    .insert({ id: createId(), ...profileFields(userId, basis) })
-    .select(profileSelect)
-    .single();
-  if (error) throw new Error(error.message);
-  return rowBasis(data);
+  const rows = await createRecords(
+    userId,
+    "user_food_profiles",
+    `label:create:${basis.name}`,
+    basis,
+    () => [{ id: createId(), ...profileFields(userId, basis) }],
+  );
+  return rowBasis(rows[0]);
 }
 
 export async function updateFoodProfile(
@@ -403,15 +379,14 @@ export async function updateFoodProfile(
 ): Promise<FoodBasis> {
   const basis = foodBasisSchema.parse(input);
   if (!basis.profileId) throw new Error("This food label cannot be updated.");
-  const { data, error } = await supabase
-    .from("user_food_profiles")
-    .update(profileFields(userId, basis))
-    .eq("user_id", userId)
-    .eq("id", basis.profileId)
-    .select(profileSelect)
-    .single();
-  if (error) throw new Error(error.message);
-  return rowBasis(data);
+  const rows = await changeRecord(
+    userId,
+    "user_food_profiles",
+    basis.profileId,
+    basis.version ?? 0,
+    profileFields(userId, basis),
+  );
+  return rowBasis(rows[0]);
 }
 
 export async function getFoodProfileByIdentity(
@@ -427,7 +402,7 @@ export async function getFoodProfileByIdentity(
       .eq("catalog_product_id", identity.catalogProductId)
       .is("archived_at", null)
       .maybeSingle();
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(serviceErrorMessage(error));
     current = data;
   }
   const canonicalBarcode = canonicalFoodBarcode(identity.barcode);
@@ -439,7 +414,7 @@ export async function getFoodProfileByIdentity(
       .eq("barcode", canonicalBarcode)
       .is("archived_at", null)
       .maybeSingle();
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(serviceErrorMessage(error));
     current = data;
   }
   return current ? rowBasis(current) : undefined;
@@ -449,15 +424,20 @@ export async function archiveFoodProfile(
   userId: string,
   profileId: string,
 ): Promise<void> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("user_food_profiles")
-    .update({
-      archived_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
+    .select("version")
     .eq("user_id", userId)
-    .eq("id", profileId);
-  if (error) throw new Error(error.message);
+    .eq("id", profileId)
+    .single();
+  if (error) throw new Error(serviceErrorMessage(error));
+  await changeRecord(
+    userId,
+    "user_food_profiles",
+    profileId,
+    Number(data.version),
+    { archived_at: new Date().toISOString() },
+  );
 }
 
 export type FoodSuggestion = {
@@ -662,44 +642,51 @@ export async function saveNutritionMeal(
   }
   const mealLogId = createId();
   const occurredAt = new Date().toISOString();
-  const { error } = await supabase.from("nutrition_entries").insert(
-    profiledValues.map((food) => ({
-      id: createId(),
-      user_id: userId,
-      meal_log_id: mealLogId,
-      food_profile_id: food.profileId ?? null,
-      recipe_id: food.recipeId ?? null,
-      food_name: food.name,
-      brand: food.brand ?? null,
-      barcode: food.barcode ?? null,
-      serving_label: food.servingLabel ?? null,
-      household_quantity_per_serving: food.householdQuantityPerServing ?? null,
-      household_unit: food.householdUnit ?? null,
-      meal_type: mealType,
-      quantity: food.amount,
-      quantity_unit: food.unit,
-      serving_count: food.servingCount,
-      consumed_weight_grams: food.consumedWeightGrams ?? null,
-      consumed_volume_ml: food.consumedVolumeMl ?? null,
-      calories: food.totalNutrients.calories,
-      protein_grams: food.totalNutrients.proteinGrams,
-      carbohydrate_grams: food.totalNutrients.carbohydrateGrams ?? null,
-      fat_grams: food.totalNutrients.fatGrams ?? null,
-      fiber_grams: food.totalNutrients.fiberGrams ?? null,
-      sugar_grams: food.totalNutrients.sugarGrams ?? null,
-      sodium_mg: food.totalNutrients.sodiumMg ?? null,
-      note: food.note ?? null,
-      entry_method: food.entryMethod,
-      nutrition_source: food.source,
-      occurred_at: occurredAt,
-      source: food.entryMethod === "barcode" ? "barcode" : "manual",
-    })),
+  await createRecords(
+    userId,
+    "nutrition_entries",
+    "meal:create",
+    { mealType, foods: values },
+    () =>
+      profiledValues.map((food) => ({
+        id: createId(),
+        user_id: userId,
+        meal_log_id: mealLogId,
+        food_profile_id: food.profileId ?? null,
+        recipe_id: food.recipeId ?? null,
+        food_name: food.name,
+        brand: food.brand ?? null,
+        barcode: food.barcode ?? null,
+        serving_label: food.servingLabel ?? null,
+        household_quantity_per_serving:
+          food.householdQuantityPerServing ?? null,
+        household_unit: food.householdUnit ?? null,
+        meal_type: mealType,
+        quantity: food.amount,
+        quantity_unit: food.unit,
+        serving_count: food.servingCount,
+        consumed_weight_grams: food.consumedWeightGrams ?? null,
+        consumed_volume_ml: food.consumedVolumeMl ?? null,
+        calories: food.totalNutrients.calories,
+        protein_grams: food.totalNutrients.proteinGrams,
+        carbohydrate_grams: food.totalNutrients.carbohydrateGrams ?? null,
+        fat_grams: food.totalNutrients.fatGrams ?? null,
+        fiber_grams: food.totalNutrients.fiberGrams ?? null,
+        sugar_grams: food.totalNutrients.sugarGrams ?? null,
+        sodium_mg: food.totalNutrients.sodiumMg ?? null,
+        note: food.note ?? null,
+        entry_method: food.entryMethod,
+        nutrition_source: food.source,
+        occurred_at: occurredAt,
+        source: food.entryMethod === "barcode" ? "barcode" : "manual",
+      })),
+    true,
   );
-  if (error) throw new Error(error.message);
 }
 
 export type FoodHistoryEntry = {
   id: string;
+  version: number;
   foodName: string;
   brand?: string;
   mealType: MealType | "meal";
@@ -734,12 +721,13 @@ export type FoodHistoryEntry = {
 };
 
 const foodHistorySelect =
-  "id, recipe_id, food_name, brand, meal_type, calories, protein_grams, carbohydrate_grams, fat_grams, fiber_grams, sugar_grams, sodium_mg, quantity, quantity_unit, serving_count, consumed_weight_grams, consumed_volume_ml, serving_label, household_quantity_per_serving, household_unit, note, occurred_at, nutrition_source, entry_method" as const;
+  "id, version, recipe_id, food_name, brand, meal_type, calories, protein_grams, carbohydrate_grams, fat_grams, fiber_grams, sugar_grams, sodium_mg, quantity, quantity_unit, serving_count, consumed_weight_grams, consumed_volume_ml, serving_label, household_quantity_per_serving, household_unit, note, occurred_at, nutrition_source, entry_method" as const;
 
 function foodHistoryEntry(row: Record<string, unknown>): FoodHistoryEntry {
   const unit = foodUnitSchema.safeParse(row.quantity_unit);
   return {
     id: String(row.id),
+    version: Number(row.version),
     foodName: String(row.food_name),
     brand: row.brand ? String(row.brand) : undefined,
     mealType: ["breakfast", "lunch", "dinner", "snack"].includes(
@@ -804,13 +792,20 @@ export type FoodHistoryUpdate = z.infer<typeof foodHistoryUpdateSchema>;
 export async function getFoodHistory(
   userId: string,
 ): Promise<FoodHistoryEntry[]> {
-  const { data, error } = await supabase
-    .from("nutrition_entries")
-    .select(foodHistorySelect)
-    .eq("user_id", userId)
-    .order("occurred_at", { ascending: false })
-    .limit(500);
-  if (error) throw new Error(error.message);
+  const data = await collectPages((after) => {
+    let query = supabase
+      .from("nutrition_entries")
+      .select(foodHistorySelect)
+      .eq("user_id", userId)
+      .order("id")
+      .limit(200);
+    if (after) query = query.gt("id", after);
+    return query;
+  });
+  data.sort(
+    (a, b) =>
+      b.occurred_at.localeCompare(a.occurred_at) || b.id.localeCompare(a.id),
+  );
   return (data ?? []).map((entry) => foodHistoryEntry(entry));
 }
 
@@ -825,52 +820,43 @@ export async function getFoodById(
     .eq("user_id", userId)
     .eq("id", id)
     .maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(serviceErrorMessage(error));
   return data ? foodHistoryEntry(data) : undefined;
 }
 
 export async function updateFoodHistoryEntry(
   userId: string,
   foodId: string,
+  version: number,
   input: FoodHistoryUpdate,
 ): Promise<void> {
   const id = z.string().uuid().parse(foodId);
   const value = foodHistoryUpdateSchema.parse(input);
-  const { data, error } = await supabase
-    .from("nutrition_entries")
-    .update({
-      meal_type: value.mealType,
-      quantity: value.amount,
-      quantity_unit: value.unit,
-      serving_count: value.servingCount,
-      consumed_weight_grams: value.consumedWeightGrams ?? null,
-      consumed_volume_ml: value.consumedVolumeMl ?? null,
-      calories: value.totalNutrients.calories,
-      protein_grams: value.totalNutrients.proteinGrams,
-      carbohydrate_grams: value.totalNutrients.carbohydrateGrams ?? null,
-      fat_grams: value.totalNutrients.fatGrams ?? null,
-      fiber_grams: value.totalNutrients.fiberGrams ?? null,
-      sugar_grams: value.totalNutrients.sugarGrams ?? null,
-      sodium_mg: value.totalNutrients.sodiumMg ?? null,
-      note: value.note?.trim() || null,
-    })
-    .eq("user_id", userId)
-    .eq("id", id)
-    .neq("nutrition_source", "import")
-    .select("id")
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  if (!data) throw new Error("Imported food entries cannot be edited.");
+  await changeRecord(userId, "nutrition_entries", id, version, {
+    meal_type: value.mealType,
+    quantity: value.amount,
+    quantity_unit: value.unit,
+    serving_count: value.servingCount,
+    consumed_weight_grams: value.consumedWeightGrams ?? null,
+    consumed_volume_ml: value.consumedVolumeMl ?? null,
+    calories: value.totalNutrients.calories,
+    protein_grams: value.totalNutrients.proteinGrams,
+    carbohydrate_grams: value.totalNutrients.carbohydrateGrams ?? null,
+    fat_grams: value.totalNutrients.fatGrams ?? null,
+    fiber_grams: value.totalNutrients.fiberGrams ?? null,
+    sugar_grams: value.totalNutrients.sugarGrams ?? null,
+    sodium_mg: value.totalNutrients.sodiumMg ?? null,
+    note: value.note?.trim() || null,
+  });
 }
 
-export async function deleteFood(userId: string, foodId: string) {
+export async function deleteFood(
+  userId: string,
+  foodId: string,
+  version: number,
+) {
   const id = z.string().uuid().parse(foodId);
-  const { error } = await supabase
-    .from("nutrition_entries")
-    .delete()
-    .eq("user_id", userId)
-    .eq("id", id);
-  if (error) throw new Error(error.message);
+  await changeRecord(userId, "nutrition_entries", id, version);
 }
 
 export async function getCurrentMonthCalorieTotals(
@@ -879,15 +865,20 @@ export async function getCurrentMonthCalorieTotals(
 ): Promise<Record<string, DailyCalorieTotal>> {
   const start = new Date(reference.getFullYear(), reference.getMonth(), 1);
   const end = new Date(reference.getFullYear(), reference.getMonth() + 1, 1);
-  const { data, error } = await supabase
-    .from("nutrition_entries")
-    .select("occurred_at, calories")
-    .eq("user_id", userId)
-    .gte("occurred_at", start.toISOString())
-    .lt("occurred_at", end.toISOString());
-  if (error) throw new Error(error.message);
+  const entries = await collectPages((after) => {
+    let query = supabase
+      .from("nutrition_entries")
+      .select("id, occurred_at, calories")
+      .eq("user_id", userId)
+      .gte("occurred_at", start.toISOString())
+      .lt("occurred_at", end.toISOString())
+      .order("id")
+      .limit(200);
+    if (after) query = query.gt("id", after);
+    return query;
+  });
   return calorieTotalsByLocalDay(
-    (data ?? []).map((entry) => ({
+    entries.map((entry) => ({
       occurredAt: String(entry.occurred_at),
       calories: Number(entry.calories),
     })),

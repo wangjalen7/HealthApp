@@ -5,6 +5,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 
   return {
     ...config,
+    // Native builds are the release mechanism until EAS Update is deliberately configured.
+    updates: { ...config.updates, enabled: false },
     name: isDevelopment ? "HealthApp Dev" : "HealthApp",
     slug: config.slug ?? "healthapp",
     scheme: isDevelopment ? "healthapp-dev" : "healthapp",

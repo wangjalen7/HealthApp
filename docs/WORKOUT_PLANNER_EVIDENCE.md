@@ -23,7 +23,9 @@ Generate fills the matching local tracker drafts directly and opens Workout for 
 
 ## Beginner exercise guidance
 
-An expandable exercise guide is available in the editable workout log. Five exact curated movement matches offer brief cues and external ACE instructions/photos: [push-up](https://www.acefitness.org/resources/everyone/exercise-library/41/push-up/), [bodyweight squat](https://www.acefitness.org/resources/everyone/exercise-library/135/bodyweight-squat/), [barbell bent-over row](https://www.acefitness.org/resources/everyone/exercise-library/12/bent-over-row/), [front plank](https://www.acefitness.org/resources/everyone/exercise-library/32/front-plank/), and [bent-knee push-up](https://www.acefitness.org/resources/everyone/exercise-library/13/bent-knee-push-up/). Links were opened and verified. Other names explicitly say no exact verified guide is available and link to the [ACE library](https://www.acefitness.org/resources/everyone/exercise-library/). No fabricated videos, downloaded media, broad substring matching or seeded personal exercise records. AI-generated technique cues are shown separately from curated guidance.
+An expandable exercise guide is available in the editable workout log. Five exact curated movement matches offer written cues and easier variations: push-up, bodyweight squat, barbell bent-over row, front plank, and bent-knee push-up. As of 2026-09-18, the app no longer displays demo, photo, or external website links. Other names explain that a detailed description is not available yet; general form guidance remains visible. Original ACE reference metadata remains in the guide catalog for provenance. No fabricated videos, downloaded media, broad substring matching or seeded personal exercise records. AI-generated technique cues are shown separately from curated guidance.
+
+The workout-history consent control uses a labeled on/off switch, initialized from the existing profile consent. It remains disabled while generating, and generation still requires consent to be on.
 
 ## Deployment
 

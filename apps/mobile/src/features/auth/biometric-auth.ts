@@ -1,7 +1,12 @@
 import * as LocalAuthentication from "expo-local-authentication";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
+import {
+  biometricFunctionError,
+  faceIdLoginFailure,
+} from "./biometric-function-error";
 
+import { createUuid } from "../../lib/id";
 import { secureStoreAdapter } from "../../lib/secure-store";
 import { supabase } from "../../lib/supabase";
 import {
@@ -143,6 +148,11 @@ export async function saveFaceIdLoginCredential(
   if (Platform.OS !== "ios") {
     throw new Error("Face ID sign-in is available only on iPhone.");
   }
+  // Enrollment/rotation has already invalidated the previous server secret.
+  // On iOS, updating an existing authenticated Keychain item prompts again;
+  // creating a new protected item does not. Remove the unusable old value first.
+  // A failed replacement leaves password sign-in as the recovery path.
+  await SecureStore.deleteItemAsync(faceIdCredentialKey(credential.userId));
   await SecureStore.setItemAsync(
     faceIdCredentialKey(credential.userId),
     JSON.stringify(credential),
@@ -163,15 +173,38 @@ export async function saveFaceIdLoginCredential(
 
 export async function enrollFaceIdLoginCredential(
   account: RememberedLoginAccount,
+  password: string,
 ): Promise<void> {
+  let deviceId = await secureStoreAdapter.getItem(
+    "healthapp.biometric-device-id",
+  );
+  if (!deviceId) {
+    deviceId = createUuid();
+    await secureStoreAdapter.setItem("healthapp.biometric-device-id", deviceId);
+  }
   const { data, error } = await supabase.functions.invoke("biometric-auth", {
-    body: { action: "enroll" },
+    body: {
+      action: "enroll",
+      userId: account.userId,
+      password,
+      deviceId,
+      deviceName: "iPhone",
+    },
   });
   const enrollment = parseBiometricEnrollmentResponse(data);
   if (error || !enrollment) {
+    const failure = await biometricFunctionError(error);
+    if (failure.status === 400)
+      throw new Error(
+        "Reload or update HealthApp, then enable Face ID again using your current password.",
+      );
+    if (failure.code === "reauthentication_required")
+      throw new Error(
+        "Your password could not be verified. Enter your current password to enable Face ID.",
+      );
     throw new Error("Could not register this iPhone for Face ID sign-in.");
   }
-  await saveFaceIdLoginCredential({ ...account, ...enrollment });
+  await saveFaceIdLoginCredential({ ...account, ...enrollment, deviceId });
 }
 
 export async function getFaceIdLoginCredential(): Promise<
@@ -188,7 +221,7 @@ export async function getFaceIdLoginCredential(): Promise<
 
 export async function signInWithFaceIdCredential(): Promise<FaceIdAuthenticationResult> {
   const credential = await getFaceIdLoginCredential();
-  if (!credential) {
+  if (!credential?.deviceId) {
     return {
       invalidCredential: true,
       message: "Face ID sign-in must be enabled again with your password.",
@@ -200,26 +233,19 @@ export async function signInWithFaceIdCredential(): Promise<FaceIdAuthentication
       action: "authenticate",
       credentialId: credential.credentialId,
       secret: credential.secret,
+      deviceId: credential.deviceId,
     },
   });
   const response = parseBiometricSessionResponse(data);
   if (error || !response || response.userId !== credential.userId) {
-    const status =
-      error &&
-      typeof error === "object" &&
-      "context" in error &&
-      error.context instanceof Response
-        ? error.context.status
-        : undefined;
-    return {
-      invalidCredential: status === 401,
-      message:
-        status === 401
-          ? "Face ID sign-in was revoked. Sign in with your password and enable it again."
-          : "Face ID sign-in is temporarily unavailable. Try again or use your password.",
-      success: false,
-    };
+    return faceIdLoginFailure(await biometricFunctionError(error));
   }
+  // Persist the rotated secret before accepting the new session. A lost response
+  // fails closed; the old secret can never mint another session.
+  await saveFaceIdLoginCredential({
+    ...credential,
+    secret: response.nextSecret,
+  });
   const { error: sessionError } = await supabase.auth.setSession({
     access_token: response.accessToken,
     refresh_token: response.refreshToken,
