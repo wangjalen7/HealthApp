@@ -161,6 +161,7 @@ export async function saveFaceIdLoginCredential(
   const account: FaceIdLoginAccount = {
     credentialId: credential.credentialId,
     email: credential.email,
+    phone: credential.phone,
     userId: credential.userId,
   };
   await secureStoreAdapter.setItem(faceIdAccountKey, JSON.stringify(account));
@@ -174,6 +175,7 @@ export async function saveFaceIdLoginCredential(
 export async function enrollFaceIdLoginCredential(
   account: RememberedLoginAccount,
   password: string,
+  otp?: string,
 ): Promise<void> {
   let deviceId = await secureStoreAdapter.getItem(
     "healthapp.biometric-device-id",
@@ -187,6 +189,7 @@ export async function enrollFaceIdLoginCredential(
       action: "enroll",
       userId: account.userId,
       password,
+      otp,
       deviceId,
       deviceName: "iPhone",
     },
@@ -200,7 +203,9 @@ export async function enrollFaceIdLoginCredential(
       );
     if (failure.code === "reauthentication_required")
       throw new Error(
-        "Your password could not be verified. Enter your current password to enable Face ID.",
+        otp
+          ? "That phone code could not be verified. Request a fresh code and try again."
+          : "Your password could not be verified. Enter your current password to enable Face ID.",
       );
     throw new Error("Could not register this iPhone for Face ID sign-in.");
   }
@@ -220,6 +225,13 @@ export async function getFaceIdLoginCredential(): Promise<
 }
 
 export async function signInWithFaceIdCredential(): Promise<FaceIdAuthenticationResult> {
+  const marker = await getFaceIdLoginAccount();
+  if (marker && !marker.email)
+    return {
+      success: false,
+      message:
+        "Use a phone code to sign in. Face ID protects this phone while you are signed in.",
+    };
   const credential = await getFaceIdLoginCredential();
   if (!credential?.deviceId) {
     return {
@@ -275,7 +287,8 @@ export async function revokeFaceIdLoginCredential(
 export async function removeFaceIdLoginCredential(
   userId: string,
 ): Promise<void> {
-  await SecureStore.deleteItemAsync(faceIdCredentialKey(userId));
+  if (Platform.OS !== "web") await SecureStore.deleteItemAsync(faceIdCredentialKey(userId));
+  else await secureStoreAdapter.removeItem(faceIdCredentialKey(userId));
   await secureStoreAdapter.removeItem(faceIdPreferenceKey(userId));
   const account = await getFaceIdLoginAccount();
   if (account?.userId === userId) {

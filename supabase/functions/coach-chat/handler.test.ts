@@ -9,6 +9,7 @@ import {
 } from "./handler.ts";
 import {
   coachModelResultSchema,
+  workoutModelResultSchema,
   type CoachActionPayload,
   type CoachProfile,
 } from "../_shared/coach.ts";
@@ -475,9 +476,9 @@ test("workout mode limits tools and actions while forwarding structured preferen
       }),
     }),
   );
-  assert.equal(response.status, 200);
+  assert.equal(response.status, 502);
   assert.equal(toolRuns, 0);
-  assert.deepEqual((await response.json()).actions, []);
+  assert.equal((await response.json()).code, "invalid_response");
 });
 
 test("removed weekly-frequency input does not block saving a complete planner profile", async () => {
@@ -523,3 +524,132 @@ test("missing planner numbers and goals return named field errors before quota o
   }
   assert.equal(calls, 0);
 });
+
+const workoutFixture = {
+  kind: "next_workout" as const,
+  title: "Full body",
+  rationale: "Fits available time",
+  recommendation: "lifting" as const,
+  muscleGroups: ["Legs" as const, "Chest" as const],
+  exercises: ["Squat", "Push-up", "Lunge"].map((name) => ({
+    name,
+    muscleGroup: "Legs" as const,
+    setCount: 2,
+    targetReps: [8, 8],
+    suggestedWeightLb: null,
+    isNewToHistory: true,
+    targetRir: 3,
+    restSeconds: 90,
+    technique: "Move with control.",
+  })),
+  cardio: null,
+};
+
+test("planner schema requires a routine for normal replies and allows safety without a draft", () => {
+  assert.equal(
+    workoutModelResultSchema.safeParse({ result: baseResult }).success,
+    false,
+  );
+  for (const safetyLevel of ["caution", "urgent"]) {
+    assert.equal(
+      workoutModelResultSchema.safeParse({
+        result: { ...baseResult, safetyLevel },
+      }).success,
+      true,
+    );
+    assert.equal(
+      workoutModelResultSchema.safeParse({
+        result: { ...baseResult, safetyLevel, actions: [workoutFixture] },
+      }).success,
+      false,
+    );
+  }
+  assert.equal(
+    workoutModelResultSchema.safeParse({
+      result: { ...baseResult, actions: [workoutFixture] },
+    }).success,
+    true,
+  );
+});
+
+for (const scenario of [
+  "complete",
+  "sentence only",
+  "discarded",
+  "infeasible",
+  "caution",
+] as const) {
+  test(
+    "planner handles " + scenario + " without silent success or paid retries",
+    async () => {
+      const { defaultWorkoutPreferences } =
+        await import("../_shared/workout-planning.ts");
+      let calls = 0,
+        saved = 0,
+        refunds = 0;
+      const result = {
+        ...baseResult,
+        safetyLevel: scenario === "caution" ? "caution" : "normal",
+        actions:
+          scenario === "sentence only" || scenario === "caution"
+            ? []
+            : [
+                {
+                  ...workoutFixture,
+                  exercises: workoutFixture.exercises.map((e) => ({
+                    ...e,
+                    restSeconds:
+                      scenario === "infeasible" ? 600 : e.restSeconds,
+                    setCount: scenario === "infeasible" ? 6 : e.setCount,
+                    targetReps:
+                      scenario === "infeasible"
+                        ? [8, 8, 8, 8, 8, 8]
+                        : e.targetReps,
+                  })),
+                },
+              ],
+      };
+      const handler = createCoachHandler(
+        dependencies({
+          fetch: async (_url, init) => {
+            calls++;
+            const body = JSON.parse(String(init?.body));
+            assert.equal(body.text.format.schema.type, "object");
+            assert.ok(body.text.format.schema.properties.result.anyOf);
+            return providerResponse({ result });
+          },
+          validateActions: async (_token, _user, actions) =>
+            scenario === "discarded" ? [] : actions,
+          saveConversation: async (_token, turn) => {
+            saved++;
+            assert.equal(turn.actions.length, scenario === "caution" ? 0 : 1);
+          },
+          refundQuota: async () => {
+            refunds++;
+          },
+        }),
+      );
+      const response = await handler(
+        new Request("https://example.test", {
+          method: "POST",
+          headers: { Authorization: "Bearer token" },
+          body: JSON.stringify({
+            message: "Generate workout",
+            timezone: "UTC",
+            localDate: "2026-09-21",
+            workoutPreferences: defaultWorkoutPreferences,
+          }),
+        }),
+      );
+      const ok = scenario === "complete" || scenario === "caution";
+      assert.equal(response.status, ok ? 200 : 502);
+      assert.equal(calls, 1);
+      assert.equal(saved, ok ? 1 : 0);
+      assert.equal(refunds, ok ? 0 : 1);
+      const body = await response.json();
+      if (scenario === "complete")
+        assert.equal(body.actions[0].payload.exercises.length, 3);
+      if (!ok) assert.match(body.message, /complete workout/);
+    },
+  );
+}

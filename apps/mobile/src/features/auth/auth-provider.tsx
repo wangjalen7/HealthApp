@@ -44,6 +44,7 @@ type AuthState = {
   setFaceIdEnabled: (
     enabled: boolean,
     password?: string,
+    otp?: string,
   ) => Promise<FaceIdAuthenticationResult>;
   signOut: () => Promise<void>;
   unlockWithFaceId: () => Promise<FaceIdAuthenticationResult>;
@@ -212,6 +213,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (
       enabled: boolean,
       password?: string,
+      otp?: string,
     ): Promise<FaceIdAuthenticationResult> => {
       const currentSession = sessionRef.current;
       if (!currentSession) {
@@ -228,7 +230,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, message: availability.reason };
       }
       const email = currentSession.user.email;
-      if (!email || !password) {
+      if ((!email || !password) && !otp) {
         return {
           success: false,
           message: "Enter your current password to enable Face ID sign-in.",
@@ -240,10 +242,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!authentication.success) return authentication;
       await enrollFaceIdLoginCredential(
         {
-          email,
+          email: email ?? "",
+          phone: currentSession.user.phone,
           userId: currentSession.user.id,
         },
-        password,
+        password ?? "",
+        otp,
       );
       if (sessionRef.current?.user.id !== currentSession.user.id)
         return { success: false };

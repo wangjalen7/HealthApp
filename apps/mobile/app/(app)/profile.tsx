@@ -1,3 +1,8 @@
+import { DeleteAccountSection } from "../../src/features/auth/account-deletion";
+import { SyncSettings } from "../../src/features/healthkit/sync-settings";
+import { useAccountSetup } from "../../src/features/onboarding/provider";
+import { AccountContacts } from "../../src/features/auth/account-contacts";
+import { AccountPreferences } from "../../src/features/onboarding/account-preferences";
 import { SecuritySettings } from "../../src/features/auth/security-settings";
 import { dayKey, shiftDay } from "../../src/features/summary/calendar";
 import {
@@ -59,6 +64,7 @@ import { latestSample } from "../../src/domain/vitals";
 import { cachedVitals } from "../../src/features/vitals/storage";
 
 export default function ProfileScreen() {
+  const { setup: accountSetup } = useAccountSetup();
   const router = useRouter();
   const [profileSection, setProfileSection] = useState<"profile" | "settings">(
     "profile",
@@ -671,6 +677,8 @@ export default function ProfileScreen() {
         ) : null}
         {profileSection === "settings" && session ? (
           <View style={styles.card}>
+            <AccountPreferences />
+            <AccountContacts key={session.user.id} />
             <SecuritySettings userId={session.user.id} />
           </View>
         ) : null}
@@ -757,7 +765,7 @@ export default function ProfileScreen() {
                     {savingGoals ? "Saving..." : "Save goals"}
                   </Text>
                 </Pressable>
-                <Text style={styles.healthKitStatus}>
+            <Text style={styles.healthKitStatus}>
                   Streak targets for changes saved today start{" "}
                   {shiftDay(dayKey(), 1)}.
                 </Text>
@@ -780,8 +788,9 @@ export default function ProfileScreen() {
         {profileSection === "settings" ? (
           <View style={styles.card}>
             <Text accessibilityRole="header" style={styles.cardTitle}>
-              Apple Health
+              Health Data & Sync
             </Text>
+            {session ? <SyncSettings user={session.user.id} /> : null}
             <Text style={styles.healthKitStatus}>
               {healthKitState.connected
                 ? healthKitState.lastImportedAt
@@ -880,6 +889,7 @@ export default function ProfileScreen() {
             ) : null}
           </View>
         ) : null}
+        {profileSection === "settings" && session ? <DeleteAccountSection user={session.user.id} /> : null}
         {profileSection === "profile" && status ? (
           <Text accessibilityLiveRegion="polite" style={styles.error}>
             {status}
@@ -899,6 +909,8 @@ export default function ProfileScreen() {
         ) : null}
       </ScreenScrollView>
       <GoalHelper
+        defaultUnitSystem={accountSetup?.unit_system}
+        defaultFluidUnit={accountSetup?.fluid_unit}
         defaultWeightLb={latestWeightLb}
         defaultWeightOccurredAt={latestWeightAt}
         initialMode={goalHelperMode ?? "calories"}

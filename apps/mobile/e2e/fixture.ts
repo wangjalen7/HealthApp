@@ -7,17 +7,22 @@ export type Backend = {
   failNextWrite?: string;
   loseNextResponse?: string;
   pageSize?: number;
+  smsError?: boolean;
+  contactCollision?: boolean;
+  phoneOnly?: boolean;
+  emailConfirmed?: boolean;
   failReads?: Record<string, { code: string; message: string }>;
 };
 
 // Synthetic account and API responses: no health records or credentials leave the browser.
 export const test = base.extend<{ backend: Backend }>({
   backend: async ({ page }, use) => {
-    const user = {
+    const user: Row = {
       id: userId,
       email: "review@example.com",
       aud: "authenticated",
       role: "authenticated",
+      email_confirmed_at: new Date().toISOString(),
       created_at: new Date().toISOString(),
       app_metadata: { provider: "email" },
       user_metadata: { first_name: "Review", last_name: "Tester" },
@@ -33,7 +38,23 @@ export const test = base.extend<{ backend: Backend }>({
       bp_systolic_goal: 120,
       bp_diastolic_goal: 80,
     };
-    const backend: Backend = { tables: { profiles: [profile] } };
+    const backend: Backend = {
+      tables: {
+        profiles: [profile],
+        account_setup: [
+          {
+            user_id: userId,
+            preferred_name: null,
+            unit_system: "us",
+            fluid_unit: "fl_oz",
+            step: "name",
+            completed_at: new Date().toISOString(),
+            dismissed_setup: true,
+            version: 1,
+          },
+        ],
+      },
+    };
     const receipts = new Map<string, { request: string; response: unknown }>();
     let vitalSequence = 0;
     const jwt =
@@ -60,6 +81,51 @@ export const test = base.extend<{ backend: Backend }>({
           contentType: "application/json",
           body: JSON.stringify(body),
         });
+      if (url.pathname.endsWith("/signup")) {
+        backend.emailConfirmed = false;
+        backend.tables.account_setup[0].completed_at = null;
+        return json({
+          ...user,
+          identities: [{ provider: "email", user_id: userId }],
+        });
+      }
+      if (url.pathname.endsWith("/token") && backend.emailConfirmed === false)
+        return json(
+          { error_code: "email_not_confirmed", message: "Email not confirmed" },
+          400,
+        );
+      if (url.pathname.endsWith("/otp"))
+        return backend.smsError
+          ? json({ code: "sms_send_failed", message: "SMS unavailable" }, 500)
+          : json({});
+      if (url.pathname.endsWith("/verify")) {
+        const input = request.postDataJSON();
+        if (input.token !== "123456")
+          return json(
+            { error_code: "otp_expired", message: "Invalid or expired" },
+            403,
+          );
+        if (input.type === "phone_change") {
+          user.phone = input.phone;
+          user.phone_confirmed_at = new Date().toISOString();
+        }
+        if (input.type === "email_change") {
+          user.email = input.email;
+          user.email_confirmed_at = new Date().toISOString();
+        }
+        if (input.type === "sms") {
+          user.phone = input.phone;
+          user.phone_confirmed_at = new Date().toISOString();
+          if (backend.phoneOnly) user.email = "";
+        }
+        return json({
+          access_token: jwt,
+          token_type: "bearer",
+          expires_in: 3600,
+          refresh_token: "synthetic-refresh",
+          user,
+        });
+      }
       if (url.pathname.endsWith("/token"))
         return json({
           access_token: jwt,
@@ -69,8 +135,14 @@ export const test = base.extend<{ backend: Backend }>({
           user,
         });
       if (url.pathname.endsWith("/user")) {
-        if (method === "PUT")
-          Object.assign(user.user_metadata, request.postDataJSON().data);
+        if (method === "PUT") {
+          if (backend.contactCollision)
+            return json(
+              { error_code: "user_already_exists", message: "Contact exists" },
+              422,
+            );
+          Object.assign(user.user_metadata as Row, request.postDataJSON().data);
+        }
         return json(user);
       }
       if (url.pathname.endsWith("/logout"))
@@ -78,6 +150,27 @@ export const test = base.extend<{ backend: Backend }>({
       if (url.pathname.endsWith("/recover")) return json({});
       if (!url.pathname.startsWith("/rest/v1/"))
         return json({ message: "Unsupported isolated test request" }, 400);
+      if (url.pathname === "/rest/v1/rpc/save_account_setup") {
+        const input = request.postDataJSON();
+        const row = backend.tables.account_setup[0];
+        if (backend.failNextWrite === "account_setup") {
+          backend.failNextWrite = undefined;
+          return json({ message: "Connection unavailable" }, 503);
+        }
+        const receipt = receipts.get(input.p_operation_id);
+        if (receipt) return json(receipt.response);
+        if (row.version !== input.p_version)
+          return json({ status: "conflict", data: row });
+        const { complete, ...changes } = input.p_changes;
+        Object.assign(row, changes, { version: Number(row.version) + 1 });
+        if (complete) row.completed_at = new Date().toISOString();
+        const response = { status: "accepted", data: { ...row } };
+        receipts.set(input.p_operation_id, {
+          request: JSON.stringify(input),
+          response,
+        });
+        return json(response);
+      }
       if (url.pathname === "/rest/v1/rpc/require_active_session")
         return json(null);
       if (url.pathname === "/rest/v1/rpc/read_vital_changes") {
@@ -234,6 +327,14 @@ export const test = base.extend<{ backend: Backend }>({
           return route.abort("failed");
         }
         return json(response);
+      }
+      if (url.pathname === "/rest/v1/rpc/initialize_summary_streaks") {
+        const input = request.postDataJSON();
+        const now = new Date(), day = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0,10);
+        for (const habit of input.p_habits as string[]) {
+          if (!(backend.tables.streak_rules ??= []).some((r) => r.habit === habit)) backend.tables.streak_rules.push({ user_id: userId, habit, effective_day: day, activation_day: day, enabled: true, version: 1, config: { calorieMode: "under" } });
+        }
+        return json(null);
       }
       if (url.pathname === "/rest/v1/rpc/ensure_streak_tracking") {
         const input = request.postDataJSON();

@@ -118,6 +118,8 @@ export function AiMealEditor({
   const request = useRef<AbortController | undefined>(undefined);
   const generation = useRef(0);
   const addingRef = useRef(false);
+  const labelChoices = useRef(new Map<string, boolean>());
+  const newLabelDefault = useRef(true);
   const disabled = busy || adding || picking;
 
   useEffect(() => {
@@ -127,6 +129,8 @@ export function AiMealEditor({
     setPhoto(undefined);
     setConsent(false);
     setItems([]);
+    labelChoices.current.clear();
+    newLabelDefault.current = true;
     setExplanation("");
     setFeedback("");
     setBusy(false);
@@ -198,7 +202,9 @@ export function AiMealEditor({
               ? ""
               : String(food.householdQuantityPerServing),
           corrected: false,
-          saveToMyFoods: true,
+          saveToMyFoods:
+            labelChoices.current.get(food.name.trim().toLocaleLowerCase()) ??
+            newLabelDefault.current,
           values: Object.fromEntries(
             nutrients.map(([key]) => [
               key,
@@ -404,6 +410,42 @@ export function AiMealEditor({
                 Counted foods can use pieces, slices, dumplings, or another item
                 unit.
               </Text>
+              <View style={styles.saveLabelRow}>
+                <View style={styles.saveLabelCopy}>
+                  <Text style={styles.saveLabelTitle}>
+                    Create labels for this meal
+                  </Text>
+                  <Text
+                    accessibilityLiveRegion="polite"
+                    style={styles.saveLabelDescription}
+                  >
+                    {items.every((item) => item.saveToMyFoods)
+                      ? "All foods included"
+                      : items.some((item) => item.saveToMyFoods)
+                        ? "Some foods included"
+                        : "No foods included"}
+                    . All foods still count in your meal totals.
+                  </Text>
+                </View>
+                <Switch
+                  accessibilityLabel="Create labels for this meal"
+                  accessibilityValue={{
+                    text: items.every((item) => item.saveToMyFoods)
+                      ? "All included"
+                      : items.some((item) => item.saveToMyFoods)
+                        ? "Partially included"
+                        : "None included",
+                  }}
+                  value={items.some((item) => item.saveToMyFoods)}
+                  disabled={adding}
+                  onValueChange={(saveToMyFoods) =>
+                    setItems((current) =>
+                      current.map((item) => ({ ...item, saveToMyFoods })),
+                    )
+                  }
+                  trackColor={{ false: colors.fill, true: colors.purple }}
+                />
+              </View>
               {items.map((item, index) => {
                 let calories: number | undefined;
                 try {
@@ -674,6 +716,15 @@ export function AiMealEditor({
                 label="Revise meal details"
                 disabled={adding}
                 onPress={() => {
+                  labelChoices.current = new Map(
+                    items.map((item) => [
+                      item.food.name.trim().toLocaleLowerCase(),
+                      item.saveToMyFoods,
+                    ]),
+                  );
+                  newLabelDefault.current = items.some(
+                    (item) => item.saveToMyFoods,
+                  );
                   setItems([]);
                   setExplanation("");
                   setFeedback("");

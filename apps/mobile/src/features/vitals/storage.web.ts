@@ -83,3 +83,14 @@ export const {
   resolveConflict,
 } = createVitalStorage(transact, createUuid);
 export const createId = createUuid;
+
+export async function clearAccountVitals(user: string) {
+  await transact(user, (state) => Object.assign(state, emptyVitalState()));
+  const samples = JSON.parse(await AsyncStorage.getItem("healthapp:vital-samples") ?? "[]") as VitalSample[];
+  await AsyncStorage.setItem("healthapp:vital-samples", JSON.stringify(samples.filter((sample) => sample.userId !== user)));
+  const queue = JSON.parse(await AsyncStorage.getItem("healthapp:vital-outbox") ?? "[]") as { payload: string }[];
+  await AsyncStorage.setItem("healthapp:vital-outbox", JSON.stringify(queue.flatMap((op) => {
+    const payload = (JSON.parse(op.payload) as VitalSample[]).filter((sample) => sample.userId !== user);
+    return payload.length ? [{ ...op, payload: JSON.stringify(payload) }] : [];
+  })));
+}

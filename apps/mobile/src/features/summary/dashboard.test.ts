@@ -22,6 +22,9 @@ test("native Summary editor opens, cancels, saves and reopens without DOM APIs",
   try {
     await mkdir(resolve("dist"), { recursive: true });
     const hosts: Record<string, string> = {
+      "../../ui/settings-sheet": `export const SettingsSheet = ({visible,children}) => visible ? children : null; export const ChoiceRow = "button";`,
+      "../../ui/icon": `export const Icon = "icon";`,
+      "../../ui/segmented-control": `export const SegmentedControl = "segmented";`,
       "react-native": `
         export const View = "view", Text = "text", ScrollView = "scroll", ActivityIndicator = "spinner";
         export const Platform = { OS: "ios" };

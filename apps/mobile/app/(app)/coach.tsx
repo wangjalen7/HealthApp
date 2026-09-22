@@ -229,17 +229,14 @@ export default function WorkoutPlannerScreen() {
       const action = response.actions.find(
         (item) => item.payload.kind === "next_workout",
       );
-      if (
-        response.safetyLevel !== "normal" ||
-        !action ||
-        action.payload.kind !== "next_workout"
-      ) {
-        setNotice(
-          response.answer ||
-            "No workout was generated. Adjust your preferences and try again.",
-        );
+      if (response.safetyLevel !== "normal") {
+        setNotice(response.answer);
         return;
       }
+      if (!action || action.payload.kind !== "next_workout")
+        throw new Error(
+          "AI did not return a complete workout. Your draft was not changed. Try generating again.",
+        );
       if (action.payload.recommendation === "rest") {
         setNotice(action.payload.rationale);
         return;

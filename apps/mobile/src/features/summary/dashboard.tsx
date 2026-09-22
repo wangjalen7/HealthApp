@@ -1,3 +1,6 @@
+import { SettingsSheet, ChoiceRow } from "../../ui/settings-sheet";
+import { Icon } from "../../ui/icon";
+import { SegmentedControl } from "../../ui/segmented-control";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
@@ -38,12 +41,16 @@ export function Action({
   disabled = false,
   displayLabel,
   selected,
+  primary = false,
+  destructive = false,
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
   displayLabel?: string;
   selected?: boolean;
+  primary?: boolean;
+  destructive?: boolean;
 }) {
   return (
     <Pressable
@@ -52,9 +59,36 @@ export function Action({
       accessibilityState={{ disabled, selected }}
       disabled={disabled}
       onPress={onPress}
-      style={[styles.button, disabled && { opacity: 0.4 }]}
+      style={[
+        styles.button,
+        primary && {
+          backgroundColor: colors.blue,
+          paddingHorizontal: 20,
+          alignItems: "center",
+        },
+        destructive && {
+          backgroundColor: colors.dangerSoft,
+          flexDirection: "row",
+          gap: 8,
+          alignItems: "center",
+        },
+        disabled && { opacity: 0.4 },
+      ]}
     >
-      <Text style={{ color: colors.blue, fontWeight: "600", flexShrink: 1 }}>
+      {destructive ? (
+        <Icon name="delete" size={18} color={colors.danger} />
+      ) : null}
+      <Text
+        style={{
+          color: primary
+            ? colors.onAccent
+            : destructive
+              ? colors.danger
+              : colors.blue,
+          fontWeight: "600",
+          flexShrink: 1,
+        }}
+      >
         {displayLabel ?? label}
       </Text>
     </Pressable>
@@ -65,8 +99,14 @@ export function Dashboard({
   render,
   onLayoutChange,
   onEditingChange,
+  header,
+  onCommit,
+  reminders = [],
 }: {
   user: string;
+  header?: (begin: () => void, ready: boolean) => ReactNode;
+  onCommit?: (layout: Layout) => Promise<void>;
+  reminders?: { id: string; label: string }[];
   render: (widget: Widget) => ReactNode;
   onLayoutChange: (widgets: Widget[]) => void;
   onEditingChange: (editing: boolean) => void;
@@ -75,6 +115,8 @@ export function Dashboard({
   const [draft, setDraft] = useState<Layout>();
   const [message, setMessage] = useState("");
   const [selected, setSelected] = useState<string>();
+  const [direct, setDirect] = useState(false);
+  const [preview, setPreview] = useState(false);
   const [gallery, setGallery] = useState(false),
     [confirm, setConfirm] = useState<"discard" | "restore">(),
     [busy, setBusy] = useState(false);
@@ -111,21 +153,42 @@ export function Dashboard({
   }, [user]);
   useEffect(() => {
     const layout = draft ?? saved;
-    if (layout) changeRef.current(layout.widgets);
-  }, [draft, saved]);
+    if (layout)
+      changeRef.current(
+        gallery
+          ? [
+              ...layout.widgets,
+              ...(Object.keys(registry) as WidgetType[])
+                .filter((type) => !layout.widgets.some((w) => w.type === type))
+                .map((type) => ({
+                  id: `gallery-${type}`,
+                  type,
+                  size: "wide" as const,
+                  config: registry[type].defaults,
+                })),
+            ]
+          : layout.widgets,
+      );
+  }, [draft, saved, gallery]);
   const begin = () => {
     if (saved) {
+      setMessage("");
+      setDirect(false);
       setDraft(JSON.parse(JSON.stringify(saved)));
       onEditingChange(true);
     }
   };
   const close = () => {
+    setPreview(false);
+    setDirect(false);
+    setConfirm(undefined);
     setDraft(undefined);
     setGallery(false);
     setSelected(undefined);
     onEditingChange(false);
   };
   const cancel = () => {
+    if (busy) return;
     if (JSON.stringify(draft) !== JSON.stringify(saved)) setConfirm("discard");
     else close();
   };
@@ -186,11 +249,355 @@ export function Dashboard({
     update([...draft.widgets, widget]);
     setGallery(false);
   };
+  function saveDraft() {
+    if (busy) return;
+    if (!draft) return;
+    const parsed = layoutSchema.safeParse(draft);
+    if (!parsed.success) {
+      setMessage(
+        "Choose unique streak selections and valid widget settings before saving.",
+      );
+      return;
+    }
+    setBusy(true);
+    void (async () => {
+      await onCommit?.(draft);
+      await saveLayout(user, draft);
+    })()
+      .then(() => {
+        setSaved(draft);
+        setMessage("");
+        close();
+      })
+      .catch((error: unknown) =>
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Could not save the layout. Your changes are still here.",
+        ),
+      )
+      .finally(() => setBusy(false));
+  }
+  function editWidget(id: string) {
+    if (!saved || draft) return;
+    setMessage("");
+    setDraft(JSON.parse(JSON.stringify(saved)));
+    setSelected(id);
+    setDirect(true);
+    onEditingChange(true);
+  }
+  const renderWidgetOptions = () => (
+    <SettingsSheet
+      visible={!!selected}
+      title={preview ? "Widget preview" : "Widget options"}
+      icon="edit"
+      footer={
+        direct && !confirm ? (
+          <View style={styles.toolbar}>
+            <Action label="Cancel" onPress={cancel} disabled={busy} />
+            <Action
+              label={busy ? "Saving..." : "Save changes"}
+              onPress={saveDraft}
+              primary
+              disabled={busy}
+            />
+          </View>
+        ) : null
+      }
+      onClose={() => {
+        if (!busy) {
+          if (preview) setPreview(false);
+          else if (direct) cancel();
+          else setSelected(undefined);
+        }
+      }}
+    >
+      {direct && confirm === "discard" ? (
+        <View style={{ gap: 12 }}>
+          <Text style={styles.heading}>Discard widget changes?</Text>
+          <Text style={styles.copy}>Your saved widget will be kept.</Text>
+          <ConfirmationActions
+            onCancel={() => setConfirm(undefined)}
+            onConfirm={close}
+            confirmLabel="Discard"
+          />
+        </View>
+      ) : (
+        <>
+          {direct && message ? (
+            <Text accessibilityRole="alert" style={styles.copy}>
+              {message}
+            </Text>
+          ) : null}
+          {direct && !draft?.widgets.some((w) => w.id === selected) ? (
+            <Text style={styles.copy}>
+              This widget will be removed when you save changes.
+            </Text>
+          ) : null}
+          <View pointerEvents={busy ? "none" : "auto"}>
+            {draft?.widgets
+              .filter((w) => w.id === selected)
+              .map((w) => (
+                <View key={w.id} style={{ gap: 12 }}>
+                  {preview ? (
+                    <>
+                      <Action
+                        label="Back to options"
+                        onPress={() => setPreview(false)}
+                      />
+                      <View
+                        testID="widget-options-preview"
+                        pointerEvents="none"
+                        style={{
+                          width: widgetWidth(w, contentWidth, fullWidth),
+                          alignSelf: "center",
+                        }}
+                      >
+                        {render(w)}
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      <View style={styles.toolbar}>
+                        <Text accessibilityRole="header" style={styles.title}>
+                          {registry[w.type].title}
+                        </Text>
+                        {!direct ? (
+                          <Action
+                            label="Back to layout"
+                            onPress={() => setSelected(undefined)}
+                          />
+                        ) : null}
+                      </View>
+                      <Action
+                        label="Preview widget"
+                        onPress={() => setPreview(true)}
+                      />
+                      <Text style={styles.heading}>Size</Text>
+                      <View style={styles.controls}>
+                        {registry[w.type].sizes.map((size) => (
+                          <Pressable
+                            key={size}
+                            accessibilityRole="radio"
+                            accessibilityLabel={`${registry[w.type].title} ${size === "small" ? "Small" : "Large"}`}
+                            accessibilityState={{ checked: w.size === size }}
+                            style={[
+                              styles.button,
+                              w.size === size && {
+                                backgroundColor: colors.blueSoft,
+                              },
+                            ]}
+                            onPress={() =>
+                              patch(w.id, {
+                                size,
+                                config:
+                                  w.type === "streaks" && size === "small"
+                                    ? {
+                                        ...w.config,
+                                        habits: [w.config.habits![0]],
+                                      }
+                                    : w.type === "actions"
+                                      ? {
+                                          actions:
+                                            size === "small"
+                                              ? w.config.actions!.slice(0, 2)
+                                              : [
+                                                  ...new Set([
+                                                    ...w.config.actions!,
+                                                    ...actionNames,
+                                                  ]),
+                                                ].slice(0, 4),
+                                        }
+                                      : w.config,
+                              })
+                            }
+                          >
+                            <View
+                              style={{
+                                height: 30,
+                                width: size === "small" ? 30 : 62,
+                                borderRadius: 7,
+                                borderWidth: 2,
+                                borderColor:
+                                  w.size === size
+                                    ? colors.blue
+                                    : colors.separator,
+                                marginBottom: 6,
+                              }}
+                            />
+                            <Text style={{ color: colors.blue }}>
+                              {size === "small" ? "Small" : "Large"}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                      {w.type === "training" ? (
+                        <SegmentedControl
+                          label="Training period"
+                          value={w.config.period ?? "week"}
+                          options={[
+                            { value: "week", label: "This week" },
+                            { value: "last7", label: "Last 7 days" },
+                          ]}
+                          onChange={(period) =>
+                            patch(w.id, { config: { period } })
+                          }
+                        />
+                      ) : null}
+                      {w.type === "actions" ? (
+                        <>
+                          <Text style={styles.copy}>
+                            Choose shortcuts in the order you want them. Toggle
+                            actions off and on to reorder.
+                          </Text>
+                          <View style={{ gap: 4 }}>
+                            {actionNames.map((action) => (
+                              <ChoiceRow
+                                key={action}
+                                disabled={
+                                  !w.config.actions!.includes(action) &&
+                                  w.config.actions!.length >=
+                                    (w.size === "small" ? 2 : 6)
+                                }
+                                selected={w.config.actions!.includes(action)}
+                                label={action}
+                                onPress={() => {
+                                  const list = w.config.actions!;
+                                  patch(w.id, {
+                                    config: {
+                                      actions: list.includes(action)
+                                        ? list.filter((a) => a !== action)
+                                        : [...list, action].slice(
+                                            0,
+                                            w.size === "small" ? 2 : 6,
+                                          ),
+                                    },
+                                  });
+                                }}
+                              />
+                            ))}
+                          </View>
+                          <Text
+                            accessibilityRole={
+                              w.config.actions!.length <
+                              (w.size === "small" ? 2 : 4)
+                                ? "alert"
+                                : undefined
+                            }
+                            style={[
+                              styles.copy,
+                              w.config.actions!.length <
+                                (w.size === "small" ? 2 : 4) && {
+                                color: colors.danger,
+                              },
+                            ]}
+                          >
+                            {w.size === "small"
+                              ? "Choose two actions."
+                              : "Choose four to six actions."}
+                          </Text>
+                        </>
+                      ) : null}
+                      {w.type === "streaks" ? (
+                        <View style={{ gap: 4 }}>
+                          <Text
+                            accessibilityRole={
+                              !w.config.habits?.length ? "alert" : undefined
+                            }
+                            style={[
+                              styles.copy,
+                              !w.config.habits?.length && {
+                                color: colors.danger,
+                              },
+                            ]}
+                          >
+                            {!w.config.habits?.length
+                              ? "Select at least one streak."
+                              : w.size === "small"
+                                ? "Choose one streak."
+                                : "Choose one to four streaks."}
+                          </Text>
+                          {habits.map((h) => (
+                            <ChoiceRow
+                              key={h}
+                              disabled={
+                                w.size === "wide" &&
+                                !w.config.habits!.includes(h) &&
+                                w.config.habits!.length >= 4
+                              }
+                              selected={w.config.habits!.includes(h)}
+                              label={habitLabels[h]}
+                              onPress={() => {
+                                const list = w.config.habits!;
+                                patch(w.id, {
+                                  config: {
+                                    ...w.config,
+                                    habits:
+                                      w.size === "small"
+                                        ? [h]
+                                        : list.includes(h)
+                                          ? list.filter((a) => a !== h)
+                                          : [...list, h].slice(0, 4),
+                                  },
+                                });
+                              }}
+                            />
+                          ))}
+                        </View>
+                      ) : null}
+                      {w.type === "streaks" ? (
+                        <View style={{ gap: 6 }}>
+                          <Text style={styles.heading}>Recurring reminder</Text>
+                          {reminders.length ? (
+                            reminders.map((r) => (
+                              <ChoiceRow
+                                key={r.id}
+                                disabled={
+                                  !w.config.habits?.includes("reminder")
+                                }
+                                label={r.label}
+                                selected={w.config.reminderId === r.id}
+                                onPress={() =>
+                                  patch(w.id, {
+                                    config: { ...w.config, reminderId: r.id },
+                                  })
+                                }
+                              />
+                            ))
+                          ) : (
+                            <Text style={styles.copy}>
+                              Create a recurring reminder in Reminders first.
+                            </Text>
+                          )}
+                        </View>
+                      ) : null}
+                      <Action
+                        destructive
+                        label={`Remove ${registry[w.type].title}`}
+                        displayLabel="Remove Widget"
+                        onPress={() => {
+                          update(
+                            draft.widgets.filter((item) => item.id !== w.id),
+                          );
+                          if (!direct) setSelected(undefined);
+                        }}
+                      />
+                    </>
+                  )}
+                </View>
+              ))}
+          </View>
+        </>
+      )}
+    </SettingsSheet>
+  );
   return (
     <View style={{ gap: 12 }}>
-      <View style={{ alignItems: "flex-end" }}>
+      {header ? (
+        header(begin, !!saved)
+      ) : (
         <Action label="Edit Summary" onPress={begin} disabled={!saved} />
-      </View>
+      )}
       {message ? (
         <Text accessibilityLiveRegion="polite" style={styles.copy}>
           {message}
@@ -217,14 +624,25 @@ export function Dashboard({
               testID={`summary-widget-${w.id}`}
               style={{ width: widgetWidth(w, contentWidth, fullWidth) }}
             >
-              <WidgetFrame widget={w} onEdit={begin}>
+              <WidgetFrame
+                widget={w}
+                onEdit={
+                  w.type === "streaks" || w.type === "actions"
+                    ? () => editWidget(w.id)
+                    : undefined
+                }
+              >
                 {render(w)}
               </WidgetFrame>
             </View>
           ))}
         </View>
       )}
-      <Modal visible={!!draft} animationType="slide" onRequestClose={cancel}>
+      <Modal
+        visible={!!draft && !direct}
+        animationType="slide"
+        onRequestClose={cancel}
+      >
         <GestureHandlerRootView
           style={{
             flex: 1,
@@ -233,37 +651,24 @@ export function Dashboard({
             paddingBottom: insets.bottom,
           }}
         >
-          <View style={styles.toolbar}>
-            <Action label="Cancel" onPress={cancel} disabled={busy} />
-            <Text accessibilityRole="header" style={styles.title}>
+          <View style={[styles.toolbar, { flexWrap: "nowrap", minHeight: 60 }]}>
+            <View style={{ width: 80 }}>
+              <Action label="Cancel" onPress={cancel} disabled={busy} />
+            </View>
+            <Text
+              accessibilityRole="header"
+              style={[
+                styles.title,
+                { flex: 1, textAlign: "center", fontSize: 18 },
+              ]}
+            >
               Edit Summary
             </Text>
             <Action
+              primary
               label={busy ? "Saving…" : "Done"}
               disabled={busy}
-              onPress={() => {
-                if (!draft) return;
-                const parsed = layoutSchema.safeParse(draft);
-                if (!parsed.success) {
-                  setMessage(
-                    "Choose unique streak selections and valid widget settings before saving.",
-                  );
-                  return;
-                }
-                setBusy(true);
-                void saveLayout(user, draft)
-                  .then(() => {
-                    setSaved(draft);
-                    setMessage("");
-                    close();
-                  })
-                  .catch(() =>
-                    setMessage(
-                      "Could not save the layout. Your changes are still here.",
-                    ),
-                  )
-                  .finally(() => setBusy(false));
-              }}
+              onPress={saveDraft}
             />
           </View>
           <Text style={[styles.copy, { paddingHorizontal: 16 }]}>
@@ -288,172 +693,19 @@ export function Dashboard({
               render={render}
             />
           ) : null}
-          <View style={styles.toolbar}>
-            <Action label="Add widget" onPress={() => setGallery(true)} />
+          <View style={{ gap: 4, paddingHorizontal: 20, paddingVertical: 8 }}>
+            <Action
+              primary
+              label="Add widget"
+              onPress={() => setGallery(true)}
+            />
             <Action
               label="Restore default layout"
               onPress={() => setConfirm("restore")}
             />
           </View>
         </GestureHandlerRootView>
-        <Modal
-          visible={!!selected}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setSelected(undefined)}
-        >
-          <View style={styles.sheetOverlay}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Close widget options"
-              onPress={() => setSelected(undefined)}
-              style={StyleSheet.absoluteFill}
-            />
-            <View style={[styles.sheet, { paddingBottom: insets.bottom + 12 }]}>
-              <ScrollView contentContainerStyle={{ padding: 20, gap: 12 }}>
-                {draft?.widgets
-                  .filter((w) => w.id === selected)
-                  .map((w) => (
-                    <View key={w.id} style={{ gap: 12 }}>
-                      <View style={styles.toolbar}>
-                        <Text accessibilityRole="header" style={styles.title}>
-                          {registry[w.type].title}
-                        </Text>
-                        <Action
-                          label="Back to layout"
-                          onPress={() => setSelected(undefined)}
-                        />
-                      </View>
-                      <View style={styles.controls}>
-                        {registry[w.type].sizes.map((size) => (
-                          <Pressable
-                            key={size}
-                            accessibilityRole="radio"
-                            accessibilityLabel={`${registry[w.type].title} ${size === "small" ? "Small" : "Large"}`}
-                            accessibilityState={{ checked: w.size === size }}
-                            style={[
-                              styles.button,
-                              w.size === size && {
-                                backgroundColor: colors.blueSoft,
-                              },
-                            ]}
-                            onPress={() =>
-                              patch(w.id, {
-                                size,
-                                config:
-                                  w.type === "streaks" && size === "small"
-                                    ? { habits: [w.config.habits![0]] }
-                                    : w.type === "actions"
-                                      ? {
-                                          actions:
-                                            size === "small"
-                                              ? w.config.actions!.slice(0, 2)
-                                              : [
-                                                  ...new Set([
-                                                    ...w.config.actions!,
-                                                    ...actionNames,
-                                                  ]),
-                                                ].slice(0, 4),
-                                        }
-                                      : w.config,
-                              })
-                            }
-                          >
-                            <Text style={{ color: colors.blue }}>
-                              {size === "small" ? "Small" : "Large"}
-                            </Text>
-                          </Pressable>
-                        ))}
-                      </View>
-                      {w.type === "training" ? (
-                        <View style={styles.controls}>
-                          {(["week", "last7"] as const).map((period) => (
-                            <Action
-                              key={period}
-                              selected={w.config.period === period}
-                              label={`${w.config.period === period ? "Selected: " : ""}${period === "week" ? "This week" : "Last 7 days"}`}
-                              onPress={() =>
-                                patch(w.id, { config: { period } })
-                              }
-                            />
-                          ))}
-                        </View>
-                      ) : null}
-                      {w.type === "actions" ? (
-                        <>
-                          <Text style={styles.copy}>
-                            Selected order: {w.config.actions!.join(" → ")}.
-                            Toggle actions off and on to reorder.
-                          </Text>
-                          <View style={styles.controls}>
-                            {actionNames.map((action) => (
-                              <Action
-                                key={action}
-                                selected={w.config.actions!.includes(action)}
-                                label={`${w.config.actions!.includes(action) ? "✓ " : ""}${action}`}
-                                onPress={() => {
-                                  const list = w.config.actions!;
-                                  patch(w.id, {
-                                    config: {
-                                      actions: list.includes(action)
-                                        ? list.filter((a) => a !== action)
-                                        : [...list, action].slice(
-                                            0,
-                                            w.size === "small" ? 2 : 6,
-                                          ),
-                                    },
-                                  });
-                                }}
-                              />
-                            ))}
-                          </View>
-                          <Text style={styles.copy}>
-                            {w.size === "small"
-                              ? "Choose two actions."
-                              : "Choose four to six actions."}
-                          </Text>
-                        </>
-                      ) : null}
-                      {w.type === "streaks" ? (
-                        <View style={styles.controls}>
-                          {habits.map((h) => (
-                            <Action
-                              key={h}
-                              selected={w.config.habits!.includes(h)}
-                              label={`${w.config.habits!.includes(h) ? "✓ " : ""}${habitLabels[h]}`}
-                              onPress={() => {
-                                const list = w.config.habits!;
-                                patch(w.id, {
-                                  config: {
-                                    habits:
-                                      w.size === "small"
-                                        ? [h]
-                                        : list.includes(h)
-                                          ? list.filter((a) => a !== h)
-                                          : [...list, h].slice(0, 4),
-                                  },
-                                });
-                              }}
-                            />
-                          ))}
-                        </View>
-                      ) : null}
-                      <Action
-                        label={`Remove ${registry[w.type].title}`}
-                        displayLabel="Remove"
-                        onPress={() => {
-                          update(
-                            draft.widgets.filter((item) => item.id !== w.id),
-                          );
-                          setSelected(undefined);
-                        }}
-                      />
-                    </View>
-                  ))}
-              </ScrollView>
-            </View>
-          </View>
-        </Modal>
+        {!direct ? renderWidgetOptions() : null}
         <Modal
           visible={gallery}
           animationType="slide"
@@ -477,7 +729,7 @@ export function Dashboard({
                   type !== "streaks" &&
                   draft?.widgets.some((w) => w.type === type);
               return (
-                <View key={type} style={styles.card}>
+                <View key={type} style={{ gap: 10 }}>
                   <View
                     pointerEvents="none"
                     accessibilityElementsHidden
@@ -516,7 +768,7 @@ export function Dashboard({
           </ScrollView>
         </Modal>
         <Modal
-          visible={!!confirm}
+          visible={!!confirm && !direct}
           transparent
           animationType="fade"
           onRequestClose={() => setConfirm(undefined)}
@@ -546,6 +798,7 @@ export function Dashboard({
           </View>
         </Modal>
       </Modal>
+      {direct ? renderWidgetOptions() : null}
     </View>
   );
 }

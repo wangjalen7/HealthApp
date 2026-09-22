@@ -33,6 +33,9 @@ Status key: `[ ]` planned, `[-]` in progress, `[x]` complete.
 - [x] Verify the complete biometric exchange with a disposable hosted account and prevent a second iOS Face ID prompt when persisting a rotated credential.
 - [x] After explicit approval, deploy hardening migrations 003-005 and biometric-auth v6; verify hosted schema/API readiness and SQL regressions, and keep partial History queries usable when one category fails.
 
+- [x] Implement phone-first onboarding, same-account verified contacts, optional shared goal/fluid setup, and existing-account continuity; deploy and verify the protected setup migration and SMS enrollment branch.
+- [x] Make email the primary signup/sign-in method, retain the full onboarding flow, and remove phone entry/linking and SMS enrollment from the current UI. Phone delivery is deferred at the user's request.
+
 ## Release 3 â€” Training, cardio, and nutrition core
 
 - [x] Add secure remote tables and RLS policies for workouts, workout sets, cardio, and nutrition entries.
@@ -88,8 +91,9 @@ Status key: `[ ]` planned, `[-]` in progress, `[x]` complete.
 - [x] Collapse workout-history notes, simplify fluid row quantities and unify AI action button styling.
 - [x] Support multiple workout goals/styles, simplify overlapping choices and fix preference validation errors.
 - [x] Replace workout chat with single-session lifting/cardio draft generation and expanded custom preferences.
+- [x] Fix sentence-only AI workout results, preserve complete routines when clearing unsupported weights, verify draft navigation, and deploy/live-test Coach v16.
 - [x] Separate fluid entries and daily totals into their own History tab.
-- [-] Validate the revised interface, native Face ID, progress-photo, unified nutrition/barcode, and expanded tracking flows on the registered iPhone, including hydration, workout ordering/location, Summary widgets/drag/auto-scroll/streaks, chart gesture competition, privacy-lock/resume, manual-history editing, Dynamic Type, VoiceOver, and keyboard behavior.
+- [-] Validate the revised interface, onboarding, native Face ID, progress-photo, unified nutrition/barcode, and expanded tracking flows on the registered iPhone, including hydration, workout ordering/location, Summary widgets/drag/auto-scroll/streaks, chart gesture competition, privacy-lock/resume, manual-history editing, Dynamic Type, VoiceOver, and keyboard behavior.
 - [x] Complete local app review, usability/save-flow fixes, and repeatable browser regression coverage; document outstanding live-backend and iPhone checks separately.
 - [x] Correct repository-root Expo startup instructions and workspace script forwarding; verify the iOS development bundle uses Expo Router.
 - [x] Match Food History fluid entries to meal formatting within the daily card, retaining daily totals and confirmed deletion.
@@ -166,3 +170,13 @@ Status key: `[ ]` planned, `[-]` in progress, `[x]` complete.
 - [ ] Release 5: cloud-synced, server-delivered reminder notifications.
 - [ ] Release 6: proactive wellness Coach check-ins, scheduled reviews, and multiweek programs after first-release evaluation.
 - [ ] Release 7: multi-user operational hardening, observability, cost controls, and web companion.
+
+- [x] Implement Summary design, meals, streak rules, login-first entry and secure account deletion; pass local automated verification.
+- [x] Fix native streak text rendering and cover all habit/size combinations with native-host regression checks.
+- [x] Deploy Summary migration 202609220001 and verify live streak initialization, retries, permissions and disposable-account cleanup.
+- [x] Remove food-day completion controls/streaks, migrate saved widgets and use saved calorie totals without confirmation.
+- [x] Add direct Streaks/Quick Actions edit shortcuts and clearly labeled full widget previews with fixed Save/Cancel.
+- [x] Keep streak selection rows and scroll position stable by separating the full preview from configuration and retaining stable validation/reminder space.
+- [x] Use matching minus/plus controls for the training consistency days-per-week slider.
+- [x] Unify all streak cards around the current Monday-Sunday week with weekday initials, checks and dates; retain historical totals and detail history.
+- [ ] **In progress** - Deploy account deletion, verify disposable hosted deletion, and complete physical-iPhone validation.

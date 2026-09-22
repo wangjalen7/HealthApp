@@ -83,6 +83,9 @@ const formatLossRate = (value: number, unitSystem: "us" | "metric") =>
     : `${formatRate(value)} lb/week`;
 
 export function GoalHelper({
+  defaultUnitSystem = "us",
+  defaultFluidUnit = "fl_oz",
+  defaultIntent = "lose",
   defaultWeightLb,
   defaultWeightOccurredAt,
   initialMode,
@@ -93,6 +96,9 @@ export function GoalHelper({
   savedWeightGoalLb,
   visible,
 }: {
+  defaultUnitSystem?: "us" | "metric";
+  defaultFluidUnit?: "fl_oz" | "ml";
+  defaultIntent?: "maintain" | "lose" | "gain";
   defaultWeightLb?: number;
   defaultWeightOccurredAt?: string;
   initialMode: GoalHelperMode;
@@ -126,7 +132,7 @@ export function GoalHelper({
   const [activity, setActivity] = useState<EnergyActivity>("sedentary");
   const [weightIntent, setWeightIntent] = useState<
     "maintain" | "lose" | "gain"
-  >("lose");
+  >(defaultIntent);
   const [maintenance, setMaintenance] = useState<number>();
   const [lossOptions, setLossOptions] = useState<LossScenario[]>([]);
   const [timeframeMessage, setTimeframeMessage] = useState("");
@@ -138,7 +144,7 @@ export function GoalHelper({
 
   useEffect(() => {
     if (!visible) return;
-    setUnitSystem("us");
+    setUnitSystem(defaultUnitSystem);
     setMode(initialMode);
     setFeedback("");
     setSaving(false);
@@ -152,19 +158,35 @@ export function GoalHelper({
     setHeightInches("");
     setHeightMetric("");
     setHeightCm(undefined);
-    setCurrentWeight(defaultWeightLb ? defaultWeightLb.toFixed(1) : "");
+    setCurrentWeight(
+      defaultWeightLb
+        ? (defaultUnitSystem === "us"
+            ? defaultWeightLb
+            : poundsToKilograms(defaultWeightLb)
+          ).toFixed(1)
+        : "",
+    );
     setCurrentWeightKg(
       defaultWeightLb === undefined
         ? undefined
         : poundsToKilograms(defaultWeightLb),
     );
-    setGoalWeight(savedWeightGoalLb ? String(savedWeightGoalLb) : "");
+    setGoalWeight(
+      savedWeightGoalLb
+        ? String(
+            defaultUnitSystem === "us"
+              ? savedWeightGoalLb
+              : poundsToKilograms(savedWeightGoalLb),
+          )
+        : "",
+    );
     setGoalWeightKg(
       savedWeightGoalLb === undefined
         ? undefined
         : poundsToKilograms(savedWeightGoalLb),
     );
   }, [
+    defaultUnitSystem,
     defaultWeightLb,
     initialMode,
     savedWaterGoalMl,
@@ -792,6 +814,7 @@ export function GoalHelper({
           ) : (
             <>
               <FluidGoalForm
+                initialUnit={defaultFluidUnit}
                 key={String(visible)}
                 savedGoalMl={savedWaterGoalMl}
                 onUse={async (ml, calculation) => {

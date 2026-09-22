@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { colors } from "../../ui/theme";
 import { useEffect, useRef, useState } from "react";
 import { PanResponder, Platform, StyleSheet, Text, View } from "react-native";
@@ -753,7 +754,9 @@ export function TrendCard({
   samples,
   range,
   onHorizontalGestureChange,
+  controls,
 }: {
+  controls?: ReactNode;
   title: string;
   kind: VitalKind;
   samples: VitalSample[];
@@ -774,7 +777,8 @@ export function TrendCard({
     .filter((sample) => sample.kind === kind && !sample.deletedAt)
     .map((sample) => sample.value);
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, controls ? { marginBottom: 0, borderWidth: 0, borderRadius: 24, padding: 16 } : undefined]}>
+      {controls}
       <View style={styles.header}>
         <Text accessibilityRole="header" style={styles.title}>
           {title}
@@ -802,7 +806,9 @@ export function BloodPressureTrendCard({
   samples,
   range,
   onHorizontalGestureChange,
+  controls,
 }: {
+  controls?: ReactNode;
   samples: VitalSample[];
   range: TrendRange;
   onHorizontalGestureChange?: (active: boolean) => void;
@@ -825,7 +831,8 @@ export function BloodPressureTrendCard({
     )
     .map((sample) => sample.value);
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, controls ? { marginBottom: 0, borderWidth: 0, borderRadius: 24, padding: 16 } : undefined]}>
+      {controls}
       <View style={styles.header}>
         <Text accessibilityRole="header" style={styles.title}>
           Blood pressure

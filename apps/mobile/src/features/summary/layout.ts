@@ -2,7 +2,6 @@ import { z } from "zod";
 export const habits = [
   "daily_logging",
   "food_logging",
-  "food_complete",
   "calorie_target",
   "protein_target",
   "fluid_logging",
@@ -16,7 +15,6 @@ export type Habit = (typeof habits)[number];
 export const habitLabels: Record<Habit, string> = {
   daily_logging: "Daily logging",
   food_logging: "Food logging",
-  food_complete: "Food day completed",
   calorie_target: "Calorie target",
   protein_target: "Protein target",
   fluid_logging: "Fluid logging",
@@ -53,7 +51,7 @@ const configSchemas = {
   calendar: empty,
   weight_trend: empty,
   bp_trend: empty,
-  pr: empty,
+  meals: empty,
   training: z.strictObject({
     period: z.enum(["week", "last7"]).default("week"),
   }),
@@ -65,6 +63,7 @@ const configSchemas = {
       .refine((a) => new Set(a).size === a.length),
   }),
   streaks: z.strictObject({
+    reminderId: z.string().optional(),
     habits: z
       .array(z.enum(habits))
       .min(1)
@@ -82,6 +81,7 @@ export type Widget = {
     period?: "week" | "last7";
     actions?: ActionName[];
     habits?: Habit[];
+    reminderId?: string;
   };
 };
 type Definition = {
@@ -138,11 +138,12 @@ export const registry: Record<WidgetType, Definition> = {
     false,
     { period: "week" },
   ),
-  pr: definition(
-    "pr",
-    "Recent Personal Record",
-    "Latest improvement across comparable workouts",
-    ["training"],
+  meals: definition(
+    "meals",
+    "Today's Meals",
+    "Saved meals and nutrition for today",
+    ["food"],
+    true,
   ),
   actions: definition(
     "actions",
@@ -246,12 +247,38 @@ export function defaultLayout(): Layout {
 export function readLayout(raw: string | null): {
   layout: Layout;
   recovered: boolean;
+  migrated?: boolean;
 } {
   if (raw === null) return { layout: defaultLayout(), recovered: false };
   try {
-    const parsed = layoutSchema.safeParse(JSON.parse(raw));
+    const value = JSON.parse(raw);
+    let migrated =
+      value?.version === 1 &&
+      Array.isArray(value.widgets) &&
+      value.widgets.some((w: { type?: string } | null) => w?.type === "pr");
+    // Retire only PR presentation, retaining every other ID, setting and position.
+    if (value?.version === 1 && Array.isArray(value.widgets))
+      value.widgets = value.widgets.filter(
+        (w: { type?: string } | null) => w?.type !== "pr",
+      );
+    if (value?.version === 1 && Array.isArray(value.widgets)) {
+      const seen = new Set<string>();
+      value.widgets = value.widgets.flatMap((widget: { type?: string; config?: { habits?: unknown[] } } | null) => {
+        if (widget?.type !== "streaks" || !Array.isArray(widget.config?.habits)) return [widget];
+        const selected = widget.config.habits;
+        const active = selected.filter((habit) => habit !== "food_complete");
+        if (active.length !== selected.length) migrated = true;
+        if (!active.length && selected.includes("food_complete")) return [];
+        const key = [...active].sort().join();
+        // Removal can make formerly distinct streak widgets identical.
+        if (seen.has(key) && migrated) return [];
+        seen.add(key);
+        return [{ ...widget, config: { ...widget.config, habits: active } }];
+      });
+    }
+    const parsed = layoutSchema.safeParse(value);
     if (parsed.success)
-      return { layout: parsed.data as Layout, recovered: false };
+      return { layout: parsed.data as Layout, recovered: false, migrated };
   } catch {
     /* Preserve corrupt storage until an explicit save. */
   }

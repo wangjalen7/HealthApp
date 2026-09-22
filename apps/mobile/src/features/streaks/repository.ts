@@ -86,19 +86,12 @@ export async function ensureTracking() {
   });
   if (error) throw new Error(error.message);
 }
-export async function setFoodDayComplete(day: string, complete: boolean) {
-  const { error } = await supabase.rpc("set_food_day_complete", {
-    p_day: day,
-    p_zone: deviceZone(),
-    p_complete: complete,
-  });
-  if (error) throw new Error(error.message);
-}
 export function effectiveRuleDay(
   habit: Habit,
   existing: boolean,
   now = new Date(),
 ) {
+  if (habit === "training" && !existing) return monday(dayKey(now));
   const key = existing ? shiftDay(dayKey(now), 1) : dayKey(now);
   return habit === "training" && monday(key) !== key
     ? shiftDay(monday(key), 7)

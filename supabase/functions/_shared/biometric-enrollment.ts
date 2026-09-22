@@ -20,3 +20,25 @@ export async function verifyEnrollmentPassword<
     return undefined;
   return result.data;
 }
+
+/** Verify a fresh SMS code against Supabase on the server, bound to the bearer user. */
+export async function verifyEnrollmentOtp<
+  T extends {
+    user: { id: string } | null;
+    session: { access_token: string } | null;
+  },
+>(
+  expectedUserId: string,
+  otp: string,
+  verify: (otp: string) => Promise<{ data: T; error: unknown }>,
+): Promise<T | undefined> {
+  if (!/^\d{6}$/.test(otp)) return undefined;
+  const result = await verify(otp);
+  if (
+    result.error ||
+    !result.data.session ||
+    result.data.user?.id !== expectedUserId
+  )
+    return undefined;
+  return result.data;
+}

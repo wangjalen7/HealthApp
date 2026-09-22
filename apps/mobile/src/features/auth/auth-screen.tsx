@@ -43,7 +43,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
   const [password, setPassword] = useState("");
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
+  const lastName = "";
   const [busy, setBusy] = useState(false);
   const [faceIdBusy, setFaceIdBusy] = useState(false);
   const [faceIdAccount, setFaceIdAccount] = useState<FaceIdLoginAccount>();
@@ -78,7 +78,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
       .then(({ availability, faceIdLogin, rememberedLogin }) => {
         if (!active) return;
         const account = faceIdLogin ?? rememberedLogin;
-        if (availability.available && faceIdLogin) {
+        if (availability.available && faceIdLogin?.email) {
           setFaceIdAccount(faceIdLogin);
         }
         if (account) {
@@ -145,10 +145,6 @@ export function AuthScreen({ mode }: { mode: Mode }) {
     }
     const cleanFirstName = firstName.trim();
     const cleanLastName = lastName.trim();
-    if (mode === "signUp" && (!cleanFirstName || !cleanLastName)) {
-      setFeedback("Enter your first and last name.");
-      return;
-    }
     if (
       mode === "signUp" &&
       (cleanFirstName.length > 80 || cleanLastName.length > 80)
@@ -200,7 +196,9 @@ export function AuthScreen({ mode }: { mode: Mode }) {
           password,
           options: {
             data: {
-              display_name: `${cleanFirstName} ${cleanLastName}`,
+              display_name: [cleanFirstName, cleanLastName]
+                .filter(Boolean)
+                .join(" "),
               first_name: cleanFirstName,
               last_name: cleanLastName,
             },
@@ -293,28 +291,16 @@ export function AuthScreen({ mode }: { mode: Mode }) {
           {mode === "signUp" ? (
             <View style={styles.nameRow}>
               <TextInput
-                accessibilityLabel="First name"
+                accessibilityLabel="Preferred name (optional)"
                 autoCapitalize="words"
                 autoComplete="given-name"
                 maxLength={80}
-                placeholder="First name"
+                placeholder="Preferred name (optional)"
                 placeholderTextColor="#718096"
                 style={[styles.input, styles.nameInput]}
                 textContentType="givenName"
                 value={firstName}
                 onChangeText={setFirstName}
-              />
-              <TextInput
-                accessibilityLabel="Last name"
-                autoCapitalize="words"
-                autoComplete="family-name"
-                maxLength={80}
-                placeholder="Last name"
-                placeholderTextColor="#718096"
-                style={[styles.input, styles.nameInput]}
-                textContentType="familyName"
-                value={lastName}
-                onChangeText={setLastName}
               />
             </View>
           ) : null}
@@ -450,6 +436,12 @@ export function AuthScreen({ mode }: { mode: Mode }) {
               </Link>
             </>
           )}
+          <Link
+            href="/(auth)/welcome"
+            style={{ color: colors.blue, minHeight: 44 }}
+          >
+            Back to welcome
+          </Link>
           {mode !== "signIn" && (
             <Link href="/(auth)/sign-in" style={styles.link}>
               Back to sign in

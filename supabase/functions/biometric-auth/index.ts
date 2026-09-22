@@ -1,4 +1,7 @@
-import { verifyEnrollmentPassword } from "../_shared/biometric-enrollment.ts";
+import {
+  verifyEnrollmentPassword,
+  verifyEnrollmentOtp,
+} from "../_shared/biometric-enrollment.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.112.4";
 
 import {
@@ -257,20 +260,30 @@ Deno.serve(async (request) => {
   const verifier = createClient(supabaseUrl, publishableKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
-  const verified = await verifyEnrollmentPassword(
-    authData.user.id,
-    body.password,
-    (password) =>
-      verifier.auth.signInWithPassword({
-        email: authData.user!.email!,
-        password,
-      }),
-  );
+  const verified =
+    body.otp && authData.user.phone_confirmed_at && authData.user.phone
+      ? await verifyEnrollmentOtp(authData.user.id, body.otp, (token) =>
+          verifier.auth.verifyOtp({
+            phone: authData.user!.phone!,
+            token,
+            type: "sms",
+          }),
+        )
+      : await verifyEnrollmentPassword(
+          authData.user.id,
+          body.password,
+          (password) =>
+            verifier.auth.signInWithPassword({
+              email: authData.user!.email!,
+              password,
+            }),
+        );
   if (!verified?.session || !verified.user) {
     return json(
       {
         code: "reauthentication_required",
-        message: "Verify your current password to enable Face ID.",
+        message:
+          "Verify your current password or a fresh phone code to enable Face ID.",
       },
       401,
     );

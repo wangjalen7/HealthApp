@@ -3,9 +3,12 @@ import type { ColorValue } from "react-native";
 import { Platform } from "react-native";
 
 export type IconName =
+  | "check"
+  | "calendar"
   | "heart"
   | "history"
   | "plus"
+  | "minus"
   | "reorder"
   | "sparkles"
   | "person"
@@ -54,6 +57,13 @@ export function Icon({
             importantForAccessibility: "no-hide-descendants" as const,
           })}
     >
+      {name === "check" && <Path d="m5 12 4 4L19 6" />}
+      {name === "calendar" && (
+        <>
+          <Rect x={3} y={5} width={18} height={16} rx={3} />
+          <Path d="M7 3v4m10-4v4M3 10h18m-13 5h2m4 0h2" />
+        </>
+      )}
       {name === "heart" && (
         <Path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z" />
       )}
@@ -63,6 +73,7 @@ export function Icon({
         </>
       )}
       {name === "plus" && <Path d="M12 5v14M5 12h14" />}
+      {name === "minus" && <Path d="M5 12h14" />}
       {name === "reorder" && <Path d="M5 7h14M5 12h14M5 17h14" />}
       {name === "sparkles" && (
         <Path d="m12 3 2.3 6.7L21 12l-6.7 2.3L12 21l-2.3-6.7L3 12l6.7-2.3L12 3ZM20 2v4m-2-2h4" />

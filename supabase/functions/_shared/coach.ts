@@ -213,6 +213,23 @@ export const coachModelResultSchema = z
   })
   .strict();
 
+// Keep the union below the root for OpenAI Structured Outputs. A normal
+// planner response must contain a draft; safety responses must not contain one.
+export const workoutModelResultSchema = z
+  .object({
+    result: z.discriminatedUnion("safetyLevel", [
+      coachModelResultSchema.extend({
+        safetyLevel: z.literal("normal"),
+        actions: z.array(workoutActionSchema).length(1),
+      }),
+      coachModelResultSchema.extend({
+        safetyLevel: z.enum(["caution", "urgent"]),
+        actions: z.array(workoutActionSchema).max(0),
+      }),
+    ]),
+  })
+  .strict();
+
 export const coachResponseSchema = z
   .object({
     threadId: z.string().uuid(),

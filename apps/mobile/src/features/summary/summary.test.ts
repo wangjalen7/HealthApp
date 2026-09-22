@@ -16,6 +16,77 @@ import {
   type LoggedSession,
 } from "./training";
 import { createLayoutStore } from "./layout-store";
+import { todaysMeals } from "./meals";
+test("retiring food-day completion preserves other widgets and active habits", async () => {
+  const mixed = { id: "mixed", type: "streaks", size: "wide", config: { habits: ["food_logging", "food_complete", "calorie_target"] } };
+  const retired = { id: "retired", type: "streaks", size: "small", config: { habits: ["food_complete"] } };
+  const weight = defaultLayout().widgets[0];
+  const raw = JSON.stringify({ version: 1, widgets: [weight, retired, mixed] });
+  const result = readLayout(raw);
+  assert.equal(result.recovered, false);
+  assert.equal(result.migrated, true);
+  assert.deepEqual(result.layout.widgets, [weight, { ...mixed, config: { habits: ["food_logging", "calorie_target"] } }]);
+  let stored = raw;
+  const store = createLayoutStore({ getItem: async () => stored, setItem: async (_key, value) => { stored = value; } });
+  await store.load("synthetic");
+  assert.deepEqual(JSON.parse(stored), result.layout);
+  const only = readLayout(JSON.stringify({ version: 1, widgets: [retired] }));
+  assert.equal(only.recovered, false);
+  assert.deepEqual(only.layout.widgets, []);
+  const duplicate = { ...mixed, id: "active", config: { habits: ["food_logging", "calorie_target"] } };
+  assert.equal(readLayout(JSON.stringify({ version: 1, widgets: [mixed, duplicate] })).layout.widgets.length, 1);
+});
+test("PR retirement preserves IDs, order, sizes, settings and intentional emptiness", () => {
+  const custom = {
+    version: 1,
+    widgets: [
+      { id: "pr", type: "pr", size: "small", config: {} },
+      {
+        id: "custom-training",
+        type: "training",
+        size: "small",
+        config: { period: "last7" },
+      },
+      { id: "custom-weight", type: "weight", size: "wide", config: {} },
+    ],
+  };
+  const result = readLayout(JSON.stringify(custom));
+  assert.equal(result.recovered, false);
+  assert.deepEqual(result.layout.widgets, custom.widgets.slice(1));
+  assert.deepEqual(
+    readLayout(JSON.stringify({ version: 1, widgets: [custom.widgets[0]] }))
+      .layout.widgets,
+    [],
+  );
+});
+test("Today's Meals groups saved meal identities for the current local day without excluding non-label foods", () => {
+  const now = new Date(2026, 8, 22, 12);
+  const row = {
+    id: "a",
+    occurred_at: new Date(2026, 8, 22, 8).toISOString(),
+    calories: 100,
+    protein_grams: 10,
+    food_name: "Eggs",
+    meal_type: "breakfast",
+    meal_log_id: "meal",
+  };
+  const meals = todaysMeals(
+    [
+      row,
+      { ...row, id: "b", food_name: "Toast", calories: 200 },
+      {
+        ...row,
+        id: "old",
+        occurred_at: new Date(2026, 8, 21, 23).toISOString(),
+      },
+    ],
+    now,
+  );
+  assert.equal(meals.length, 1);
+  assert.equal(meals[0].calories, 300);
+  assert.deepEqual(meals[0].names, ["Eggs", "Toast"]);
+  assert.deepEqual(todaysMeals([], now), []);
+});
 test("layout storage serializes rapid writes, recovers after failed writes and isolates accounts", async () => {
   const records = new Map<string, string>();
   let fail = false;

@@ -1,3 +1,5 @@
+import { AccountDeletionGate } from "../src/features/auth/account-deletion";
+import { SetupProvider } from "../src/features/onboarding/provider";
 import { router, Stack, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
@@ -16,7 +18,7 @@ export default function RootLayout() {
       <AppearanceProvider>
         <MotionProvider>
           <AuthProvider>
-            <RootNavigator />
+            <AccountDeletionGate><SetupProvider><RootNavigator /></SetupProvider></AccountDeletionGate>
           </AuthProvider>
         </MotionProvider>
       </AppearanceProvider>

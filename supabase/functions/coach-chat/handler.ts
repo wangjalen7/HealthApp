@@ -9,6 +9,7 @@ import {
   coachEvidenceSchema,
   coachInstructions,
   coachModelResultSchema,
+  workoutModelResultSchema,
   coachRequestSchema,
   coachSourceSchema,
   coachTierForMessage,
@@ -132,8 +133,11 @@ const coachModelEnvelopeSchema = z
   })
   .strict();
 
-export function parseCoachModelResult(text: string) {
-  const envelope = coachModelEnvelopeSchema.parse(JSON.parse(text));
+export function parseCoachModelResult(text: string, workoutPlanning = false) {
+  const value: unknown = JSON.parse(text);
+  const envelope = coachModelEnvelopeSchema.parse(
+    workoutPlanning ? workoutModelResultSchema.parse(value).result : value,
+  );
   return {
     ...envelope,
     evidence: envelope.evidence.flatMap((item) => {
@@ -508,9 +512,14 @@ export function createCoachHandler(deps: CoachHandlerDependencies) {
                   name: "coach_response",
                   strict: true,
                   schema: openAiCompatibleSchema(
-                    z.toJSONSchema(coachModelResultSchema, {
-                      target: "draft-7",
-                    }),
+                    z.toJSONSchema(
+                      input.workoutPreferences
+                        ? workoutModelResultSchema
+                        : coachModelResultSchema,
+                      {
+                        target: "draft-7",
+                      },
+                    ),
                   ),
                 },
               },
@@ -588,7 +597,10 @@ export function createCoachHandler(deps: CoachHandlerDependencies) {
       }
       if (!providerResponse) throw new Error("missing_response");
       failureStage = "model_response_validation";
-      const parsed = parseCoachModelResult(responseText(providerResponse));
+      const parsed = parseCoachModelResult(
+        responseText(providerResponse),
+        Boolean(input.workoutPreferences),
+      );
       failureStage = "action_validation";
       let safeActions =
         parsed.safetyLevel === "normal"
@@ -605,18 +617,12 @@ export function createCoachHandler(deps: CoachHandlerDependencies) {
               input.message,
             )
           : [];
-      if (input.workoutPreferences) {
-        const issues = safeActions
-          .map((action) => workoutPlanIssue(action, input.workoutPreferences!))
-          .filter(Boolean);
-        safeActions = safeActions.filter(
-          (action) => !workoutPlanIssue(action, input.workoutPreferences!),
-        );
-        if (issues.length)
-          parsed.answer +=
-            "\n\nThis proposal is not ready to apply: " +
-            issues[0] +
-            " Adjust your preferences and generate again.";
+      if (input.workoutPreferences && parsed.safetyLevel === "normal") {
+        if (
+          safeActions.length !== 1 ||
+          workoutPlanIssue(safeActions[0], input.workoutPreferences)
+        )
+          throw new Error("incomplete_workout_plan");
       }
       const assistantMessageId = crypto.randomUUID();
       const actions: SavedAction[] = safeActions.map((payload) => ({
@@ -701,7 +707,9 @@ export function createCoachHandler(deps: CoachHandlerDependencies) {
       if (failureStage === "action_validation")
         return fail(
           "action_validation_failed",
-          "AI Coach generated a plan that could not be validated against your saved data. Try again.",
+          input.workoutPreferences
+            ? "AI did not return a complete workout that fits your preferences. Your draft was not changed and this attempt was not counted. Try generating again."
+            : "AI Coach generated a plan that could not be validated against your saved data. Try again.",
           502,
         );
       if (providerResponseStatus === "incomplete")
@@ -712,7 +720,9 @@ export function createCoachHandler(deps: CoachHandlerDependencies) {
         );
       return fail(
         "invalid_response",
-        "AI Coach could not format a valid response. Your message was not saved; try again.",
+        input.workoutPreferences
+          ? "AI did not return a complete workout. Your draft was not changed and this attempt was not counted. Try generating again."
+          : "AI Coach could not format a valid response. Your message was not saved; try again.",
         502,
       );
     }

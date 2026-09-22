@@ -38,6 +38,7 @@ type SyncResult = {
   error?: string;
 };
 const running = new Map<string, Promise<SyncResult>>();
+export async function drainVitalSync(user: string) { await running.get(user); }
 export function syncVitals(userId: string): Promise<SyncResult> {
   const existing = running.get(userId);
   if (existing) return existing.then(() => syncVitals(userId));

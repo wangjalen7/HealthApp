@@ -7,8 +7,25 @@ export function createLayoutStore(storage: {
   const key = (user: string) => `healthapp:summary-layout:${user}`;
   return {
     async load(user: string) {
-      await writes.get(key(user))?.catch(() => undefined);
-      return readLayout(await storage.getItem(key(user)));
+      const operation = (writes.get(key(user)) ?? Promise.resolve())
+        .catch(() => undefined)
+        .then(async () => {
+          const result = readLayout(await storage.getItem(key(user)));
+          if (result.migrated)
+            await storage.setItem(key(user), JSON.stringify(result.layout));
+          return result;
+        });
+      const tail = operation.then(() => undefined);
+      writes.set(key(user), tail);
+      void tail.then(
+        () => {
+          if (writes.get(key(user)) === tail) writes.delete(key(user));
+        },
+        () => {
+          if (writes.get(key(user)) === tail) writes.delete(key(user));
+        },
+      );
+      return operation;
     },
     save(user: string, layout: Layout) {
       const json = JSON.stringify(layoutSchema.parse(layout));

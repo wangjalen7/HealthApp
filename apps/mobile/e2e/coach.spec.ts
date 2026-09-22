@@ -90,8 +90,16 @@ test("planner retries generation and fills an editable workout directly without 
     });
     if (calls === 1) {
       await route.fulfill({
-        status: 503,
-        json: { message: "Planner is temporarily unavailable." },
+        json: {
+          threadId,
+          messageId,
+          answer: "Your workout is ready.",
+          safetyLevel: "normal",
+          evidence: [],
+          sources: [],
+          actions: [],
+          quota: { standardRemaining: 30, deepRemaining: 2 },
+        },
       });
       return;
     }
@@ -129,7 +137,7 @@ test("planner retries generation and fills an editable workout directly without 
               rationale:
                 "A short bodyweight session for your available equipment.",
               recommendation: "lifting",
-              muscleGroups: ["Legs"],
+              muscleGroups: ["Legs", "Chest"],
               exercises: [
                 {
                   name: "Bodyweight squat",
@@ -140,6 +148,17 @@ test("planner retries generation and fills an editable workout directly without 
                   targetRir: 3,
                   restSeconds: 120,
                   technique: "Lower with control.",
+                  isNewToHistory: true,
+                },
+                {
+                  name: "Push-up",
+                  muscleGroup: "Chest",
+                  setCount: 2,
+                  targetReps: [8, 8],
+                  suggestedWeightLb: null,
+                  targetRir: 3,
+                  restSeconds: 90,
+                  technique: "Keep a steady torso.",
                   isNewToHistory: true,
                 },
               ],
@@ -169,7 +188,10 @@ test("planner retries generation and fills an editable workout directly without 
     .getByRole("button", { name: "Generate workout plan", exact: true })
     .click();
   await expect(
-    page.getByText("Planner is temporarily unavailable.", { exact: true }),
+    page.getByText(
+      "AI did not return a complete workout. Your draft was not changed. Try generating again.",
+      { exact: true },
+    ),
   ).toBeVisible();
   expect(backend.tables.coach_profiles[0]).toMatchObject({
     use_training: true,
@@ -192,28 +214,18 @@ test("planner retries generation and fills an editable workout directly without 
     page.getByText("Plan: 3 RIR / 120 sec rest", { exact: true }),
   ).toBeVisible();
   expect(backend.tables.workout_sessions ?? []).toHaveLength(0);
-  await page.getByLabel("Number of sets", { exact: true }).fill("3");
-  await expect(page.getByLabel("Number of sets", { exact: true })).toHaveValue(
-    "3",
+  await expect(page.getByLabel("Exercise name", { exact: true })).toHaveCount(
+    2,
   );
-  await page
-    .getByRole("button", {
-      name: "Exercise guide for Bodyweight squat",
-      exact: true,
-    })
-    .click();
   await expect(
-    page.getByText(
-      "Keep your feet grounded. Bend hips and knees together, lower to a comfortable depth, then stand steadily.",
-      { exact: true },
-    ),
-  ).toBeVisible();
+    page.getByLabel("Exercise name", { exact: true }).nth(1),
+  ).toHaveValue("Push-up");
+  await page.getByLabel("Number of sets", { exact: true }).first().fill("3");
   await expect(
-    page.getByRole("link", {
-      name: /ACE/,
-      exact: true,
-    }),
-  ).toHaveCount(0);
+    page.getByLabel("Number of sets", { exact: true }).first(),
+  ).toHaveValue("3");
+  await expect(page.getByRole("button", { name: "Exercise guide for Bodyweight squat", exact: true })).toHaveCount(0);
+  await expect(page.getByText("Lower with control.", { exact: true })).toBeVisible();
   await expect(
     page.getByText("Unfinished workout saved on this device.", { exact: true }),
   ).toBeVisible();
@@ -547,7 +559,10 @@ test("multi-select preferences migrate old choices and explain missed selections
     .getByRole("button", { name: "Generate workout plan", exact: true })
     .click();
   await expect(
-    page.getByText("Test request accepted.", { exact: true }),
+    page.getByText(
+      "AI did not return a complete workout. Your draft was not changed. Try generating again.",
+      { exact: true },
+    ),
   ).toBeVisible();
   expect(calls).toBe(1);
   expect(backend.tables.coach_profiles[0]).toMatchObject({

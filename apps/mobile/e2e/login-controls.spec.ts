@@ -64,7 +64,7 @@ test("Summary indicates sync in flight and clears it on failure or completion", 
   const gate = new Promise<void>((resolve) => {
     release = resolve;
   });
-  await page.route("**/rest/v1/vital_samples?**", async (route) => {
+  await page.route("**/rest/v1/rpc/read_vital_changes", async (route) => {
     await gate;
     await route.fulfill({
       status: 400,
@@ -83,7 +83,7 @@ test("Summary indicates sync in flight and clears it on failure or completion", 
   ).toBeVisible();
   await expect(sync).toBeEnabled();
   await expect(page.getByLabel("Syncing summary")).toHaveCount(0);
-  await page.unroute("**/rest/v1/vital_samples?**");
+  await page.unroute("**/rest/v1/rpc/read_vital_changes");
   await sync.click();
   await expect(sync).toBeEnabled();
   await expect(

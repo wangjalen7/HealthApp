@@ -75,7 +75,7 @@ export function EditorGrid({
   latest.current = { widgets, onMove, onSelect, disabled, locked, reduced };
   const animate = () => {
     if (!latest.current.reduced && Platform.OS !== "web")
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      LayoutAnimation.configureNext({ ...LayoutAnimation.Presets.easeInEaseOut, duration: 180 });
   };
   const stop = () => {
     if (timer.current) clearInterval(timer.current);
@@ -340,7 +340,7 @@ export function EditorGrid({
               left: active.origin.x - active.left,
               width: active.origin.width,
               height: active.origin.height,
-              transform: translation.getTranslateTransform(),
+              transform: [...translation.getTranslateTransform(), { scale: reduced ? 1 : 1.015 }],
             },
           ]}
         >
@@ -469,10 +469,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderRadius: 22,
     shadowColor: "#000",
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
     shadowOffset: { width: 0, height: 8 },
-    elevation: 10,
+    elevation: 4,
   },
   hint: { color: colors.secondary, paddingVertical: 20 },
   status: {

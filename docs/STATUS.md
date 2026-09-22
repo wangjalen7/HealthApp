@@ -1,9 +1,63 @@
 # Current status
 
 **Active release:** Release 3 — nutrition and tracking expansion
-**Active item:** Physical-iPhone validation of the revised interface and native flows. The hardening backend update is now deployed after explicit user approval.
-**Verification state:** Hardening migrations 003-005 and biometric-auth v6 remain deployed. Hosted SQL/API checks and the full synthetic-account biometric enrollment/session-rotation/revocation test pass. Latest client checks: lint, TypeScript, 175 app / 55 Edge helper tests. Single-prompt Keychain rotation is implemented and adapter-tested; physical-iPhone prompt confirmation and real concurrent-connection testing remain open.
-**Last updated:** 2026-09-18
+**Active item:** Deploy and validate account deletion with disposable hosted accounts, then verify native flows on the physical iPhone.
+**Verification state:** Lint/TypeScript, 190 app / 66 Edge tests, targeted current-week/editor browser checks (19 Summary cases passed before this follow-up), all migrations plus isolated SQL assertions, and iOS/Hermes export pass. Summary migration 202609220001 is deployed and its exact API signature, authenticated initialization, retry preservation and anonymous rejection pass hosted verification. Account-deletion migration/function remain local only. Native light/dark, Dynamic Type, VoiceOver, Reduce Motion, gestures, Apple Health and cleanup validation remain open.
+**Last updated:** 2026-09-22
+
+## Direct widget editing - 2026-09-22
+
+- All initialized streak cards now show the same current Monday-Sunday week in both Small and Large sizes: weekday initials, completion checks and date numbers underneath. Removed the best-streak activation date from Summary cards; details retain tracking history. Unknown/off-days remain distinct and future days are neutral. Lint/TypeScript, 190 app / 66 Edge tests and five targeted week/editor browser cases pass; Small/Large screenshots inspected. Native visual verification remains pending.
+- Training consistency's days-per-week slider now uses matching minus/plus icons. Targeted ESLint and mobile TypeScript checks pass; adjustment behavior is unchanged.
+- Follow-up jitter fix: moved the variable-height live preview into a separate Preview widget view within the same sheet. Streak selection no longer inserts/removes preview content, an extra validation row or the recurring-reminder section; reminder choices stay visible and are disabled until that streak is selected. Browser regression reproduced a 171-pixel jump before the fix and now verifies unchanged row/sheet bounds and scroll offset at 390px and 320px, including empty selections and reminder toggles. Lint/TypeScript, 187 app / 66 Edge tests and all 19 Summary browser cases pass. Native iPhone verification remains open.
+- Added a small top-right pencil to live Streaks and Quick Actions cards with a 44-point touch target and accessible label. Each opens its own widget options directly; a fixed Save changes/Cancel footer preserves the draft/save/discard boundary and new habits initialize only on save. Changes preserve other widget IDs/configuration. The full Summary editor remains available.
+- Preview widget opens the full card at its actual responsive display width, with Back to options returning to configuration. Preview/gallery/editor copies do not show live edit shortcuts.
+- Lint/TypeScript, 187 app / 66 Edge tests and all 17 Summary browser cases pass. Inspected the final fixed-footer screenshot. Native VoiceOver/focus/safe-area interaction still needs iPhone verification; reload Expo, no backend update or rebuild needed.
+
+## Remove food-day completion - 2026-09-22
+
+- Per the user's follow-up, removed the food-day confirmation control and Food day completed streak option. Existing layouts remove only the retired selection; empty retired-only widgets disappear and newly identical streak widgets coalesce. Other layout IDs/settings and health records remain.
+- Calorie Target now evaluates nonempty saved food totals against dated goals without manual confirmation. Today stays provisional, edits/deletions recalculate it, and incomplete query coverage or missing targets remain unknown. Historical calorie days are also recomputed using this rule; detail copy explains this.
+- Removed confirmation reads and writes from the current client; legacy server records/RPCs remain dormant to preserve data and compatibility. Existing retired server rules are filtered before validation. No backend deployment is required. Lint/TypeScript, 187 app / 66 Edge tests and 16 Summary browser cases pass. Reload Expo for the new UI.
+
+## Missing streak initialization RPC - deployed fix, 2026-09-22
+
+- Confirmed the client was ahead of HealthHub: migration 202609220001 was absent. Reviewed the deployment preview and applied only this streak migration using an isolated migration directory, then refreshed PostgREST's schema cache. No account-deletion migration or function was deployed.
+- The exact initialize_summary_streaks(p_habits,p_zone) API call now succeeds for an authenticated disposable account, initializes all ten server habits, preserves rules on repeat and rejects anonymous calls. Removed the fixture and verified no streak rows remain. Real health logs were untouched. Reproduction: scripts/check-streak-initialization-hosted.mjs with HEALTHAPP_ALLOW_STREAK_TEST=yes. Retry Done; no native rebuild is needed.
+
+## Native streak text rendering fix - 2026-09-22
+
+- Removed an explicit space string outside Text in the Large streak day-indicator fragment. It caused the native Text strings must be rendered within a Text component error once per rendered initialized daily streak.
+- Added a native-host render regression for all 11 habits in both sizes. Lint/TypeScript and 185 app / 66 Edge tests pass. React Native's animation-listener warning remains unconfirmed on an actual iPhone; no warning suppression or speculative animation changes were made. Reload the development client to apply the text fix.
+
+## Summary, meals, streaks and account deletion - 2026-09-22
+
+- Preserved the exact eight-widget defaults and existing custom layouts; retired only PR widget entries. Added optional saved Today's Meals, shared card identities, header editing, preview-led gallery and intrinsic-height settings sheets. Manual sync/status moved to Profile Settings; automatic imports/sync remain.
+- AI review now derives meal-wide and mixed reusable-label selection from individual foods without changing saved nutrition totals. Signed-out entry is login-first; existing per-account setup and process-only authentication are preserved.
+- Saving a streak widget initializes absent habits from available dated evidence. Preview/Cancel does not initialize habits. BP is daily including paired imports; training uses 1-7 days with weekly progress and prospective target changes; confirmed nonempty calorie days use inclusive under/over, with legacy rules preserved for earlier dates.
+- Password-verified server deletion, storage-first cleanup, session/device revocation, retry receipts and device cleanup are implemented. No real account was deleted and no backend was deployed during this task. Deployment and verification details: [SUMMARY_REFINEMENTS.md](SUMMARY_REFINEMENTS.md).
+
+## Email-primary onboarding; phone deferred - 2026-09-21
+
+- Welcome now has a primary Continue with email signup action and an existing-account sign-in action. Email confirmation, password recovery and all five optional setup steps remain. Existing accounts keep their completed setup and data.
+- Removed phone input/linking from Settings and phone-verified onboarding copy. Optional Face ID setup uses the password; Profile retains its original password modal. Legacy /phone links redirect to email sign-in. No SMS provider is needed for the current flow, and hosted phone auth remains disabled.
+- Browser fixtures cover email signup/confirmation, completion and skips, returning users, drafts, stale writes, read failures, email updates and no phone options. Full check passes (180 app / 64 Edge tests); nine relevant browser cases pass, including the redirect after correcting a test locator. No backend changes or deployment were needed. Reload Expo for the new UI.
+
+## Phone-first onboarding and exercise guidance - 2026-09-21
+
+- Removed the workout exercise-help expansion; generated RIR/rest, technique tips and workout notes remain. Added one welcome screen, primary international phone OTP entry, email alternatives, optional preferred name/units, shared goals and fluid setup, optional convenience setup and an editable saved summary. Existing accounts bypass the full setup, and skipped setup has a dismissible Profile link.
+- Added authenticated phone/email contact verification to Profile Settings. The existing email user must sign in first and add their phone there; no new account, merge or record transfer is performed. Contacts verify through supported Supabase APIs with a same-user check; passwords and email recovery remain available. Preferred name/units are editable later, and goal calculators use those unit preferences.
+- Deployed versioned owner-protected account_setup state with active-session checks and replay receipts. Existing users are explicitly backfilled complete; new users get an incomplete row. Failed reads show Retry, local drafts are per-user, completed state is monotonic, and stale/cross-account reads/writes cannot replace accepted state. Goal saves reuse existing hardened mutations and calculations. No onboarding measurements are added to history.
+- Added independent server-side SMS-code reauthentication for device enrollment. Existing email-backed Face ID exchanges still pass live rotation/replay/revocation tests. Phone-only accounts can enroll a Face ID privacy lock without a password, but use SMS after logout/force-close; post-logout Face ID login requires a verified email and reenrollment because the existing supported session exchange is email-based.
+- Read-only hosted Auth settings confirm phoneEnabled=false; the user has no configured SMS provider. No provider was purchased, enabled, or simulated in production. Configuration, limitations and verification notes: docs/ONBOARDING.md. Backend OTP expiry/resend/attempt limits and real delivery must be checked when configuring SMS.
+- Verified 180 app / 64 Edge tests, 16 selected browser flows, isolated SQL and hosted synthetic-account setup writes/permissions/retries. Existing password Face ID enrollment, two rotations and revocation pass after v7 deploy; fixtures removed. iOS export passes. Inspected welcome, verification, summary and 320-point rendered captures. Native SMS, Face ID/privacy, keyboard, Dynamic Type and VoiceOver still need the iPhone. No new native module was introduced; reload Expo for the client UI.
+
+## Complete AI workout generation - 2026-09-21
+
+- Fixed sentence-only planner success: normal model responses now require exactly one structured workout; safety responses remain action-free. Missing, discarded or infeasible routines return a clear failure and refund the quota reservation instead of saving an empty success. No automatic paid retries were added.
+- New exercises with unsupported suggested weights now retain the routine with those weights cleared and new-to-history markers set. History lookup errors fail explicitly. The client also rejects empty normal responses from older backends and preserves existing drafts.
+- Deployed coach-chat v16. One real model call using a disposable account returned six fully specified exercises and a persisted workout action; account and planner records were removed afterward. Reproduction: scripts/check-workout-hosted.mjs with explicit HEALTHAPP_ALLOW_WORKOUT_TEST=yes (one paid generation).
+- Lint/TypeScript, 175 app / 62 Edge tests and all five planner browser tests pass. Browser coverage verifies sentence-only rejection, multi-exercise draft population, editable logging, cardio/combo navigation and replacement confirmation. Logs: dist/workout-generation-check.log and dist/workout-generation-browser.log. Physical iPhone verification remains open; reload Expo for the client change.
 
 ## Face ID recovery and duplicate prompt - 2026-09-18
 

@@ -1,23 +1,27 @@
+import { IntegerSlider } from "../../ui/integer-slider";
+import { SegmentedControl } from "../../ui/segmented-control";
+import { SettingsSheet, ChoiceRow } from "../../ui/settings-sheet";
+import { WidgetHeading, widgetStyles } from "./widget-design";
+import { todaysMeals } from "./meals";
+import { streakWeek } from "./streak-week";
 import { useRef, useState } from "react";
 import {
   ActivityIndicator,
-  ScrollView,
   StyleSheet,
   Switch,
   Text,
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Modal } from "../../ui/modal";
 import { Pressable } from "../../ui/pressable";
-import { TextInput } from "../../ui/text-input";
-import { colors, surfaces } from "../../ui/theme";
+import { colors } from "../../ui/theme";
 import { muscleGroupLabel } from "../training/workout-draft";
-import { dayKey, deviceZone } from "./calendar";
+import { Icon } from "../../ui/icon";
+import { widgetIdentity } from "./widget-design";
+import { dayKey } from "./calendar";
 import { habitLabels, actionRoutes, type Habit, type Widget } from "./layout";
 import { type SummaryData } from "./data";
-import { personalRecords, trainingSummary } from "./training";
+import { trainingSummary } from "./training";
 import { evaluateStreak } from "../streaks/engine";
 import {
   explanations,
@@ -55,22 +59,154 @@ export function ExtraWidget({
   const stale = loading ? (
     <Text style={styles.copy}>Refreshing saved results…</Text>
   ) : null;
+  if (widget.type === "meals") {
+    const meals = todaysMeals(data.sources.food, now);
+    return (
+      <View style={styles.card}>
+        <WidgetHeading type="meals" title="Today's Meals" />
+        {stale}
+        {!data.sources.coverage.food?.complete ? (
+          <>
+            <Text style={styles.copy}>Meals could not be loaded.</Text>
+            <Action label="Retry meals" onPress={reload} />
+          </>
+        ) : (
+          <>
+            {!meals.length ? (
+              <Text style={styles.copy}>No meals saved today.</Text>
+            ) : (
+              meals.slice(0, 5).map((meal) => (
+                <Pressable
+                  key={meal.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    meal.title +
+                    ", " +
+                    Math.round(meal.calories) +
+                    " calories. Open food history"
+                  }
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(app)/history",
+                      params: { view: "food" },
+                    })
+                  }
+                  style={{ paddingVertical: 8, gap: 4 }}
+                >
+                  <View style={{ flexDirection: "row", gap: 12 }}>
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.title,
+                        { flex: 1, textTransform: "capitalize" },
+                      ]}
+                    >
+                      {meal.title}
+                    </Text>
+                    <Text style={styles.title}>
+                      {Math.round(meal.calories)} cal
+                    </Text>
+                  </View>
+                  <Text numberOfLines={2} style={styles.copy}>
+                    {meal.names.join(", ")}
+                  </Text>
+                  <Text style={styles.copy}>
+                    {new Date(meal.at).toLocaleTimeString([], {
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}{" "}
+                    · {Math.round(meal.protein)} g protein
+                  </Text>
+                </Pressable>
+              ))
+            )}
+            {meals.length ? (
+              <Text style={styles.copy}>
+                {Math.round(
+                  meals.reduce((sum, meal) => sum + meal.calories, 0),
+                )}{" "}
+                cal today · {meals.length}{" "}
+                {meals.length === 1 ? "meal" : "meals"}
+              </Text>
+            ) : null}
+            <Action
+              label={meals.length ? "View all food" : "Log a meal"}
+              onPress={() =>
+                router.push(
+                  meals.length
+                    ? { pathname: "/(app)/history", params: { view: "food" } }
+                    : "/(app)/nutrition",
+                )
+              }
+            />
+          </>
+        )}
+      </View>
+    );
+  }
   if (widget.type === "actions")
     return (
       <View style={styles.card}>
+        <WidgetHeading type="actions" title="Quick Actions" />
         <View style={styles.row}>
           {widget.config.actions?.map((action) => (
-            <Action
+            <Pressable
               key={action}
-              label={
-                action === "Workout" && data.workoutDraft
+              accessibilityRole="button"
+              onPress={() => router.push(actionRoutes[action])}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 10,
+                minHeight: 48,
+                backgroundColor: colors.background,
+                borderRadius: 14,
+                padding: 12,
+                flexBasis: widget.size === "small" ? "100%" : "46%",
+                flexGrow: 1,
+              }}
+            >
+              <Icon
+                name={
+                  widgetIdentity[
+                    action === "Workout"
+                      ? "training"
+                      : action === "Food"
+                        ? "meals"
+                        : action === "Fluids"
+                          ? "fluids"
+                          : action === "Weight"
+                            ? "weight"
+                            : action === "Blood pressure"
+                              ? "bp"
+                              : "streaks"
+                  ].icon
+                }
+                color={
+                  widgetIdentity[
+                    action === "Workout"
+                      ? "training"
+                      : action === "Food"
+                        ? "meals"
+                        : action === "Fluids"
+                          ? "fluids"
+                          : action === "Weight"
+                            ? "weight"
+                            : action === "Blood pressure"
+                              ? "bp"
+                              : "streaks"
+                  ].color
+                }
+                size={22}
+              />
+              <Text style={[styles.title, { flex: 1, fontSize: 15 }]}>
+                {action === "Workout" && data.workoutDraft
                   ? "Resume workout"
                   : action === "Food" && data.mealDraft
                     ? "Resume meal"
-                    : action
-              }
-              onPress={() => router.push(actionRoutes[action])}
-            />
+                    : action}
+              </Text>
+            </Pressable>
           ))}
         </View>
       </View>
@@ -91,6 +227,7 @@ export function ExtraWidget({
       .at(-1);
     return (
       <View style={styles.card}>
+        <WidgetHeading type="training" title="Training" />
         {stale}
         <Text style={styles.copy}>
           {widget.config.period === "last7"
@@ -151,81 +288,13 @@ export function ExtraWidget({
       </View>
     );
   }
-  if (widget.type === "pr") {
-    const record = data.trainingComplete
-      ? personalRecords(
-          data.sources.sessions.filter(
-            (s) => Date.parse(s.completed_at) <= now.getTime(),
-          ),
-          data.sources.sets,
-        )[0]
-      : undefined;
-    return (
-      <View style={styles.card}>
-        {stale}
-        {!data.trainingComplete ? (
-          <>
-            <Text style={styles.copy}>
-              Complete workout history is unavailable. Records are unknown.
-            </Text>
-            <Action label="Retry personal records" onPress={reload} />
-          </>
-        ) : !record ? (
-          <Text style={styles.copy}>
-            Log comparable workouts to see your next personal record.
-          </Text>
-        ) : (
-          <>
-            <Text style={styles.title}>
-              {record.name}
-              {record.side !== "bilateral" ? ` · ${record.side}` : ""}
-            </Text>
-            <Text style={styles.value}>
-              {record.value} {record.type === "load" ? record.unit : "reps"}
-            </Text>
-            <Text style={styles.copy}>
-              {record.type === "load"
-                ? "Highest logged load"
-                : "Most reps at the same load"}{" "}
-              · Previous {record.previous}{" "}
-              {record.type === "load" ? record.unit : "reps"}
-            </Text>
-            <Text style={styles.copy}>
-              {dayKey(new Date(record.at))}
-              {widget.size === "wide"
-                ? ` · Set ${record.setNumber}: ${record.reps} reps at ${record.load} ${record.unit}`
-                : ""}
-            </Text>
-            <Action
-              label="Open record workout"
-              onPress={() =>
-                router.push({
-                  pathname: "/(app)/history/[id]",
-                  params: { id: record.sessionId },
-                })
-              }
-            />
-          </>
-        )}
-        <Text style={styles.copy}>
-          Based on logged exercise names and loads; equipment identity is not
-          fully recorded.
-        </Text>
-      </View>
-    );
-  }
   if (widget.type !== "streaks") return null;
   return (
     <View style={styles.card}>
+      <WidgetHeading type="streaks" title="Streaks" />
       {stale}
       {widget.config.habits?.map((habit) => {
-        const result = evaluateStreak(
-            habit,
-            data.rules,
-            data.sources,
-            now,
-            deviceZone(),
-          ),
+        const result = evaluateStreak(habit, data.rules, data.sources, now),
           period = result.periods.at(-1);
         if (!result.unknown && result.activation)
           verified.current.set(habit, {
@@ -243,12 +312,14 @@ export function ExtraWidget({
           >
             <Text style={styles.title}>{habitLabels[habit]}</Text>
             {!result.activation ? (
-              <Text style={styles.copy}>Set up this optional habit</Text>
+              <Text style={styles.copy}>
+                Save this layout to begin tracking
+              </Text>
             ) : (
               <>
                 <Text style={styles.value}>
                   {result.unknown ? "Unverified" : result.current}{" "}
-                  {habit === "training" ? "weeks" : "days"}
+                  {habit === "training" ? "week streak" : "days"}
                 </Text>
                 {result.unknown && previous ? (
                   <Text style={styles.copy}>
@@ -258,37 +329,72 @@ export function ExtraWidget({
                   </Text>
                 ) : null}
                 <Text style={styles.copy}>
-                  {period
-                    ? `${stateLabel(period.state)} · ${Math.round(period.count * 10) / 10} / ${Math.round(period.target * 10) / 10}`
-                    : "Tracking begins on the effective date."}
+                  {habit === "training" && period
+                    ? `${period.count} of ${period.target} days this week`
+                    : period
+                      ? `${stateLabel(period.state)} · ${Math.round(period.count * 10) / 10} / ${Math.round(period.target * 10) / 10}`
+                      : "Tracking begins on the effective date."}
                 </Text>
                 <Text style={styles.copy}>
-                  Best confirmed:{" "}
-                  {result.unknown && previous ? previous.best : result.best} ·
-                  since {result.activation}
+                  Best streak:{" "}
+                  {result.unknown && previous ? previous.best : result.best}{" "}
+                  {habit === "training" ? "weeks" : "days"}
                   {result.unknown ? " · incomplete coverage" : ""}
                 </Text>
-                <View style={styles.row}>
-                  {result.periods.slice(-7).map((p) => (
-                    <Text
-                      key={p.day}
-                      accessibilityLabel={`${p.day}: ${stateLabel(p.state)}`}
-                      style={{
-                        color:
-                          p.state === "met" ? colors.blue : colors.secondary,
-                        fontSize: 15,
-                      }}
-                    >
-                      {p.day.slice(5)}{" "}
-                      {p.state === "met"
-                        ? "✓"
-                        : p.state === "unknown"
-                          ? "?"
-                          : p.state === "not_scheduled"
-                            ? "–"
-                            : "○"}
-                    </Text>
-                  ))}
+                <Text style={styles.copy}>This week</Text>
+                <View
+                  testID={`streak-week-${habit}`}
+                  style={{ flexDirection: "row" }}
+                >
+                  {streakWeek(habit, result.periods, now).map(
+                    ({ day, label, state }) => (
+                      <View
+                        key={day}
+                        accessible
+                        accessibilityLabel={`${day}: ${stateLabel(state)}`}
+                        style={{ flex: 1, alignItems: "center", gap: 5 }}
+                      >
+                        <Text style={{ color: colors.secondary, fontSize: 12 }}>
+                          {label}
+                        </Text>
+                        <View
+                          style={{
+                            width: 18,
+                            height: 18,
+                            borderRadius: 9,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            backgroundColor:
+                              state === "met" ? colors.green : colors.fill,
+                          }}
+                        >
+                          {state === "met" ? (
+                            <Icon
+                              name="check"
+                              color={colors.onAccent}
+                              size={16}
+                            />
+                          ) : state === "unknown" ? (
+                            <Text
+                              style={{ color: colors.secondary, fontSize: 12 }}
+                            >
+                              ?
+                            </Text>
+                          ) : state === "not_scheduled" ||
+                            state === "not_tracked" ? (
+                            <Icon
+                              name="minus"
+                              color={colors.tertiary}
+                              size={12}
+                            />
+                          ) : null}
+                        </View>
+                        <Text style={{ color: colors.secondary, fontSize: 11 }}>
+                          {Number(day.slice(8))}
+                        </Text>
+                      </View>
+                    ),
+                  )}
                 </View>
                 {habit === "reminder" ? (
                   <Text style={styles.copy}>On this device</Text>
@@ -322,10 +428,11 @@ function stateLabel(state: string) {
   return (
     (
       {
+        upcoming: "Upcoming",
+        not_tracked: "Before tracking began",
         met: "Met",
         open: "In progress",
         not_met: "No qualifying log",
-        unconfirmed: "Not confirmed",
         unknown: "Unknown",
         not_scheduled: "Not scheduled",
       } as Record<string, string>
@@ -347,25 +454,19 @@ function StreakDetail({
   close: () => void;
   reload: () => void;
 }) {
-  const router = useRouter(),
-    insets = useSafeAreaInsets();
+  const router = useRouter();
   const existing = data.rules
     .filter((r) => r.habit === habit)
     .sort((a, b) => a.effective_day.localeCompare(b.effective_day))
     .at(-1);
-  const [config, setConfig] = useState<RuleConfig>(
-    existing?.config ?? ruleConfigSchema.parse({}),
-  );
+  const [config, setConfig] = useState<RuleConfig>({
+    ...(existing?.config ?? ruleConfigSchema.parse({})),
+    calorieMode: existing?.config.calorieMode === "over" ? "over" : "under",
+  });
   const [enabled, setEnabled] = useState(existing?.enabled ?? true),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false);
-  const result = evaluateStreak(
-    habit,
-    data.rules,
-    data.sources,
-    now,
-    deviceZone(),
-  );
+  const result = evaluateStreak(habit, data.rules, data.sources, now);
   const goals = data.sources.goals
       .filter((g) => g.effective_day <= dayKey(now))
       .at(-1),
@@ -383,243 +484,174 @@ function StreakDetail({
               ? "Fluids"
               : "Food";
   return (
-    <Modal visible animationType="slide" onRequestClose={close}>
-      <ScrollView
-        contentContainerStyle={{
-          padding: 20,
-          paddingTop: insets.top + 20,
-          paddingBottom: insets.bottom + 30,
-          gap: 14,
-          backgroundColor: colors.background,
+    <SettingsSheet title={habitLabels[habit]} icon="calendar" onClose={close}>
+      <Text style={styles.copy}>{explanations[habit]}</Text>
+      <Action
+        label={`Open ${action} log`}
+        onPress={() => {
+          close();
+          router.push(actionRoutes[action]);
         }}
-      >
-        <View style={styles.row}>
-          <Text accessibilityRole="header" style={styles.title}>
-            {habitLabels[habit]}
-          </Text>
-          <Action label="Close streak details" onPress={close} />
-        </View>
-        <Text style={styles.copy}>{explanations[habit]}</Text>
-        <Action
-          label={`Open ${action} log`}
-          onPress={() => {
-            close();
-            router.push(actionRoutes[action]);
-          }}
+      />
+      <Text style={styles.copy}>
+        Best streak: {result.best} {habit === "training" ? "weeks" : "days"}
+        {result.activation
+          ? ` since ${result.activation}`
+          : ". Tracking not enabled yet."}
+        {result.unknown
+          ? ". Some periods are unknown; no verified run is claimed across them."
+          : ""}
+      </Text>
+      <View style={styles.row}>
+        <Text style={styles.title}>Enable this streak</Text>
+        <Switch
+          accessibilityLabel="Enable this streak"
+          value={enabled}
+          onValueChange={setEnabled}
+          trackColor={{ true: colors.blue, false: colors.separator }}
         />
-        <Text style={styles.copy}>
-          Best confirmed: {result.best}{" "}
-          {habit === "training" ? "weeks" : "days"}
-          {result.activation
-            ? ` since ${result.activation}`
-            : ". Tracking not enabled yet."}
-          {result.unknown
-            ? ". Some periods are unknown; no verified run is claimed across them."
-            : ""}
-        </Text>
-        <View style={styles.row}>
-          <Text style={styles.title}>Enable this streak</Text>
-          <Switch
-            accessibilityLabel="Enable this streak"
-            value={enabled}
-            onValueChange={setEnabled}
-            trackColor={{ true: colors.blue, false: colors.separator }}
-          />
-        </View>
-        {habit === "training" ? (
+      </View>
+      {habit === "training" ? (
+        <IntegerSlider
+          label="Training days per week"
+          value={config.trainingDays}
+          onChange={(trainingDays) => setConfig({ ...config, trainingDays })}
+        />
+      ) : null}
+      {habit === "weight" ? (
+        <>
+          <Text style={styles.copy}>Scheduled weekdays</Text>
           <View style={styles.row}>
-            {[1, 2, 3, 4, 5, 6, 7].map((n) => (
-              <Action
-                key={n}
-                selected={config.trainingDays === n}
-                label={`${config.trainingDays === n ? "✓ " : ""}${n} training days`}
-                onPress={() => setConfig({ ...config, trainingDays: n })}
-              />
-            ))}
-          </View>
-        ) : null}
-        {habit === "weight" || habit === "bp" ? (
-          <>
-            <Text style={styles.copy}>Scheduled weekdays</Text>
-            <View style={styles.row}>
-              {weekdayLabels.map((day, i) => (
-                <Action
-                  key={day}
-                  selected={config.weekdays.includes(i)}
-                  label={`${config.weekdays.includes(i) ? "✓ " : ""}${day}`}
-                  onPress={() =>
-                    setConfig({
-                      ...config,
-                      weekdays: config.weekdays.includes(i)
-                        ? config.weekdays.filter((d) => d !== i)
-                        : [...config.weekdays, i],
-                    })
-                  }
-                />
-              ))}
-            </View>
-            <View style={styles.row}>
-              <Text style={styles.copy}>Include imported readings</Text>
-              <Switch
-                accessibilityLabel="Include imported readings"
-                value={config.includeImports}
-                onValueChange={(includeImports) =>
-                  setConfig({ ...config, includeImports })
-                }
-                trackColor={{ true: colors.blue, false: colors.separator }}
-              />
-            </View>
-          </>
-        ) : null}
-        {habit === "calorie_target" ? (
-          <>
-            <Text style={styles.copy}>
-              Choose and save an inclusive range. ±10% is an optional product
-              tracking preference.
-            </Text>
-            <View style={styles.row}>
-              <Action
-                label="Use target tolerance"
-                selected={config.calorieMode === "tolerance"}
-                onPress={() =>
-                  setConfig({ ...config, calorieMode: "tolerance" })
-                }
-              />
-              <Action
-                label="Use custom range"
-                selected={config.calorieMode === "range"}
+            {weekdayLabels.map((day, i) => (
+              <ChoiceRow
+                key={day}
+                selected={config.weekdays.includes(i)}
+                label={day}
                 onPress={() =>
                   setConfig({
                     ...config,
-                    calorieMode: "range",
-                    lower: config.lower ?? (Math.round(target * 0.9) || 1),
-                    upper: config.upper ?? (Math.round(target * 1.1) || 1),
+                    weekdays: config.weekdays.includes(i)
+                      ? config.weekdays.filter((d) => d !== i)
+                      : [...config.weekdays, i],
                   })
                 }
               />
-            </View>
-            {config.calorieMode === "tolerance" ? (
-              <>
-                <TextInput
-                  accessibilityLabel="Calorie tolerance percent"
-                  keyboardType="decimal-pad"
-                  value={String(config.tolerance * 100)}
-                  onChangeText={(v) =>
-                    setConfig({ ...config, tolerance: Number(v) / 100 })
-                  }
-                  style={styles.input}
-                />
-                <Text style={styles.copy}>
-                  {target > 0
-                    ? `${target * (1 - config.tolerance)} – ${target * (1 + config.tolerance)} cal, inclusive`
-                    : "Set a positive calorie target in Profile."}
-                </Text>
-              </>
-            ) : (
-              <>
-                <TextInput
-                  accessibilityLabel="Calorie range lower"
-                  keyboardType="decimal-pad"
-                  value={String(config.lower ?? "")}
-                  onChangeText={(v) =>
-                    setConfig({ ...config, lower: Number(v) })
-                  }
-                  style={styles.input}
-                />
-                <TextInput
-                  accessibilityLabel="Calorie range upper"
-                  keyboardType="decimal-pad"
-                  value={String(config.upper ?? "")}
-                  onChangeText={(v) =>
-                    setConfig({ ...config, upper: Number(v) })
-                  }
-                  style={styles.input}
-                />
-              </>
-            )}
-          </>
-        ) : null}
-        {habit === "reminder" ? (
-          <>
-            <Text style={styles.copy}>
-              On this device. Schedule edits apply to streaks from the next
-              local day.
-            </Text>
-            {data.reminders
-              .filter((r) => r.repeat !== "once")
-              .map((r) => (
-                <Action
-                  key={r.id}
-                  selected={config.reminderId === r.id}
-                  label={`${config.reminderId === r.id ? "✓ " : ""}${reminderTitle(r)}`}
-                  onPress={() => setConfig({ ...config, reminderId: r.id })}
-                />
-              ))}
-          </>
-        ) : null}
-        <Text style={styles.copy}>
-          Streak settings take effect {effectiveRuleDay(habit, !!existing, now)}
-          . Numerical health targets are edited in Profile and apply to streaks
-          from the next day. Earlier history is not backfilled with today's
-          goals.
-        </Text>
-        {message ? (
-          <Text accessibilityRole="alert" style={styles.copy}>
-            {message}
+            ))}
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.copy}>Include imported readings</Text>
+            <Switch
+              accessibilityLabel="Include imported readings"
+              value={config.includeImports}
+              onValueChange={(includeImports) =>
+                setConfig({ ...config, includeImports })
+              }
+              trackColor={{ true: colors.blue, false: colors.separator }}
+            />
+          </View>
+        </>
+      ) : null}
+      {habit === "calorie_target" ? (
+        <>
+          <Text style={styles.title}>
+            {target > 0
+              ? target + " cal target"
+              : "Set a calorie goal in Profile"}
           </Text>
-        ) : null}
-        <Action
-          label={busy ? "Saving streak…" : "Save streak settings"}
-          disabled={busy}
-          onPress={() => {
-            const parsed = ruleConfigSchema.safeParse(config);
-            if (!parsed.success) {
-              setMessage(parsed.error.issues[0].message);
-              return;
-            }
-            setBusy(true);
-            void saveRule(user, habit, enabled, parsed.data)
-              .then(() => {
-                reload();
-                close();
-              })
-              .catch((e) =>
-                setMessage(
-                  e instanceof Error ? e.message : "Could not save settings.",
-                ),
-              )
-              .finally(() => setBusy(false));
-          }}
-        />
-        <Text accessibilityRole="header" style={styles.title}>
-          Recorded periods
+          <SegmentedControl
+            label="Calorie target direction"
+            value={config.calorieMode === "over" ? "over" : "under"}
+            options={[
+              { value: "under", label: "At or under" },
+              { value: "over", label: "At or over" },
+            ]}
+            onChange={(calorieMode) => setConfig({ ...config, calorieMode })}
+          />
+          <Text style={styles.copy}>
+            Uses saved food totals only. Empty days do not count. Today is
+            provisional; adding, editing or deleting food recalculates progress.
+          </Text>
+        </>
+      ) : null}
+      {habit === "reminder" ? (
+        <>
+          <Text style={styles.copy}>
+            On this device. Schedule edits apply to streaks from the next local
+            day.
+          </Text>
+          {data.reminders
+            .filter((r) => r.repeat !== "once")
+            .map((r) => (
+              <Action
+                key={r.id}
+                selected={config.reminderId === r.id}
+                label={`${config.reminderId === r.id ? "✓ " : ""}${reminderTitle(r)}`}
+                onPress={() => setConfig({ ...config, reminderId: r.id })}
+              />
+            ))}
+        </>
+      ) : null}
+      <Text style={styles.copy}>
+        Streak settings take effect {effectiveRuleDay(habit, !!existing, now)}.
+        Numerical health targets are edited in Profile and apply to streaks from
+        the next day. Earlier history is not backfilled with today's goals.
+      </Text>
+      {message ? (
+        <Text accessibilityRole="alert" style={styles.copy}>
+          {message}
         </Text>
-        {result.periods
-          .slice(-60)
-          .reverse()
-          .map((p) => (
-            <Text key={p.day} style={styles.copy}>
-              {p.day} · {stateLabel(p.state)} · {Math.round(p.count * 10) / 10}/
-              {Math.round(p.target * 10) / 10}
-              {p.provisional ? " · current period" : ""}
-              {p.explanation === "goal_unavailable"
-                ? " · historical target unavailable"
-                : p.explanation === "paused"
-                  ? " · paused"
-                  : ""}
-            </Text>
-          ))}
-        <Text style={styles.copy}>
-          Device-local dates, Monday–Sunday weeks. Traveling can change
-          historical day grouping; food days may need reconfirmation. Scheduled
-          off-days are neutral.
-        </Text>
-      </ScrollView>
-    </Modal>
+      ) : null}
+      <Action
+        primary
+        label={busy ? "Saving streak…" : "Save streak settings"}
+        disabled={busy}
+        onPress={() => {
+          const parsed = ruleConfigSchema.safeParse(config);
+          if (!parsed.success) {
+            setMessage(parsed.error.issues[0].message);
+            return;
+          }
+          setBusy(true);
+          void saveRule(user, habit, enabled, parsed.data)
+            .then(() => {
+              reload();
+              close();
+            })
+            .catch((e) =>
+              setMessage(
+                e instanceof Error ? e.message : "Could not save settings.",
+              ),
+            )
+            .finally(() => setBusy(false));
+        }}
+      />
+      <Text accessibilityRole="header" style={styles.title}>
+        Recorded periods
+      </Text>
+      {result.periods
+        .slice(-60)
+        .reverse()
+        .map((p) => (
+          <Text key={p.day} style={styles.copy}>
+            {p.day} · {stateLabel(p.state)} · {Math.round(p.count * 10) / 10}/
+            {Math.round(p.target * 10) / 10}
+            {p.provisional ? " · current period" : ""}
+            {p.explanation === "goal_unavailable"
+              ? " · historical target unavailable"
+              : p.explanation === "paused"
+                ? " · paused"
+                : ""}
+          </Text>
+        ))}
+      <Text style={styles.copy}>
+        Device-local dates, Monday–Sunday weeks. Traveling can change historical
+        day grouping. Scheduled off-days are neutral.
+      </Text>
+    </SettingsSheet>
   );
 }
 const styles = StyleSheet.create({
-  card: { ...surfaces.card, padding: 16, gap: 10 },
+  card: widgetStyles.card,
   row: {
     flexDirection: "row",
     flexWrap: "wrap",

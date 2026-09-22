@@ -1,6 +1,7 @@
 export type FaceIdLoginAccount = {
   credentialId: string;
   email: string;
+  phone?: string;
   userId: string;
 };
 
@@ -11,6 +12,7 @@ export type FaceIdLoginCredential = FaceIdLoginAccount & {
 
 export type RememberedLoginAccount = {
   email: string;
+  phone?: string;
   userId: string;
 };
 
@@ -26,7 +28,8 @@ export function parseFaceIdLoginAccount(
     const parsed = JSON.parse(raw) as Partial<FaceIdLoginAccount>;
     if (
       typeof parsed.email !== "string" ||
-      !parsed.email.includes("@") ||
+      (!parsed.email.includes("@") &&
+        !/^\+?[1-9]\d{6,14}$/.test(parsed.phone ?? "")) ||
       typeof parsed.userId !== "string" ||
       !parsed.userId ||
       typeof parsed.credentialId !== "string" ||
@@ -37,6 +40,7 @@ export function parseFaceIdLoginAccount(
     return {
       credentialId: parsed.credentialId,
       email: parsed.email,
+      ...(parsed.phone ? { phone: parsed.phone } : {}),
       userId: parsed.userId,
     };
   } catch {
@@ -54,6 +58,7 @@ export function parseFaceIdLoginCredential(
     if (
       parsed.userId !== account.userId ||
       parsed.email !== account.email ||
+      parsed.phone !== account.phone ||
       parsed.credentialId !== account.credentialId ||
       typeof parsed.secret !== "string" ||
       !secretPattern.test(parsed.secret)
@@ -63,6 +68,7 @@ export function parseFaceIdLoginCredential(
     return {
       credentialId: parsed.credentialId,
       email: parsed.email,
+      ...(parsed.phone ? { phone: parsed.phone } : {}),
       secret: parsed.secret,
       deviceId:
         typeof parsed.deviceId === "string" && uuidPattern.test(parsed.deviceId)
@@ -111,9 +117,7 @@ export function parseBiometricEnrollmentResponse(
   return { credentialId: value.credentialId, secret: value.secret };
 }
 
-export function parseBiometricSessionResponse(
-  input: unknown,
-):
+export function parseBiometricSessionResponse(input: unknown):
   | {
       accessToken: string;
       refreshToken: string;

@@ -13,18 +13,26 @@ import {
 } from "./calculator";
 
 export function FluidGoalForm({
+  initialUnit = "fl_oz",
+  onPreview,
   savedGoalMl,
   onUse,
 }: {
+  initialUnit?: "fl_oz" | "ml";
+  onPreview?: (ml: number) => void;
   savedGoalMl?: number;
   onUse: (ml: number, calculation: Record<string, unknown>) => Promise<void>;
 }) {
   const [mode, setMode] = useState("suggested");
   const [sex, setSex] = useState<EnergyEquationSex>();
-  const [unit, setUnit] = useState("fl_oz");
+  const [unit, setUnit] = useState(initialUnit);
   const [customMl, setCustomMl] = useState(savedGoalMl);
   const [custom, setCustom] = useState(
-    savedGoalMl ? millilitersToFluidOunces(savedGoalMl).toFixed(1) : "",
+    savedGoalMl
+      ? initialUnit === "ml"
+        ? String(savedGoalMl)
+        : millilitersToFluidOunces(savedGoalMl).toFixed(1)
+      : "",
   );
   const [activity, setActivity] = useState<FluidActivity>();
   const [preview, setPreview] = useState<{
@@ -52,6 +60,7 @@ export function FluidGoalForm({
               activity,
             };
       const ml = calculateFluidGoal(input);
+      onPreview?.(ml);
       setPreview({
         ml,
         calculation: {
@@ -130,7 +139,7 @@ export function FluidGoalForm({
         ],
         unit,
         (next) => {
-          setUnit(next);
+          setUnit(next as "ml" | "fl_oz");
           if (customMl !== undefined && Number.isFinite(customMl))
             setCustom(
               next === "ml"

@@ -129,6 +129,7 @@ function BaseWidget({
     case "weight":
       return (
         <Metric
+          large={widget.size === "wide"}
           label="Weight"
           onPress={() =>
             router.push({
@@ -136,7 +137,8 @@ function BaseWidget({
               params: { view: "weight" },
             })
           }
-          value={weight ? `${weight.value} ${weight.unit}` : "--"}
+          value={weight ? `${weight.value}` : "--"}
+          unit={weight?.unit}
           detail={
             weight
               ? `Measured ${formatDateTime(weight.occurredAt)}${goals.weightGoalLb ? ` · Goal: ${goals.weightGoalLb} lb` : ""}`
@@ -149,7 +151,9 @@ function BaseWidget({
     case "bp":
       return (
         <Metric
+          large={widget.size === "wide"}
           label="Blood pressure"
+          unit="mmHg"
           onPress={() =>
             router.push({
               pathname: "/(app)/history",
@@ -172,6 +176,7 @@ function BaseWidget({
     case "calories":
       return (
         <NutritionProgressCard
+          size={widget.size}
           accessibilityHint="Opens Food history."
           label="Calories"
           goal={goals.calorieGoal}
@@ -188,6 +193,7 @@ function BaseWidget({
     case "protein":
       return (
         <NutritionProgressCard
+          size={widget.size}
           accessibilityHint="Opens Food history."
           label="Protein"
           goal={proteinGoal}
@@ -204,6 +210,7 @@ function BaseWidget({
     case "fluids":
       return (
         <NutritionProgressCard
+          size={widget.size}
           label={pendingFluidMl > 0 ? "Fluids (some pending)" : "Fluids"}
           goal={
             goals.waterGoalMl === undefined
@@ -231,19 +238,21 @@ function BaseWidget({
     case "weight_trend":
       return (
         <View>
-          <SegmentedControl
-            label="Weight trend time range"
-            options={trendRanges.map((item) => ({
-              value: item,
-              label: item,
-            }))}
-            value={range}
-            onChange={setRange}
-          />
           {loading && !samples.length ? (
             <ActivityIndicator color={colors.blue} />
           ) : (
             <TrendCard
+              controls={
+                <SegmentedControl
+                  label="Weight trend time range"
+                  options={trendRanges.map((item) => ({
+                    value: item,
+                    label: item,
+                  }))}
+                  value={range}
+                  onChange={setRange}
+                />
+              }
               title="Weight"
               kind="weight"
               samples={combinedSamples}
@@ -256,19 +265,21 @@ function BaseWidget({
     case "bp_trend":
       return (
         <View>
-          <SegmentedControl
-            label="Blood pressure trend time range"
-            options={trendRanges.map((item) => ({
-              value: item,
-              label: item,
-            }))}
-            value={range}
-            onChange={setRange}
-          />
           {loading && !samples.length ? (
             <ActivityIndicator color={colors.blue} />
           ) : (
             <BloodPressureTrendCard
+              controls={
+                <SegmentedControl
+                  label="Blood pressure trend time range"
+                  options={trendRanges.map((item) => ({
+                    value: item,
+                    label: item,
+                  }))}
+                  value={range}
+                  onChange={setRange}
+                />
+              }
               samples={combinedSamples}
               range={range}
               onHorizontalGestureChange={setChartSwipeActive}
@@ -288,7 +299,7 @@ export const widgetRegistry = Object.fromEntries(
     {
       ...definition,
       render: (widget: Widget, context: WidgetContext) =>
-        ["training", "pr", "actions", "streaks"].includes(type) ? (
+        ["training", "meals", "actions", "streaks"].includes(type) ? (
           <ExtraWidget
             widget={widget}
             data={context.extraData}
@@ -314,12 +325,16 @@ function Metric({
   detail,
   onPress,
   valueColor,
+  large,
+  unit,
 }: {
   label: string;
   value: string;
   detail?: string;
   onPress?: () => void;
   valueColor?: string;
+  large?: boolean;
+  unit?: string;
 }) {
   return (
     <Pressable
@@ -329,7 +344,7 @@ function Metric({
       accessibilityRole={onPress ? "button" : undefined}
       disabled={!onPress}
       onPress={onPress}
-      style={[surfaces.card, styles.metric]}
+      style={styles.metric}
     >
       <View style={styles.metricHeading}>
         <Icon
@@ -343,10 +358,12 @@ function Metric({
       <Text
         style={[
           styles.metricValue,
+          large && { fontSize: 34 },
           valueColor ? { color: valueColor } : undefined,
         ]}
       >
         {value}
+        {unit ? <Text style={{ fontSize: 14, color: colors.secondary, fontWeight: "500" }}> {unit}</Text> : null}
       </Text>
       {detail ? <Text style={styles.metricDetail}>{detail}</Text> : null}
     </Pressable>
@@ -356,15 +373,15 @@ function Metric({
 const styles = StyleSheet.create({
   metric: {
     backgroundColor: colors.surface,
-    borderRadius: 22,
+    borderRadius: 24,
     flex: 1,
-    padding: 14,
+    padding: 16,
   },
   metricHeading: { flexDirection: "row", alignItems: "center", gap: 5 },
   metricLabel: {
     color: colors.secondary,
     flex: 1,
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: "600",
   },
   metricValue: {
@@ -377,7 +394,7 @@ const styles = StyleSheet.create({
   },
   metricDetail: {
     color: colors.secondary,
-    fontSize: 11,
+    fontSize: 13,
     lineHeight: 17,
     marginTop: 8,
   },

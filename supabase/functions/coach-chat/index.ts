@@ -16,6 +16,7 @@ import {
   proposedFoodMatchesUserMessage,
   proposedFoodSupportsUnit,
   trainingActionHasValidShape,
+  normalizeTrainingAction,
 } from "../_shared/coach-action-validation.ts";
 import { createCoachHandler } from "./handler.ts";
 
@@ -522,37 +523,13 @@ Deno.serve(
             .select("exercise_name")
             .eq("user_id", userId)
             .limit(1000);
-          if (error) continue;
-          const names = new Map(
-            (data ?? []).map((row) => [
-              String(row.exercise_name).trim().toLocaleLowerCase(),
-              String(row.exercise_name),
-            ]),
+          if (error) throw error;
+          validated.push(
+            normalizeTrainingAction(
+              action,
+              (data ?? []).map((row) => String(row.exercise_name)),
+            ),
           );
-          if (
-            action.exercises.some((exercise) => {
-              const known = names.has(exercise.name.trim().toLocaleLowerCase());
-              return !known && exercise.suggestedWeightLb !== null;
-            })
-          )
-            continue;
-          validated.push({
-            ...action,
-            exercises: action.exercises.map((exercise) => ({
-              ...exercise,
-              isNewToHistory: !names.has(
-                exercise.name.trim().toLocaleLowerCase(),
-              ),
-              name:
-                names.get(exercise.name.trim().toLocaleLowerCase()) ??
-                exercise.name,
-              targetReps: Array.from(
-                { length: exercise.setCount },
-                (_, index) =>
-                  exercise.targetReps[index] ?? exercise.targetReps.at(-1) ?? 8,
-              ),
-            })),
-          });
         }
       }
       return validated;

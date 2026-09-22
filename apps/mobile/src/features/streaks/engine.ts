@@ -19,8 +19,11 @@ import {
   type LoggedSession,
   type LoggedSet,
 } from "../summary/training";
-import type { FoodCompletion, GoalSnapshot, Rule } from "./model";
+import type { GoalSnapshot, Rule } from "./model";
 export type FoodRow = {
+  meal_log_id?: string;
+  meal_type?: string;
+  food_name?: string;
   id: string;
   occurred_at: string;
   calories: number | null;
@@ -47,7 +50,6 @@ export type Sources = {
   vitals: VitalSample[];
   reminders: ReminderCompletion[];
   schedules: ScheduleRevision[];
-  confirmations: FoodCompletion[];
   goals: GoalSnapshot[];
   coverage: Partial<
     Record<
@@ -56,8 +58,7 @@ export type Sources = {
       | "training"
       | "vitals"
       | "reminders"
-      | "goals"
-      | "confirmations",
+      | "goals",
       { from: string; complete: boolean }
     >
   >;
@@ -65,19 +66,13 @@ export type Sources = {
 export type Period = {
   day: string;
   state:
-    "met" | "open" | "not_met" | "unconfirmed" | "unknown" | "not_scheduled";
+    "met" | "open" | "not_met" | "unknown" | "not_scheduled";
   count: number;
   target: number;
   explanation: string;
   evidence: string[];
   provisional: boolean;
 };
-export function foodFingerprint(rows: FoodRow[]): string {
-  return rows
-    .map((r) => `${r.id}:${r.revision ?? 1}`)
-    .sort()
-    .join(",");
-}
 export function pairedReadings(samples: VitalSample[]): VitalSample[] {
   return samples.filter(
     (s) =>
@@ -99,8 +94,7 @@ export function pairedReadings(samples: VitalSample[]): VitalSample[] {
 const requirements: Record<Habit, (keyof Sources["coverage"])[]> = {
   daily_logging: ["food", "fluids", "training", "vitals", "reminders"],
   food_logging: ["food"],
-  food_complete: ["food", "confirmations"],
-  calorie_target: ["food", "confirmations", "goals"],
+  calorie_target: ["food", "goals"],
   protein_target: ["food", "goals"],
   fluid_logging: ["fluids"],
   fluid_target: ["fluids", "goals"],
@@ -114,7 +108,6 @@ export function evaluateStreak(
   rules: Rule[],
   data: Sources,
   now: Date,
-  zone: string,
 ) {
   const revisions = rules
     .filter((r) => r.habit === habit)
@@ -166,10 +159,7 @@ export function evaluateStreak(
       continue;
     }
     const weekday = dateFromLocalDay(key).getDay();
-    if (
-      (habit === "weight" || habit === "bp") &&
-      !rule.config.weekdays.includes(weekday)
-    ) {
+    if (habit === "weight" && !rule.config.weekdays.includes(weekday)) {
       period.explanation = "off_day";
       continue;
     }
@@ -188,7 +178,8 @@ export function evaluateStreak(
       (s) => !s.deletedAt && s.value > 0 && inPeriod(s.occurredAt),
     );
     const readings = vitals.filter(
-      (s) => rule.config.includeImports || s.source === "manual",
+      (s) =>
+        habit === "bp" || rule.config.includeImports || s.source === "manual",
     );
     const reminders = data.reminders.filter(
       (r) => r.localDay === key && beforeNow(r.completedAt),
@@ -197,12 +188,6 @@ export function evaluateStreak(
       .filter((g) => g.effective_day <= key)
       .sort((a, b) => a.effective_day.localeCompare(b.effective_day))
       .at(-1);
-    const confirmed = data.confirmations.some(
-      (c) =>
-        c.local_day === key &&
-        c.time_zone === zone &&
-        c.fingerprint === foodFingerprint(foods),
-    );
     let available = requirements[habit].every(
       (name) =>
         data.coverage[name]?.complete && data.coverage[name]!.from <= key,
@@ -253,11 +238,9 @@ export function evaluateStreak(
       );
       period.count = period.evidence.length;
       met = period.count > 0;
-    } else if (habit === "food_complete") {
-      period.count = confirmed ? 1 : 0;
-      met = confirmed;
     } else if (habit === "calorie_target") {
       if (!goal || !(Number(goal.calorie_goal) > 0)) {
+        period.state = "unknown";
         period.explanation = "goal_unavailable";
         continue;
       }
@@ -270,16 +253,32 @@ export function evaluateStreak(
           ? rule.config.upper!
           : Number(goal.calorie_goal) * (1 + rule.config.tolerance);
       period.count = foods.reduce((n, f) => n + Number(f.calories ?? 0), 0);
-      period.target = upper;
+      period.target =
+        rule.config.calorieMode === "under" ||
+        rule.config.calorieMode === "over"
+          ? Number(goal.calorie_goal)
+          : upper;
       available &&= foods.every(
         (f) => f.calories !== null && Number.isFinite(Number(f.calories)),
       );
       period.explanation = `inclusive_range:${lower}:${upper}`;
-      met = confirmed && period.count >= lower && period.count <= upper;
+      met =
+        foods.length > 0 &&
+        (rule.config.calorieMode === "under"
+          ? period.count <= period.target
+          : rule.config.calorieMode === "over"
+            ? period.count >= period.target
+            : period.count >= lower && period.count <= upper);
+      if (
+        rule.config.calorieMode === "under" ||
+        rule.config.calorieMode === "over"
+      )
+        period.explanation = rule.config.calorieMode;
     } else if (habit === "protein_target" || habit === "fluid_target") {
       const target =
         habit === "protein_target" ? goal?.protein_goal : goal?.fluid_goal_ml;
       if (!(Number(target) > 0)) {
+        period.state = "unknown";
         period.explanation = "goal_unavailable";
         continue;
       }
@@ -311,7 +310,7 @@ export function evaluateStreak(
           ? readings.filter((s) => s.kind === "weight")
           : pairedReadings(readings)
       ).map((s) => s.id);
-      period.count = period.evidence.length;
+      period.count = period.evidence.length ? 1 : 0;
       met = period.count > 0;
     } else if (habit === "reminder") {
       const revision = data.schedules
@@ -352,12 +351,9 @@ export function evaluateStreak(
       ? "unknown"
       : met
         ? "met"
-        : (habit === "calorie_target" || habit === "food_complete") &&
-            !confirmed
-          ? "unconfirmed"
-          : period.provisional
-            ? "open"
-            : "not_met";
+        : period.provisional
+          ? "open"
+          : "not_met";
     if (period.explanation === "before_activation")
       period.explanation = !available
         ? "incomplete_coverage"

@@ -1,6 +1,5 @@
 import { completePendingDraftSave } from "../../src/lib/mutations";
 import { AiActionCard } from "../../src/ui/ai-action-card";
-import { ExerciseHelp } from "../../src/features/training/exercise-help";
 import { ExerciseSetFields } from "../../src/features/training/exercise-set-fields";
 import { IconButton } from "../../src/ui/icon-button";
 import { trackingStyles } from "../../src/ui/tracking-styles";
@@ -854,12 +853,6 @@ export default function WorkoutScreen() {
                 </Text>
               </View>
             ) : null}
-            <ExerciseHelp
-              name={entry.name}
-              isNew={
-                entry.guidanceState === "loaded" && !entry.guidance?.memory
-              }
-            />
             {entry.guidanceState === "loading" ? (
               <Text style={styles.memoryMuted}>
                 Checking your last 90 days...

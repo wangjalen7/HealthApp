@@ -114,6 +114,32 @@ const dumplingEstimate = {
   ],
 };
 
+test("meal label toggles derive mixed state and save all foods with only selected labels", async ({ page, backend }) => {
+  await signIn(page);
+  await page.route("**/functions/v1/estimate-meal", (route) => route.fulfill({ json: estimate }));
+  await quickLog(page, "Food"); await openAiEstimator(page);
+  await page.getByLabel("Meal description", { exact: true }).fill("pasta and chicken");
+  await page.getByRole("checkbox", { name: "Allow AI meal processing" }).click();
+  await page.getByRole("button", { name: "Estimate foods", exact: true }).click();
+  const all = page.getByRole("switch", { name: "Create labels for this meal", exact: true });
+  await all.click();
+  for (let i = 1; i <= 3; i++) await expect(page.getByRole("switch", { name: "Create reusable label for Food " + i, exact: true })).not.toBeChecked();
+  await all.click();
+  for (let i = 1; i <= 3; i++) await expect(page.getByRole("switch", { name: "Create reusable label for Food " + i, exact: true })).toBeChecked();
+  await all.click();
+  await page.getByRole("switch", { name: "Create reusable label for Food 2", exact: true }).click();
+  await expect(page.getByText(/Some foods included/)).toBeVisible();
+  await page.getByLabel("Food 2 description", { exact: true }).fill("Updated sauce description");
+  await page.getByRole("button", { name: "Add foods to meal", exact: true }).click();
+  await page.getByRole("radio", { name: "dinner", exact: true }).click();
+  await page.getByRole("button", { name: "Save meal", exact: true }).click();
+  await expect(page.getByText("Meal saved.", { exact: true })).toBeVisible();
+  expect(backend.tables.nutrition_entries).toHaveLength(3);
+  expect(backend.tables.user_food_profiles).toHaveLength(1);
+  expect(backend.tables.user_food_profiles[0].food_name).toBe("Tomato sauce");
+  expect(backend.tables.nutrition_entries.reduce((sum, row) => sum + Number(row.calories), 0)).toBe(636);
+});
+
 test("AI text meal creates separate editable labels and exact saved portions", async ({
   page,
   backend,
@@ -297,7 +323,7 @@ test("AI count estimate saves an editable number of food items", async ({
   expect(estimateCalls).toBe(2);
   expect(
     backend.tables.user_food_profiles.filter((row) => !row.archived_at),
-  ).toHaveLength(1);
+  ).toHaveLength(2);
   expect(
     backend.tables.user_food_profiles.find((row) => !row.archived_at)
       ?.food_name,
@@ -306,7 +332,7 @@ test("AI count estimate saves an editable number of food items", async ({
     backend.tables.user_food_profiles.find(
       (row) => row.id === "55555555-5555-4555-8555-555555555555",
     )?.archived_at,
-  ).toBeTruthy();
+  ).toBeNull();
   expect(backend.tables.nutrition_entries).toHaveLength(2);
 });
 

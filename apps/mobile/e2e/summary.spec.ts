@@ -163,6 +163,8 @@ test("touch swipes scroll normally and a held widget can be dragged vertically",
   const client = await page.context().newCDPSession(page);
   await client.send("Emulation.setTouchEmulationEnabled", { enabled: true });
   const scroll = page.getByTestId("summary-editor-scroll");
+  // Native input coordinates need the modal's slide transition to finish.
+  await page.getByRole("button", { name: "Customize Calories", exact: true }).hover();
   const card = (await page
     .getByRole("button", { name: "Customize Calories", exact: true })
     .boundingBox())!;
@@ -250,7 +252,7 @@ test("Summary edit supports add, move, resize, cancel, restart and empty layouts
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await page.getByRole("button", { name: "Discard", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Edit Calories widget", exact: true }),
+    page.getByTestId("summary-widget-default-calories"),
   ).toBeVisible();
   await page.getByRole("button", { name: "Edit Summary", exact: true }).click();
   await page
@@ -265,7 +267,7 @@ test("Summary edit supports add, move, resize, cancel, restart and empty layouts
     page.getByRole("button", { name: "Calories — Added", exact: true }),
   ).toBeDisabled();
   await page
-    .getByRole("button", { name: "Add Recent Personal Record", exact: true })
+    .getByRole("button", { name: "Add Training Summary", exact: true })
     .click();
   await page.getByRole("button", { name: "Done", exact: true }).click();
   const saved = await page.evaluate(
@@ -273,14 +275,11 @@ test("Summary edit supports add, move, resize, cancel, restart and empty layouts
     key,
   );
   expect(saved.widgets[0]).toMatchObject({ type: "weight", size: "wide" });
-  expect(saved.widgets.at(-1).type).toBe("pr");
+  expect(saved.widgets.at(-1).type).toBe("training");
   await page.reload();
   await signIn(page);
   await expect(
-    page.getByRole("button", {
-      name: "Edit Recent Personal Record widget",
-      exact: true,
-    }),
+    page.getByRole("heading", { name: "Training", exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Edit Summary", exact: true }).click();
   for (const widget of saved.widgets) {
@@ -341,7 +340,7 @@ test("Summary restores defaults without touching logs and recovers malformed sto
   await page.getByRole("button", { name: "Done", exact: true }).click();
   await page.setViewportSize({ width: 320, height: 740 });
   await expect(
-    page.getByRole("button", { name: "Edit Weight widget", exact: true }),
+    page.getByTestId("summary-widget-default-weight"),
   ).toBeVisible();
   expect(
     await page.evaluate(
@@ -355,12 +354,12 @@ test("Summary restores defaults without touching logs and recovers malformed sto
   expect(backend.tables.workout_sessions ?? []).toHaveLength(0);
   expect(backend.tables.nutrition_entries ?? []).toHaveLength(0);
 });
-test("training and PR widgets use complete paginated sets and navigate to the source workout", async ({
+test("training widget uses complete paginated sets and opens exercise history", async ({
   page,
   backend,
 }) => {
   const today = new Date();
-  today.setHours(8, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
   const before = new Date(today);
   before.setDate(before.getDate() - 1);
   backend.tables.workout_sessions = [
@@ -393,16 +392,16 @@ test("training and PR widgets use complete paginated sets and navigate to the so
   await page.getByRole("button", { name: "Edit Summary", exact: true }).click();
   await page.getByRole("button", { name: "Add widget", exact: true }).click();
   await page
-    .getByRole("button", { name: "Add Recent Personal Record", exact: true })
+    .getByRole("button", { name: "Add Training Summary", exact: true })
     .click();
   await page.getByRole("button", { name: "Done", exact: true }).click();
-  await expect(page.getByText("120 lb", { exact: true })).toBeVisible();
+  await expect(page.getByText(/502 logical sets/)).toBeVisible();
   await page
-    .getByRole("button", { name: "Open record workout", exact: true })
+    .getByRole("button", { name: "View training details", exact: true })
     .click();
-  await expect(page).toHaveURL(/history\/aaaa0000-0000-4000-8000-000000000002/);
+  await expect(page).toHaveURL(/history/);
 });
-test("food-day totals support explicit confirmation and undo", async ({
+test("food-day totals remain available without completion controls", async ({
   page,
   backend,
 }) => {
@@ -424,17 +423,10 @@ test("food-day totals support explicit confirmation and undo", async ({
   await page.getByRole("tab", { name: "History", exact: true }).click();
   await page.getByRole("tab", { name: "Food", exact: true }).click();
   await page.getByRole("button", { name: /View full totals for/ }).click();
-  await page
-    .getByRole("button", { name: "Confirm food day complete", exact: true })
-    .click();
-  await expect(
-    page.getByText("Food day confirmed complete", { exact: true }),
-  ).toBeVisible();
-  expect(backend.tables.food_day_completions).toHaveLength(1);
-  await page
-    .getByRole("button", { name: "Undo food-day completion", exact: true })
-    .click();
-  expect(backend.tables.food_day_completions).toHaveLength(0);
+  await expect(page.getByRole("heading", { name: "Daily totals", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Confirm food day complete", exact: true })).toHaveCount(0);
+  await expect(page.getByText("Food day not confirmed", { exact: true })).toHaveCount(0);
+  expect(backend.tables.food_day_completions ?? []).toHaveLength(0);
 });
 test("whole-widget dragging reorders adjacent small cards and editing releases chart controls", async ({
   page,

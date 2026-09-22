@@ -23,3 +23,7 @@ The user's preferred pre-redesign interface is the default: the existing raised 
 ## Verification
 
 Use the isolated Playwright fixture with synthetic records for screenshots and flow checks. Check repeated diagonal touch gestures including re-grips, scroll release, arrow ordering and persistence, both-side sets, failed/successful hydration saves, changed/unset goals, Settings and appearance selection, edit/delete confirmations, and accessible names for visible controls. Native iPhone light/dark rendering, gesture arbitration, tap inspection, keyboards, larger text, VoiceOver and existing integrations require a device check.
+
+## Summary refinement exception - 2026-09-22
+
+The explicit September 22 request supersedes the original-style restriction for Summary, its editor/gallery, widget settings and streak sheets. These use shared rounded semantic surfaces, vector category icons, a primary numeric value with secondary units, intrinsic-height sheets and structured selection controls. Keep unrelated Track/navigation styles intact. Small layouts retain the existing narrow-screen/font-scale full-width fallback. New native checks remain listed in SUMMARY_REFINEMENTS.md.

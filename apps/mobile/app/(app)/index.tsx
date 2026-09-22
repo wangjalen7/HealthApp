@@ -1,3 +1,5 @@
+import { useAccountSetup } from "../../src/features/onboarding/provider";
+import { SetupCard } from "../../src/features/onboarding/setup-card";
 import { ScreenScrollView } from "../../src/ui/screen-scroll-view";
 import { Pressable } from "../../src/ui/pressable";
 import { colors } from "../../src/ui/theme";
@@ -12,9 +14,7 @@ import { type Widget } from "../../src/features/summary/layout";
 import { dayKey, deviceZone } from "../../src/features/summary/calendar";
 import { useFocusEffect } from "expo-router";
 import {
-  ActivityIndicator,
   AppState,
-  Platform,
   RefreshControl,
   StyleSheet,
   Text,
@@ -22,7 +22,8 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Path } from "react-native-svg";
+import { Icon } from "../../src/ui/icon";
+import { initializeWidgetHabits } from "../../src/features/streaks/initialize";
 
 import type { VitalSample } from "../../src/domain/vitals";
 import { useAuth } from "../../src/features/auth/auth-provider";
@@ -31,10 +32,7 @@ import {
   type DailyGoals,
 } from "../../src/features/goals/repository";
 import { getTodayHydrationTotals } from "../../src/features/hydration/repository";
-import {
-  importHealthKitData,
-  loadHealthKitSyncState,
-} from "../../src/features/healthkit/sync";
+import { synchronizeHealthData } from "../../src/features/healthkit/unified-sync";
 import {
   shiftCalendarMonth,
   startOfCalendarMonth,
@@ -47,14 +45,8 @@ import {
 } from "../../src/features/training/repository";
 import {
   loadCachedVitals,
-  loadLastVitalSyncAt,
-  syncVitals,
 } from "../../src/features/vitals/sync";
 
-type UnifiedSyncResult = {
-  lastSyncedAt?: string;
-  message: string;
-};
 export default function SummaryScreen() {
   const { session } = useAuth();
   return <SummaryContent key={session?.user.id ?? "signed-out"} />;
@@ -66,10 +58,8 @@ function SummaryContent() {
   const [samples, setSamples] = useState<VitalSample[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [syncing, setSyncing] = useState(false);
   const [status, setStatus] = useState("");
   const [baseError, setBaseError] = useState(false);
-  const [lastSyncedAt, setLastSyncedAt] = useState<string>();
   const [widgets, setWidgets] = useState<Widget[]>([]);
   const [extraData, setExtraData] = useState<SummaryData>();
   const [extraLoading, setExtraLoading] = useState(false);
@@ -101,9 +91,6 @@ function SummaryContent() {
     systolicGoal: 120,
     diastolicGoal: 80,
   });
-  const syncInFlight = useRef<Promise<UnifiedSyncResult> | undefined>(
-    undefined,
-  );
   const loadedUserId = useRef<string | undefined>(undefined);
   const calendarMonthRef = useRef(calendarMonth);
   const monthRequestId = useRef(0);
@@ -140,75 +127,17 @@ function SummaryContent() {
     setMonthCalories({});
     setCalendarMonth(next);
   }, []);
-  const synchronize = useCallback(
-    async (userId: string): Promise<UnifiedSyncResult> => {
-      if (!configured) {
-        return { message: "Saved on this device. Supabase is not configured." };
-      }
-      if (syncInFlight.current) return syncInFlight.current;
-
-      const operation = (async () => {
-        const healthKitState = await loadHealthKitSyncState(userId);
-        if (healthKitState.connected) {
-          try {
-            const imported = await importHealthKitData(userId);
-            const importedCount =
-              imported.weightCount + imported.bloodPressureCount;
-            return {
-              lastSyncedAt: imported.lastImportedAt,
-              message: importedCount
-                ? `Sync complete. Imported ${importedCount} Apple Health reading${importedCount === 1 ? "" : "s"}.`
-                : "",
-            };
-          } catch (error) {
-            const vitalResult = await syncVitals(userId);
-            const reason =
-              error instanceof Error
-                ? error.message
-                : "Could not import Apple Health data.";
-            return vitalResult.error
-              ? { message: `Sync waiting: ${vitalResult.error}` }
-              : {
-                  lastSyncedAt: vitalResult.lastSyncedAt,
-                  message: `Synced Supabase. Apple Health needs attention: ${reason}`,
-                };
-          }
-        }
-
-        const vitalResult = await syncVitals(userId);
-        return vitalResult.error
-          ? { message: `Sync waiting: ${vitalResult.error}` }
-          : {
-              lastSyncedAt: vitalResult.lastSyncedAt,
-              message: "",
-            };
-      })();
-      syncInFlight.current = operation;
-      try {
-        return await operation;
-      } finally {
-        if (syncInFlight.current === operation) {
-          syncInFlight.current = undefined;
-        }
-      }
-    },
-    [configured],
-  );
   const load = useCallback(
     async (sync = false, isPullRefresh = false) => {
       if (!session) return;
       const isInitialLoad = loadedUserId.current !== session.user.id;
       if (isInitialLoad) setLoading(true);
       if (isPullRefresh) setRefreshing(true);
-      if (sync) setSyncing(true);
       try {
         const cached = await loadCachedVitals(session.user.id);
         setSamples(cached);
-        setLastSyncedAt(await loadLastVitalSyncAt(session.user.id));
         if (sync) {
-          const result = await synchronize(session.user.id);
-          setStatus(result.message);
-          if (result.lastSyncedAt) setLastSyncedAt(result.lastSyncedAt);
+          await synchronizeHealthData(session.user.id, configured);
           setSamples(await loadCachedVitals(session.user.id));
         }
         const [today, savedGoals, todayWater] = await Promise.all([
@@ -232,10 +161,9 @@ function SummaryContent() {
         loadedUserId.current = session.user.id;
         if (isInitialLoad) setLoading(false);
         if (isPullRefresh) setRefreshing(false);
-        if (sync) setSyncing(false);
       }
     },
-    [loadMonthCalories, session, synchronize],
+    [loadMonthCalories, session, configured],
   );
   useEffect(() => {
     if (!session) return;
@@ -276,7 +204,7 @@ function SummaryContent() {
     if (!session || !widgets.length) return;
     let current = true;
     setExtraLoading(true);
-    void loadSummaryData(session.user.id, widgets, new Date(), samples)
+    void loadSummaryData(session.user.id, widgets, new Date(), samples, !editing)
       .then((data) => {
         if (current) setExtraData(data);
       })
@@ -295,10 +223,12 @@ function SummaryContent() {
       current = false;
     };
     // Samples are refreshed as part of revision; do not reload once per setter.
-  }, [session?.user.id, widgets, revision, calendarClock]);
+  }, [session?.user.id, widgets, revision, calendarClock, editing]);
+  const { setup: accountSetup } = useAccountSetup();
   const rawFirstName = session?.user.user_metadata?.first_name;
   const rawDisplayName = session?.user.user_metadata?.display_name;
   const firstName =
+    accountSetup?.preferred_name ||
     (typeof rawFirstName === "string" && rawFirstName.trim()) ||
     (typeof rawDisplayName === "string" &&
       rawDisplayName.trim().split(/\s+/)[0]) ||
@@ -315,9 +245,9 @@ function SummaryContent() {
           tintColor={colors.blue}
           colors={[colors.blue]}
           progressViewOffset={insets.top + 12}
-          title={refreshing ? "Syncing..." : "Pull to sync"}
+          title={refreshing ? "Refreshing..." : "Pull to refresh"}
           titleColor={colors.secondary}
-          onRefresh={() => void load(true, true)}
+          onRefresh={() => void load(false, true)}
         />
       }
       scrollEnabled={!chartSwipeActive && !editing}
@@ -329,6 +259,17 @@ function SummaryContent() {
           day: "numeric",
         }).format(new Date())}
       </Text>
+      <SetupCard
+        needed={
+          !accountSetup?.preferred_name ||
+          goals.calorieGoal === undefined ||
+          goals.waterGoalMl === undefined
+        }
+      />
+      {status ? <Text style={styles.copy}>{status}</Text> : null}
+      {session ? (
+        <Dashboard
+          header={(begin, ready) => (<>
       <View style={styles.summaryHeader}>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text
@@ -339,56 +280,11 @@ function SummaryContent() {
           </Text>
           <Text style={styles.snapshot}>Your daily snapshot</Text>
         </View>
-        <View style={styles.syncArea}>
-          <Pressable
-            accessibilityLabel="Sync now"
-            accessibilityRole="button"
-            accessibilityState={{ busy: syncing, disabled: syncing }}
-            disabled={syncing}
-            onPress={() => void load(true)}
-            style={({ pressed }) => [
-              styles.sync,
-              pressed && styles.syncPressed,
-              syncing && styles.syncDisabled,
-            ]}
-          >
-            {syncing ? (
-              <ActivityIndicator
-                accessibilityLabel="Syncing summary"
-                color={colors.blue}
-                size="small"
-              />
-            ) : (
-              <Svg
-                {...(Platform.OS === "web"
-                  ? { "aria-hidden": true }
-                  : { accessibilityElementsHidden: true })}
-                height="16"
-                viewBox="0 0 24 24"
-                width="16"
-              >
-                <Path
-                  d="M20 12a8 8 0 1 1-2.34-5.66M20 3v6h-6"
-                  fill="none"
-                  stroke={colors.blue}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                />
-              </Svg>
-            )}
-            <Text style={styles.syncText}>Sync</Text>
-          </Pressable>
-          <Text style={styles.syncTime}>
-            {lastSyncedAt
-              ? `Synced ${new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(lastSyncedAt))}`
-              : "Not synced yet"}
-          </Text>
-        </View>
+        <Pressable accessibilityRole="button" accessibilityLabel="Edit Summary" disabled={!ready} onPress={begin} style={{ width: 48, height: 48, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface, borderRadius: 24 }}><Icon name="edit" color={colors.blue} size={23} /></Pressable>
       </View>
-      {status ? <Text style={styles.copy}>{status}</Text> : null}
-      {session ? (
-        <Dashboard
+          </>)}
+          reminders={extraData?.reminders.filter((r) => r.enabled && r.repeat !== "once").map((r) => ({ id: r.id, label: r.name || r.kind.replaceAll("_", " ") }))}
+          onCommit={async (layout) => { await initializeWidgetHabits(session.user.id, layout.widgets); setRevision((v) => v + 1); }}
           user={session.user.id}
           onLayoutChange={setWidgets}
           onEditingChange={(value) => {

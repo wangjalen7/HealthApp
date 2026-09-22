@@ -1,6 +1,5 @@
 import { AppState } from "react-native";
 import { serviceErrorMessage } from "../../src/lib/service-errors";
-import { FoodCompletionControl } from "../../src/features/streaks/food-completion";
 import { ConfirmationActions } from "../../src/ui/confirmation-actions";
 import { IconButton } from "../../src/ui/icon-button";
 import type { ScrollView } from "react-native";
@@ -1344,7 +1343,6 @@ function DailyTotalsModal({
               />
             </View>
           ) : null}
-          {day ? <FoodCompletionControl key={day.key} day={day.key} /> : null}
           {incomplete ? (
             <Text style={styles.dailyTotalsNote}>
               “Recorded” or “Not available” means at least one food did not

@@ -8,6 +8,7 @@ export type BiometricDeviceRequest =
   | {
       action: "enroll";
       password: string;
+      otp?: string;
       deviceId: string;
       deviceName: string;
       userId: string;
@@ -45,9 +46,10 @@ export function parseBiometricDeviceRequest(
     value.action === "enroll" &&
     typeof value.userId === "string" &&
     uuidPattern.test(value.userId) &&
-    typeof value.password === "string" &&
-    value.password.length > 0 &&
-    value.password.length <= 1024 &&
+    ((typeof value.password === "string" &&
+      value.password.length > 0 &&
+      value.password.length <= 1024) ||
+      (typeof value.otp === "string" && /^\d{6}$/.test(value.otp))) &&
     typeof value.deviceId === "string" &&
     uuidPattern.test(value.deviceId) &&
     typeof value.deviceName === "string" &&
@@ -57,7 +59,8 @@ export function parseBiometricDeviceRequest(
     return {
       action: "enroll",
       userId: value.userId,
-      password: value.password,
+      password: typeof value.password === "string" ? value.password : "",
+      ...(typeof value.otp === "string" ? { otp: value.otp } : {}),
       deviceId: value.deviceId,
       deviceName: value.deviceName.trim(),
     };

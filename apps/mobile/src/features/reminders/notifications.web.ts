@@ -8,7 +8,8 @@ export async function synchronizeReminderNotifications(
   return reminders;
 }
 
-export async function cancelReminderNotifications() {
+export async function cancelReminderNotifications(_ids?: string[]) {
+  void _ids;
   // Browser preview does not schedule device notifications.
 }
 

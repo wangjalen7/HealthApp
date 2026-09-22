@@ -1,3 +1,5 @@
+import { useAccountSetup } from "../../src/features/onboarding/provider";
+import { SetupLoading } from "../../src/features/onboarding/loading";
 import { Pressable } from "../../src/ui/pressable";
 import { colors } from "../../src/ui/theme";
 import { Redirect, router, Tabs, usePathname } from "expo-router";
@@ -39,10 +41,13 @@ function CreateTabButton() {
 
 export default function AppLayout() {
   const { biometricLocked, session, signOut, unlockWithFaceId } = useAuth();
+  const setupState = useAccountSetup();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
   if (!session) return <Redirect href="/(auth)/sign-in" />;
+  if (!setupState.setup) return <SetupLoading />;
+  if (!setupState.setup.completed_at) return <Redirect href="/onboarding" />;
   return (
     <PrivacyBoundary
       key={session.user.id}

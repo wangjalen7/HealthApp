@@ -112,3 +112,14 @@ export const {
   resolveConflict,
 } = createVitalStorage(transact, createUuid);
 export const createId = createUuid;
+
+export async function clearAccountVitals(user: string) {
+  await transact(user, (state) => Object.assign(state, emptyVitalState()));
+  const db = await database();
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    await tx.runAsync("DELETE FROM vital_samples WHERE user_id=?", [user]);
+    await tx.runAsync("UPDATE outbox SET payload=(SELECT json_group_array(json(value)) FROM json_each(outbox.payload) WHERE json_extract(value,'$.userId') IS NOT ?) WHERE EXISTS(SELECT 1 FROM json_each(outbox.payload) WHERE json_extract(value,'$.userId')=?)", [user, user]);
+    await tx.runAsync("DELETE FROM outbox WHERE json_array_length(payload)=0");
+    await tx.runAsync("DELETE FROM app_metadata WHERE instr(key,?)>0", [user]);
+  });
+}

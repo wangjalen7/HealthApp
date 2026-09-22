@@ -6,6 +6,7 @@ import {
   proposedFoodMatchesUserMessage,
   proposedFoodSupportsUnit,
   trainingActionHasValidShape,
+  normalizeTrainingAction,
 } from "./coach-action-validation.ts";
 
 const proposedFood = coachActionPayloadSchema.parse({
@@ -130,4 +131,35 @@ test("training plans enforce lifting, cardio, combo, and rest payloads", () => {
     }),
     true,
   );
+});
+
+test("unknown exercise loads are cleared without dropping any exercises", () => {
+  const action = coachActionPayloadSchema.parse({
+    kind: "next_workout",
+    title: "Session",
+    rationale: "Training",
+    recommendation: "lifting",
+    muscleGroups: ["Legs"],
+    cardio: null,
+    exercises: ["squat", "Lunge", "Bodyweight squat"].map((name, i) => ({
+      name,
+      muscleGroup: "Legs",
+      setCount: 2,
+      targetReps: [8, 8],
+      suggestedWeightLb: i === 2 ? 0 : 50,
+    })),
+  });
+  if (action.kind !== "next_workout") throw Error("fixture");
+  const normalized = normalizeTrainingAction(action, ["Squat"]);
+  assert.equal(normalized.exercises.length, 3);
+  assert.deepEqual(
+    normalized.exercises.map((e) => e.suggestedWeightLb),
+    [50, null, null],
+  );
+  assert.deepEqual(
+    normalized.exercises.map((e) => e.isNewToHistory),
+    [false, true, true],
+  );
+  assert.equal(normalized.exercises[0].name, "Squat");
+  assert.equal(action.exercises[1].suggestedWeightLb, 50);
 });

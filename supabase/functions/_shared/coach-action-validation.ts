@@ -62,3 +62,31 @@ export function trainingActionHasValidShape(action: TrainingAction) {
       return !hasLifting && !hasCardio;
   }
 }
+
+export function normalizeTrainingAction(
+  action: TrainingAction,
+  historyNames: string[],
+): TrainingAction {
+  const names = new Map(
+    historyNames.map((name) => [name.trim().toLocaleLowerCase(), name]),
+  );
+  return {
+    ...action,
+    exercises: action.exercises.map((exercise) => {
+      const savedName = names.get(exercise.name.trim().toLocaleLowerCase());
+      return {
+        ...exercise,
+        name: savedName ?? exercise.name,
+        isNewToHistory: savedName === undefined,
+        // An unsupported load must not discard the rest of a useful routine.
+        suggestedWeightLb:
+          savedName === undefined ? null : exercise.suggestedWeightLb,
+        targetReps: Array.from(
+          { length: exercise.setCount },
+          (_, index) =>
+            exercise.targetReps[index] ?? exercise.targetReps.at(-1) ?? 8,
+        ),
+      };
+    }),
+  };
+}

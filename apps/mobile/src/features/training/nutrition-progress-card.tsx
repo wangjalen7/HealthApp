@@ -17,6 +17,7 @@ export function NutritionProgressCard({
   unit,
   onPress,
   accessibilityHint,
+  size,
 }: {
   label: string;
   value: number;
@@ -24,6 +25,7 @@ export function NutritionProgressCard({
   unit: string;
   onPress: () => void;
   accessibilityHint?: string;
+  size?: "small" | "wide";
 }) {
   const hasGoal = goal !== undefined && goal > 0;
   const fraction = hasGoal ? Math.max(0, Math.min(1, value / goal)) : 0;
@@ -119,6 +121,90 @@ export function NutritionProgressCard({
       </SvgText>
     </Svg>
   );
+  if (size)
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityHint={accessibilityHint ?? "Opens the matching tracker."}
+        accessibilityLabel={
+          hasGoal
+            ? `${label}: ${rounded} of ${roundedGoal} ${unit}`
+            : `${label}: ${rounded} ${unit}, no goal set`
+        }
+        onPress={onPress}
+        style={{
+          flex: 1,
+          backgroundColor: colors.surface,
+          borderRadius: 24,
+          padding: 16,
+          gap: 12,
+        }}
+      >
+        <View style={{ flexDirection: "row", gap: 7, alignItems: "center" }}>
+          <Icon
+            name={water ? "water" : label === "Protein" ? "protein" : "food"}
+            size={19}
+            color={accent}
+          />
+          <Text
+            style={{
+              color: colors.secondary,
+              fontSize: 14,
+              fontWeight: "600",
+              flex: 1,
+            }}
+          >
+            {label}
+          </Text>
+        </View>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "baseline",
+            flexWrap: "wrap",
+            gap: 5,
+          }}
+        >
+          <Text
+            style={{
+              color: colors.text,
+              fontSize: size === "wide" ? 34 : 30,
+              fontWeight: "700",
+              fontVariant: ["tabular-nums"],
+            }}
+          >
+            {rounded}
+          </Text>
+          <Text style={{ color: colors.secondary, fontSize: 15 }}>{unit}</Text>
+        </View>
+        <View
+          style={{
+            height: 6,
+            borderRadius: 3,
+            backgroundColor: colors.fill,
+            overflow: "hidden",
+          }}
+        >
+          <Animated.View
+            style={{
+              height: 6,
+              borderRadius: 3,
+              backgroundColor: accent,
+              width: progress.interpolate({
+                inputRange: [0, 1],
+                outputRange: ["0%", "100%"],
+              }),
+            }}
+          />
+        </View>
+        <Text style={{ color: colors.secondary, fontSize: 13, lineHeight: 19 }}>
+          {hasGoal ? `Goal: ${roundedGoal} ${unit}` : "Set goal in Profile"}
+          {size === "wide" && hasGoal
+            ? ` · ${Math.round((value / goal) * 100)}% of goal`
+            : ""}
+        </Text>
+      </Pressable>
+    );
   return (
     <Pressable
       accessibilityRole="button"

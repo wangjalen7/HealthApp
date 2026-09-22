@@ -18,10 +18,9 @@ import {
   recordReminderSchedule,
 } from "../streaks/repository";
 import {
-  ruleSchema,
+  parseActiveRules,
   type Rule,
   type GoalSnapshot,
-  type FoodCompletion,
 } from "../streaks/model";
 import { type Sources, type FoodRow, type FluidRow } from "../streaks/engine";
 import { dayKey, dayBounds, monday, shiftDay } from "./calendar";
@@ -63,7 +62,7 @@ async function ownedRows<T>(table: string, user: string): Promise<T[]> {
       .from(table)
       .select("*")
       .eq("user_id", user)
-      .order(table === "food_day_completions" ? "local_day" : "effective_day")
+      .order("effective_day")
       .range(offset, offset + 499);
     if (error) throw new Error(error.message);
     rows.push(...((data ?? []) as T[]));
@@ -86,15 +85,15 @@ export async function loadSummaryData(
   widgets: Widget[],
   now: Date,
   cachedVitals: VitalSample[],
+  maintainTracking = false,
 ): Promise<SummaryData> {
   const errors: string[] = [],
     coverage: Sources["coverage"] = {};
-  const streaks = widgets.some((w) => w.type === "streaks"),
-    pr = widgets.some((w) => w.type === "pr");
-  const training = pr || streaks || widgets.some((w) => w.type === "training");
+  const streaks = widgets.some((w) => w.type === "streaks");
+  const meals = widgets.some((w) => w.type === "meals");
+  const training = streaks || widgets.some((w) => w.type === "training");
   let rules: Rule[] = [],
-    goals: GoalSnapshot[] = [],
-    confirmations: FoodCompletion[] = [];
+    goals: GoalSnapshot[] = [];
   let remindersComplete = true;
   const reminders = await listReminders(user, true).catch(() => {
     remindersComplete = false;
@@ -109,25 +108,20 @@ export async function loadSummaryData(
   if (streaks) {
     try {
       if (!remindersComplete) throw new Error("Reminder schedules unavailable");
-      await recordReminderSchedule(user, reminders, true);
+      if (maintainTracking) await recordReminderSchedule(user, reminders, true);
       local = await loadLocalStreaks(user);
     } catch {
       errors.push("Reminder history is unavailable on this device.");
     }
-    try {
-      await ensureTracking();
-    } catch {
-      errors.push(
-        "Streak history is unavailable. Check your connection and try again.",
-      );
+    if (maintainTracking) {
+      try { await ensureTracking(); } catch { errors.push("Streak targets could not refresh. Retry when connected."); }
     }
     const results = await Promise.allSettled([
       ownedRows<Rule>("streak_rules", user),
       ownedRows<GoalSnapshot>("streak_goal_snapshots", user),
-      ownedRows<FoodCompletion>("food_day_completions", user),
     ]);
     if (results[0].status === "fulfilled")
-      rules = results[0].value.map((r) => ruleSchema.parse(r));
+      rules = parseActiveRules(results[0].value);
     else errors.push("Streak rules unavailable.");
     if (results[1].status === "fulfilled") {
       goals = results[1].value;
@@ -136,17 +130,11 @@ export async function loadSummaryData(
         complete: true,
       };
     }
-    if (results[2].status === "fulfilled") {
-      confirmations = results[2].value;
-      coverage.confirmations = { from: "0000-01-01", complete: true };
-    }
     rules.push(...local.rules);
   }
   if (!streaks && widgets.some((w) => w.type === "training")) {
     try {
-      rules = (await ownedRows<Rule>("streak_rules", user)).map((r) =>
-        ruleSchema.parse(r),
-      );
+      rules = parseActiveRules(await ownedRows<Rule>("streak_rules", user));
     } catch {
       errors.push("Training target is unavailable.");
     }
@@ -178,12 +166,17 @@ export async function loadSummaryData(
     }
   };
   const sessionsRequest = training
-    ? read<LoggedSession>("workout_sessions", "training", "completed_at", pr)
+    ? read<LoggedSession>(
+        "workout_sessions",
+        "training",
+        "completed_at",
+        streaks,
+      )
     : Promise.resolve([]);
   const setsRequest = sessionsRequest
     .then(async (sessions) => {
       if (!training || !sessions.length) return [];
-      if (pr) return allRows<LoggedSet>("workout_sets", user);
+
       const result: LoggedSet[] = [];
       for (let i = 0; i < sessions.length; i += 100)
         result.push(
@@ -209,22 +202,32 @@ export async function loadSummaryData(
     workoutDraft,
     mealDraft,
   ] = await Promise.all([
-    streaks ? read<FoodRow>("nutrition_entries", "food", "occurred_at") : [],
-    streaks ? read<FluidRow>("hydration_entries", "fluids", "occurred_at") : [],
+    streaks || meals
+      ? read<FoodRow>("nutrition_entries", "food", "occurred_at", streaks)
+      : [],
+    streaks
+      ? read<FluidRow>("hydration_entries", "fluids", "occurred_at", true)
+      : [],
     sessionsRequest,
     // Set creation time changes on edit: fetch by identity, never by that timestamp.
     setsRequest,
     training
-      ? allRows<LoggedCardio>("cardio_entries", user, {
-          column: "occurred_at",
-          at,
-        }).catch(() => {
+      ? allRows<LoggedCardio>(
+          "cardio_entries",
+          user,
+          streaks ? undefined : { column: "occurred_at", at },
+        ).catch(() => {
           errors.push("Cardio history unavailable.");
           return null;
         })
       : [],
     streaks
-      ? read<Record<string, unknown>>("vital_samples", "vitals", "occurred_at")
+      ? read<Record<string, unknown>>(
+          "vital_samples",
+          "vitals",
+          "occurred_at",
+          true,
+        )
       : [],
     listReminderCompletions(user, true).catch(() => {
       remindersComplete = false;
@@ -276,7 +279,6 @@ export async function loadSummaryData(
       vitals: [...vitals.values()],
       reminders: completions,
       schedules: local.schedules,
-      confirmations,
       goals,
       coverage,
     },
