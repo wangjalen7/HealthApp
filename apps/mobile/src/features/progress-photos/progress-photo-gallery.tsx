@@ -1,4 +1,5 @@
 import { ConfirmationActions } from "../../ui/confirmation-actions";
+import { EntryDateField } from "../../ui/entry-date-field";
 import { IconButton } from "../../ui/icon-button";
 import { Modal } from "../../ui/modal";
 import { Pressable } from "../../ui/pressable";
@@ -56,6 +57,7 @@ export function ProgressPhotoGallery({
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [entryDay, setEntryDay] = useState<string>();
   const [error, setError] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const selected = photos[index];
@@ -65,6 +67,7 @@ export function ProgressPhotoGallery({
     if (!visible) return;
     let active = true;
     setLoading(true);
+    setEntryDay(undefined);
     setError("");
     setEntryCount(undefined);
     void Promise.all([
@@ -144,6 +147,7 @@ export function ProgressPhotoGallery({
         userId,
         prepared,
         weightSampleId,
+        entryDay,
       );
       setPhotos((current) => [uploaded, ...current]);
       setIndex(0);
@@ -313,6 +317,11 @@ export function ProgressPhotoGallery({
                 {error}
               </Text>
             ) : null}
+            <EntryDateField
+              value={entryDay}
+              onChange={setEntryDay}
+              disabled={busy || loading}
+            />
             <View style={styles.actions}>
               <PhotoAction
                 disabled={

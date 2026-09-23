@@ -1,3 +1,4 @@
+import { entryTimestamp } from "../../lib/entry-date";
 import { createRecords, changeRecord } from "../../lib/mutations";
 import { collectPages } from "../../lib/pagination";
 import { supabase } from "../../lib/supabase";
@@ -15,6 +16,7 @@ export async function saveHydration(
   input: HydrationInput,
 ): Promise<void> {
   const value = hydrationInputSchema.parse(input);
+  const occurredAt = entryTimestamp(value.entryDay);
   await createRecords(
     userId,
     "hydration_entries",
@@ -29,7 +31,7 @@ export async function saveHydration(
         category_id: value.categoryId,
         alcohol_status: value.alcoholStatus,
         counting_policy: "beverage_volume_v1",
-        occurred_at: new Date().toISOString(),
+        occurred_at: occurredAt,
       },
     ],
   );

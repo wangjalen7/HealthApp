@@ -1,14 +1,22 @@
+import { PendingReminderPrompt } from "../reminders/pending-prompt";
 import { ScreenScrollView } from "../../ui/screen-scroll-view";
+import { finishWelcomeIntro } from "./welcome-intro";
+import { useAccountDeletion } from "./account-deletion";
 import { Icon } from "../../ui/icon";
 import { Pressable } from "../../ui/pressable";
 import { colors } from "../../ui/profile-theme";
 import { TextInput } from "../../ui/text-input";
 import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { SymbolView } from "expo-symbols";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useEntry } from "./entry-provider";
+import { SustainBrand, sustainPalette } from "./sustain-brand";
+import { useAppAppearance } from "../../ui/appearance";
+import { useReducedMotion } from "../../ui/motion";
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
+  Animated,
+  Keyboard,
   Platform,
   StyleSheet,
   Switch,
@@ -37,6 +45,35 @@ import {
 type Mode = "signIn" | "signUp" | "reset";
 
 export function AuthScreen({ mode }: { mode: Mode }) {
+  const entry = useEntry();
+  const { resolvedScheme } = useAppAppearance();
+  const reduced = useReducedMotion();
+  const reveal = useRef(new Animated.Value(0)).current;
+  const submitting = useRef(false);
+  const live = useRef(true);
+  const attemptId = useRef<number | undefined>(undefined);
+  const completed = useRef(false);
+  useEffect(() => {
+    live.current = true;
+    const animation = Animated.timing(reveal, {
+      toValue: 1,
+      duration: reduced ? 0 : 220,
+      useNativeDriver: Platform.OS !== "web",
+    });
+    animation.start();
+    return () => {
+      live.current = false;
+      animation.stop();
+    };
+  }, [reduced, reveal]);
+  useEffect(
+    () => () => {
+      if (attemptId.current && !completed.current)
+        entry.cancel(attemptId.current);
+    },
+    [entry.cancel],
+  );
+  const deletion = useAccountDeletion();
   const router = useRouter();
   const params = useLocalSearchParams<{ reset?: string; returnTo?: string }>();
   const [email, setEmail] = useState("");
@@ -95,10 +132,20 @@ export function AuthScreen({ mode }: { mode: Mode }) {
   }, [mode]);
 
   async function signInWithFaceId() {
+    if (submitting.current) return;
+    submitting.current = true;
+    Keyboard.dismiss();
+    const id = entry.begin(
+      "biometric",
+      biometricPasswordReturnPath(params.returnTo ?? ""),
+    );
+    attemptId.current = id;
+    completed.current = false;
     setFaceIdBusy(true);
     setFeedback("");
     try {
       const result = await signInWithFaceIdCredential();
+      if (!live.current) return;
       if (!result.success) {
         if (result.invalidCredential && faceIdAccount) {
           try {
@@ -114,7 +161,11 @@ export function AuthScreen({ mode }: { mode: Mode }) {
         );
         return;
       }
-      router.replace(biometricPasswordReturnPath(params.returnTo ?? ""));
+      const { data } = await supabase.auth.getSession();
+      if (!live.current) return;
+      if (!data.session) throw Error("Could not restore your session.");
+      completed.current = true;
+      entry.complete(id, data.session.user.id);
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       if (/cancel|user interaction is not allowed/i.test(message)) {
@@ -125,12 +176,14 @@ export function AuthScreen({ mode }: { mode: Mode }) {
         );
       }
     } finally {
-      setFaceIdBusy(false);
+      submitting.current = false;
+      if (!completed.current) entry.cancel(id);
+      if (live.current) setFaceIdBusy(false);
     }
   }
 
   async function submit() {
-    if (busy || faceIdBusy) return;
+    if (submitting.current || busy || faceIdBusy) return;
     setFeedback("");
     if (!supabaseConfig.isConfigured) {
       setFeedback(
@@ -152,6 +205,17 @@ export function AuthScreen({ mode }: { mode: Mode }) {
       setFeedback("First and last names must each be 80 characters or fewer.");
       return;
     }
+    submitting.current = true;
+    Keyboard.dismiss();
+    const id =
+      mode === "reset"
+        ? undefined
+        : entry.begin(
+            "manual",
+            biometricPasswordReturnPath(params.returnTo ?? ""),
+          );
+    attemptId.current = id;
+    completed.current = false;
     setBusy(true);
     try {
       if (mode === "signIn") {
@@ -159,6 +223,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
           email: email.trim(),
           password,
         });
+        if (!live.current) return;
         if (error) {
           setFeedback(error.message);
           return;
@@ -187,7 +252,9 @@ export function AuthScreen({ mode }: { mode: Mode }) {
           }
           await removeRememberedLoginAccount();
         }
-        router.replace(biometricPasswordReturnPath(params.returnTo ?? ""));
+        if (!live.current) return;
+        completed.current = true;
+        entry.complete(id!, data.user.id);
         return;
       }
       if (mode === "signUp") {
@@ -205,6 +272,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
             emailRedirectTo: authRedirectUrl("sign-in"),
           },
         });
+        if (!live.current) return;
         if (error) {
           setFeedback(
             error.code === "user_already_exists" ||
@@ -220,8 +288,10 @@ export function AuthScreen({ mode }: { mode: Mode }) {
           );
           return;
         }
+        await finishWelcomeIntro().catch(() => undefined);
         if (data.session) {
-          router.replace("/(app)");
+          completed.current = true;
+          entry.complete(id!, data.session.user.id);
           return;
         }
         router.replace({
@@ -249,27 +319,49 @@ export function AuthScreen({ mode }: { mode: Mode }) {
         error instanceof Error ? error.message : "Could not continue.",
       );
     } finally {
-      setBusy(false);
+      submitting.current = false;
+      if (id && !completed.current) entry.cancel(id);
+      if (live.current) setBusy(false);
     }
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={{ flex: 1 }}
+    <ScreenScrollView
+      style={{ backgroundColor: sustainPalette[resolvedScheme] }}
+      contentContainerStyle={[
+        styles.page,
+        { backgroundColor: sustainPalette[resolvedScheme] },
+      ]}
     >
-      <ScreenScrollView
-        style={{ backgroundColor: colors.background }}
-        automaticallyAdjustKeyboardInsets={false}
-        contentContainerStyle={styles.page}
-      >
-        <View style={styles.form}>
-          <View style={styles.brandRow}>
-            <View style={styles.appIcon}>
-              <Icon name="heart" size={24} color="#FFFFFF" />
-            </View>
-            <Text style={styles.eyebrow}>HealthApp</Text>
-          </View>
+      <View style={styles.form}>
+        <Animated.View
+          style={[
+            styles.brandRow,
+            {
+              opacity: reveal,
+              transform: [
+                {
+                  translateY: reveal.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [reduced ? 0 : 4, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <SustainBrand
+            motion={
+              faceIdBusy
+                ? "biometric"
+                : busy && mode !== "reset"
+                  ? "pending"
+                  : "idle"
+            }
+          />
+          <Text style={styles.brandCopy}>A little care. Every day.</Text>
+        </Animated.View>
+        <Animated.View style={{ opacity: reveal }}>
           {mode !== "signIn" ? (
             <>
               <Text accessibilityRole="header" style={styles.title}>
@@ -282,6 +374,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
               </Text>
             </>
           ) : null}
+          {mode === "signIn" ? <PendingReminderPrompt /> : null}
           {!supabaseConfig.isConfigured && (
             <Text style={styles.warning}>
               Supabase is not configured yet. You can still explore the app
@@ -404,21 +497,33 @@ export function AuthScreen({ mode }: { mode: Mode }) {
           ) : null}
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel={
+              mode === "signIn"
+                ? "Sign in"
+                : mode === "signUp"
+                  ? "Create account"
+                  : "Send reset link"
+            }
+            accessibilityState={{ busy: busy || faceIdBusy }}
+            disabledOpacity={1}
             disabled={busy || faceIdBusy}
             onPress={submit}
-            style={[styles.button, (busy || faceIdBusy) && { opacity: 0.55 }]}
+            style={styles.button}
           >
-            {busy ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>
-                {mode === "signIn"
+            {busy ? <ActivityIndicator color="#fff" size="small" /> : null}
+            <Text style={styles.buttonText}>
+              {busy
+                ? mode === "signIn"
+                  ? "Signing in…"
+                  : mode === "signUp"
+                    ? "Creating account…"
+                    : "Sending link…"
+                : mode === "signIn"
                   ? "Sign in"
                   : mode === "signUp"
                     ? "Create account"
                     : "Send reset link"}
-              </Text>
-            )}
+            </Text>
           </Pressable>
           {mode === "signIn" && (
             <>
@@ -436,20 +541,23 @@ export function AuthScreen({ mode }: { mode: Mode }) {
               </Link>
             </>
           )}
-          <Link
-            href="/(auth)/welcome"
-            style={{ color: colors.blue, minHeight: 44 }}
-          >
-            Back to welcome
-          </Link>
+          {mode === "signIn" && deletion.pending ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={deletion.openRecovery}
+              style={{ minHeight: 44, justifyContent: "center" }}
+            >
+              <Text style={styles.link}>Resume account deletion</Text>
+            </Pressable>
+          ) : null}
           {mode !== "signIn" && (
             <Link href="/(auth)/sign-in" style={styles.link}>
               Back to sign in
             </Link>
           )}
-        </View>
-      </ScreenScrollView>
-    </KeyboardAvoidingView>
+        </Animated.View>
+      </View>
+    </ScreenScrollView>
   );
 }
 
@@ -465,8 +573,14 @@ const styles = StyleSheet.create({
     flexDirection: "column",
     alignItems: "center",
     gap: 12,
-    marginTop: 28,
-    marginBottom: 36,
+    marginTop: 16,
+    marginBottom: 30,
+  },
+  brandCopy: {
+    color: colors.secondary,
+    fontSize: 14,
+    marginTop: 5,
+    textAlign: "center",
   },
   fieldLabel: {
     color: colors.secondary,
@@ -493,7 +607,7 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 14,
-    backgroundColor: "#183D68",
+    backgroundColor: sustainPalette.green,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -565,7 +679,9 @@ const styles = StyleSheet.create({
   rememberSwitch: { alignSelf: "center" },
   button: {
     alignItems: "center",
-    backgroundColor: "#183D68",
+    backgroundColor: sustainPalette.green,
+    flexDirection: "row",
+    gap: 10,
     borderRadius: 12,
     minHeight: 52,
     justifyContent: "center",

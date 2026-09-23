@@ -1,4 +1,6 @@
 import { useAccountSetup } from "../../src/features/onboarding/provider";
+import { SignedOutEntry } from "../../src/features/auth/welcome-intro";
+import { useAccountDeletion } from "../../src/features/auth/account-deletion";
 import { SetupLoading } from "../../src/features/onboarding/loading";
 import { Pressable } from "../../src/ui/pressable";
 import { colors } from "../../src/ui/theme";
@@ -22,6 +24,12 @@ import { biometricPasswordReturnPath } from "../../src/features/auth/biometric-l
 import { Icon } from "../../src/ui/icon";
 import { useReducedMotion } from "../../src/ui/motion";
 import { PrivacyBoundary } from "../../src/ui/privacy-boundary";
+import { useEntry } from "../../src/features/auth/entry-provider";
+import {
+  SustainBrand,
+  sustainPalette,
+} from "../../src/features/auth/sustain-brand";
+import { useAppAppearance } from "../../src/ui/appearance";
 
 function CreateTabButton() {
   return (
@@ -40,18 +48,29 @@ function CreateTabButton() {
 }
 
 export default function AppLayout() {
+  const entry = useEntry();
+  const deletion = useAccountDeletion();
   const { biometricLocked, session, signOut, unlockWithFaceId } = useAuth();
   const setupState = useAccountSetup();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
-  if (!session) return <Redirect href="/(auth)/sign-in" />;
+  if (!session)
+    return deletion.pending ? (
+      <Redirect href="/(auth)/sign-in" />
+    ) : (
+      <SignedOutEntry />
+    );
   if (!setupState.setup) return <SetupLoading />;
   if (!setupState.setup.completed_at) return <Redirect href="/onboarding" />;
   return (
     <PrivacyBoundary
       key={session.user.id}
-      locked={biometricLocked}
+      locked={
+        biometricLocked ||
+        (entry.attempt?.kind === "unlock" &&
+          entry.attempt.phase === "authenticating")
+      }
       lockScreen={
         <FaceIdLockScreen
           returnTo={biometricPasswordReturnPath(pathname)}
@@ -142,21 +161,43 @@ function FaceIdLockScreen({
   signOut: () => Promise<void>;
   unlockWithFaceId: () => Promise<{ message?: string; success: boolean }>;
 }) {
+  const entry = useEntry();
+  const { session } = useAuth();
+  const { resolvedScheme } = useAppAppearance();
+  const checkingRef = useRef(false);
   const [checking, setChecking] = useState(false);
   const [feedback, setFeedback] = useState("");
   const autoAttempted = useRef(false);
   const unlock = useCallback(async () => {
+    if (checkingRef.current || !session) return;
+    checkingRef.current = true;
+    const id = entry.begin("unlock", returnTo);
     setChecking(true);
     setFeedback("");
     try {
       const result = await unlockWithFaceId();
+      if (result.success) entry.complete(id, session.user.id);
+      else entry.cancel(id);
       if (!result.success && result.message) {
         setFeedback(result.message);
       }
+    } catch {
+      entry.cancel(id);
+      setFeedback(
+        "Face ID could not unlock Sustain. Try again or use your password.",
+      );
     } finally {
+      checkingRef.current = false;
       setChecking(false);
     }
-  }, [unlockWithFaceId]);
+  }, [
+    entry.begin,
+    entry.complete,
+    entry.cancel,
+    returnTo,
+    session,
+    unlockWithFaceId,
+  ]);
   useEffect(() => {
     const attemptWhenActive = (state = AppState.currentState) => {
       if (state === "active" && !autoAttempted.current) {
@@ -185,15 +226,26 @@ function FaceIdLockScreen({
     }
   }
   return (
-    <SafeAreaView style={styles.lockPage}>
+    <SafeAreaView
+      style={[
+        styles.lockPage,
+        { backgroundColor: sustainPalette[resolvedScheme] },
+      ]}
+    >
       <View style={styles.lockControls}>
+        <SustainBrand motion="biometric" size={112} />
+        <Text
+          style={{ color: colors.secondary, marginTop: 24, marginBottom: 20 }}
+        >
+          Your space. Securely held.
+        </Text>
         {feedback ? (
           <Text accessibilityLiveRegion="polite" style={styles.lockError}>
             {feedback}
           </Text>
         ) : null}
         <Pressable
-          accessibilityLabel="Unlock HealthApp with Face ID"
+          accessibilityLabel="Unlock Sustain with Face ID"
           accessibilityRole="button"
           disabled={checking}
           onPress={() => void unlock()}

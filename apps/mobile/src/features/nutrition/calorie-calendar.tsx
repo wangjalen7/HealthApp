@@ -1,6 +1,15 @@
+import { useEffect, useRef, useState } from "react";
 import { Pressable } from "../../ui/pressable";
+import { useReducedMotion } from "../../ui/motion";
 import { colors } from "../../ui/theme";
-import { StyleSheet, Text, View } from "react-native";
+import {
+  Animated,
+  Easing,
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import Svg, { Circle, Text as SvgText } from "react-native-svg";
 
 import {
@@ -12,6 +21,7 @@ import {
 const weekdays = ["S", "M", "T", "W", "T", "F", "S"];
 const radius = 14;
 const circumference = 2 * Math.PI * radius;
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 function DayRing({
   day,
@@ -28,6 +38,29 @@ function DayRing({
   const hasEntries = Boolean(total?.entryCount);
   const fraction =
     hasGoal && total ? Math.max(0, Math.min(1, total.calories / goal!)) : 0;
+  const target = hasEntries ? (hasGoal ? fraction : 1) : 0;
+  const reduced = useReducedMotion();
+  const progress = useRef(new Animated.Value(0)).current;
+  const [webReady, setWebReady] = useState(false);
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    // Paint an empty ring first, including when totals are already available.
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => setWebReady(true));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    const animation = Animated.timing(progress, {
+      toValue: target,
+      duration: reduced ? 0 : 650,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [progress, reduced, target]);
   const accent =
     hasEntries && hasGoal
       ? total!.calories > goal!
@@ -52,8 +85,8 @@ function DayRing({
           stroke={colors.fill}
           strokeWidth="5"
         />
-        {hasEntries ? (
-          <Circle
+        {Platform.OS === "web" ? (
+          <circle
             cx="19"
             cy="19"
             fill="none"
@@ -61,11 +94,34 @@ function DayRing({
             transform="rotate(-90 19 19)"
             stroke={accent}
             strokeDasharray={`${circumference} ${circumference}`}
-            strokeDashoffset={circumference * (1 - (hasGoal ? fraction : 1))}
+            strokeDashoffset={
+              circumference * (1 - (reduced || webReady ? target : 0))
+            }
+            strokeLinecap="round"
+            strokeWidth="5"
+            opacity={target > 0 ? 1 : 0}
+            style={{
+              transition: reduced ? "none" : "stroke-dashoffset 650ms ease-out",
+            }}
+          />
+        ) : (
+          <AnimatedCircle
+            cx="19"
+            cy="19"
+            fill="none"
+            r={radius}
+            transform="rotate(-90 19 19)"
+            stroke={accent}
+            strokeDasharray={`${circumference} ${circumference}`}
+            strokeDashoffset={progress.interpolate({
+              inputRange: [0, 1],
+              outputRange: [circumference, 0],
+            })}
+            opacity={target > 0 ? 1 : 0}
             strokeLinecap="round"
             strokeWidth="5"
           />
-        ) : null}
+        )}
         <SvgText
           fill={colors.text}
           fontSize="11"

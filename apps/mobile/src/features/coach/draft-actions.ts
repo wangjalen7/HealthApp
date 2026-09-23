@@ -52,6 +52,7 @@ export async function applyCoachWorkout(
     const existing = await loadCardioDraft(userId);
     await saveCardioDraft(userId, {
       ...cardio,
+      entryDay: mode === "append" ? existing?.entryDay : undefined,
       notes:
         mode === "append"
           ? [existing?.notes, cardio.notes]
@@ -131,6 +132,7 @@ export async function applyCoachMeal(
     }),
   );
   const next: NutritionDraft = {
+    entryDay: mode === "append" ? existing?.entryDay : undefined,
     mealType: action.mealType ?? existing?.mealType,
     entries:
       mode === "replace"

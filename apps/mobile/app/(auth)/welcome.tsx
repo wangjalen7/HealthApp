@@ -1,13 +1,25 @@
 import { router, Redirect } from "expo-router";
+import { ActivityIndicator } from "react-native";
+import {
+  finishWelcomeIntro,
+  useWelcomeSeen,
+} from "../../src/features/auth/welcome-intro";
 import { useAuth } from "../../src/features/auth/auth-provider";
 import {
   SetupButton,
   SetupFrame,
 } from "../../src/features/onboarding/components";
-import { WelcomeArtwork } from "../../src/features/onboarding/artwork";
+import { SustainBrand } from "../../src/features/auth/sustain-brand";
 export default function Welcome() {
   const { session } = useAuth();
+  const seen = useWelcomeSeen();
   if (session) return <Redirect href="/" />;
+  if (seen === undefined) return <ActivityIndicator />;
+  if (seen) return <Redirect href="/(auth)/sign-in" />;
+  async function continueTo(path: "/(auth)/sign-up" | "/(auth)/sign-in") {
+    await finishWelcomeIntro().catch(() => undefined);
+    router.replace(path);
+  }
   return (
     <SetupFrame
       title="Your health, in one place."
@@ -16,17 +28,17 @@ export default function Welcome() {
         <>
           <SetupButton
             label="Continue with email"
-            onPress={() => router.push("/(auth)/sign-up")}
+            onPress={() => void continueTo("/(auth)/sign-up")}
           />
           <SetupButton
             label="Already have an account? Sign in"
             secondary
-            onPress={() => router.push("/(auth)/sign-in")}
+            onPress={() => void continueTo("/(auth)/sign-in")}
           />
         </>
       }
     >
-      <WelcomeArtwork />
+      <SustainBrand size={112} />
     </SetupFrame>
   );
 }

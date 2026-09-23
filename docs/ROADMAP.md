@@ -93,7 +93,7 @@ Status key: `[ ]` planned, `[-]` in progress, `[x]` complete.
 - [x] Replace workout chat with single-session lifting/cardio draft generation and expanded custom preferences.
 - [x] Fix sentence-only AI workout results, preserve complete routines when clearing unsupported weights, verify draft navigation, and deploy/live-test Coach v16.
 - [x] Separate fluid entries and daily totals into their own History tab.
-- [-] Validate the revised interface, onboarding, native Face ID, progress-photo, unified nutrition/barcode, and expanded tracking flows on the registered iPhone, including hydration, workout ordering/location, Summary widgets/drag/auto-scroll/streaks, chart gesture competition, privacy-lock/resume, manual-history editing, Dynamic Type, VoiceOver, and keyboard behavior.
+- [ ] Validate the revised interface, onboarding, native Face ID, progress-photo, unified nutrition/barcode, and expanded tracking flows on the registered iPhone, including hydration, workout ordering/location, Summary widgets/drag/auto-scroll/streaks, chart gesture competition, privacy-lock/resume, manual-history editing, Dynamic Type, VoiceOver, and keyboard behavior.
 - [x] Complete local app review, usability/save-flow fixes, and repeatable browser regression coverage; document outstanding live-backend and iPhone checks separately.
 - [x] Correct repository-root Expo startup instructions and workspace script forwarding; verify the iOS development bundle uses Expo Router.
 - [x] Match Food History fluid entries to meal formatting within the daily card, retaining daily totals and confirmed deletion.
@@ -179,4 +179,33 @@ Status key: `[ ]` planned, `[-]` in progress, `[x]` complete.
 - [x] Keep streak selection rows and scroll position stable by separating the full preview from configuration and retaining stable validation/reminder space.
 - [x] Use matching minus/plus controls for the training consistency days-per-week slider.
 - [x] Unify all streak cards around the current Monday-Sunday week with weekday initials, checks and dates; retain historical totals and detail history.
-- [ ] **In progress** - Deploy account deletion, verify disposable hosted deletion, and complete physical-iPhone validation.
+- [x] Keep goal streaks only, remove the Met/progress field and combine imported/manual reading evidence automatically.
+- [x] Support today-default entry dates for weight/BP, meals, fluids, lifting, cardio and progress photos, with draft restoration and retry-safe timestamps.
+- [x] Polish Entry date icons/typography, make quick fluid amounts independent of drink selection, and align lifting/cardio headers with stable tab switching.
+- [x] Make Welcome first-use only, retain authenticated account setup, and add keyboard-bounded deletion dialogs with recoverable sign-out/cancellation.
+- [x] Deploy account-deletion database migration 202609220002 after linked preview and isolated SQL validation.
+- [x] Obtain explicit approval, deploy delete-account with --no-verify-jwt, and verify disposable hosted deletion, recovery, authorization and account isolation.
+- [x] Polish calorie/fluid helpers with per-account drafts, saved-result overviews, explicit recalculation/application, calendar loss plans, consistent Gender controls and retry-safe profile metadata.
+- [-] **In progress** - Complete physical-iPhone validation of Sustain entry/standalone splash, reminders (delivery, taps, permissions, recurrence, capacity, DST/time zones), goal-helper calendars, keyboard, dark mode, Dynamic Type, VoiceOver, privacy lock, onboarding and device cleanup.
+
+- [x] Reorganize Profile into grouped settings with focused goal, preference, health-data and account/security destinations.
+
+- [x] Add configurable account-scoped Routine Reminders, coordinated scheduling and authenticated notification destinations while preserving custom reminders; document physical-device checks separately.
+
+- [x] Fix onboarding keyboard layout and align calorie/fluid setup with persistent goal helpers, preserving unrelated drafts.
+
+- [x] Give the blank Soon tab a mysterious Coming Soon design.
+
+- [x] Review the current application and produce a comprehensive implementation, design-tradeoff and SWE interview report.
+
+- [x] Simplify independent reminders, add medication/supplement interval schedules and full-screen editors.
+
+- [x] Fix Face ID enrollment restoration for email-only accounts and verify lock/sign-out behavior.
+
+- [x] Refine Track-only reminders, grouped medication toggle, delete popup and Profile sync alignment.
+
+- [x] Unify reminder delete spacing, center the add action and preserve the medication modal during navigation.
+
+- [x] Animate calorie calendar rings from empty to loaded progress.
+
+- [x] Implement Sustain branded authentication, secure entry transitions and direct reminder destinations; verify and commit/push the accumulated work.

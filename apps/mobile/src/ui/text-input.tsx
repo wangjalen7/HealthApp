@@ -4,15 +4,18 @@ import {
   type TextInputProps,
 } from "react-native";
 import { colors, surfaces } from "./profile-theme";
+import { useKeyboardAccessory } from "./keyboard-input-scope";
 
 /** Native editing, autofill, refs and Dynamic Type with shared focus feedback. */
 export const TextInput = forwardRef<NativeTextInput, TextInputProps>(
   function TextInput({ style, onFocus, onBlur, editable, ...props }, ref) {
     const [focused, setFocused] = useState(false);
+    const accessory = useKeyboardAccessory();
     return (
       <NativeTextInput
         placeholderTextColor={colors.tertiary}
         selectionColor={colors.blue}
+        inputAccessoryViewID={accessory}
         {...props}
         ref={ref}
         editable={editable}

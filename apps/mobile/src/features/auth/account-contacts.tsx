@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Text, View } from "react-native";
 import { useAuth } from "./auth-provider";
 import { supabase } from "../../lib/supabase";
@@ -14,8 +14,12 @@ import {
 } from "../onboarding/components";
 export function AccountContacts({
   recoveryOnly = false,
+  onDirtyChange,
+  onBusyChange,
 }: {
   recoveryOnly?: boolean;
+  onDirtyChange?: (dirty: boolean) => void;
+  onBusyChange?: (busy: boolean) => void;
 }) {
   const { session } = useAuth();
   const user = session?.user;
@@ -28,6 +32,12 @@ export function AccountContacts({
     [success, setSuccess] = useState(false),
     [availableAt, setAvailableAt] = useState(0);
   const lock = useRef(false);
+  useEffect(() => {
+    onDirtyChange?.(Boolean(value || code || sent));
+  }, [value, code, sent, onDirtyChange]);
+  useEffect(() => {
+    onBusyChange?.(busy);
+  }, [busy, onBusyChange]);
   async function send() {
     if (!user || lock.current) return;
     lock.current = true;
@@ -95,6 +105,8 @@ export function AccountContacts({
           "Email verification is still pending. Check the messages sent to both addresses when changing an email.",
         );
       await supabase.auth.refreshSession();
+      setCode("");
+      setValue("");
       setSent(false);
       setSuccess(true);
       setMessage(
@@ -122,7 +134,7 @@ export function AccountContacts({
         <>
           <Text style={ui.caption}>
             Email: {user.email || "Not added"}
-            {user.email_confirmed_at ? " · verified" : ""}
+            {user.email_confirmed_at ? " · Verified" : " · Unverified"}
           </Text>
         </>
       ) : null}

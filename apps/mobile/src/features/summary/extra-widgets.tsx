@@ -328,13 +328,11 @@ export function ExtraWidget({
                     history is available
                   </Text>
                 ) : null}
-                <Text style={styles.copy}>
-                  {habit === "training" && period
-                    ? `${period.count} of ${period.target} days this week`
-                    : period
-                      ? `${stateLabel(period.state)} · ${Math.round(period.count * 10) / 10} / ${Math.round(period.target * 10) / 10}`
-                      : "Tracking begins on the effective date."}
-                </Text>
+                {habit === "training" && period ? (
+                  <Text style={styles.copy}>
+                    {period.count} of {period.target} days this week
+                  </Text>
+                ) : null}
                 <Text style={styles.copy}>
                   Best streak:{" "}
                   {result.unknown && previous ? previous.best : result.best}{" "}
@@ -430,7 +428,7 @@ function stateLabel(state: string) {
       {
         upcoming: "Upcoming",
         not_tracked: "Before tracking began",
-        met: "Met",
+        met: "Goal reached",
         open: "In progress",
         not_met: "No qualifying log",
         unknown: "Unknown",

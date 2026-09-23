@@ -1,18 +1,12 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import {
-  Animated,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Animated, Keyboard, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenScrollView } from "../../ui/screen-scroll-view";
 import { Pressable } from "../../ui/pressable";
 import { TextInput } from "../../ui/text-input";
 import { useReducedMotion } from "../../ui/motion";
 import { colors } from "../../ui/theme";
+import { KeyboardInputScope } from "../../ui/keyboard-input-scope";
 export function SetupFrame({
   title,
   copy,
@@ -41,12 +35,13 @@ export function SetupFrame({
   }, [title, reduced, fade]);
   return (
     <SafeAreaView style={ui.page} edges={["bottom"]}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
+      <KeyboardInputScope>
         <ScreenScrollView
-          automaticallyAdjustKeyboardInsets={false}
+          key={step ?? title}
+          testID="setup-scroll"
+          style={{ flex: 1 }}
+          automaticallyAdjustKeyboardInsets
+          keyboardDismissMode="interactive"
           contentContainerStyle={ui.body}
         >
           <View style={ui.top}>
@@ -76,6 +71,7 @@ export function SetupFrame({
           <Animated.View
             style={{
               gap: 22,
+              flexShrink: 0,
               opacity: fade,
               transform: [
                 {
@@ -95,9 +91,9 @@ export function SetupFrame({
             </View>
             {children}
           </Animated.View>
+          {footer ? <View style={ui.footer}>{footer}</View> : null}
         </ScreenScrollView>
-        {footer ? <View style={ui.footer}>{footer}</View> : null}
-      </KeyboardAvoidingView>
+      </KeyboardInputScope>
     </SafeAreaView>
   );
 }
@@ -117,7 +113,10 @@ export function SetupButton({
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       disabled={disabled}
-      onPress={onPress}
+      onPress={() => {
+        Keyboard.dismiss();
+        onPress();
+      }}
       style={[
         ui.button,
         secondary ? ui.secondary : undefined,
@@ -155,6 +154,8 @@ export function SetupField({
         onChangeText={onChangeText}
         keyboardType={numeric ? "decimal-pad" : "default"}
         maxLength={maxLength}
+        returnKeyType="done"
+        onSubmitEditing={Keyboard.dismiss}
       />
     </View>
   );
@@ -218,10 +219,10 @@ export const ui = StyleSheet.create({
   },
   secondary: { backgroundColor: "transparent" },
   footer: {
+    flexShrink: 0,
     alignSelf: "center",
     width: "100%",
     maxWidth: 520,
-    paddingHorizontal: 26,
     paddingVertical: 12,
     gap: 4,
     borderTopWidth: StyleSheet.hairlineWidth,

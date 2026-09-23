@@ -3,6 +3,8 @@ import { SetupProvider } from "../src/features/onboarding/provider";
 import { router, Stack, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
+import { EntryProvider } from "../src/features/auth/entry-provider";
+import { LaunchCover } from "../src/features/auth/launch-cover";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { AuthProvider, useAuth } from "../src/features/auth/auth-provider";
@@ -18,7 +20,13 @@ export default function RootLayout() {
       <AppearanceProvider>
         <MotionProvider>
           <AuthProvider>
-            <AccountDeletionGate><SetupProvider><RootNavigator /></SetupProvider></AccountDeletionGate>
+            <AccountDeletionGate>
+              <SetupProvider>
+                <EntryProvider>
+                  <RootNavigator />
+                </EntryProvider>
+              </SetupProvider>
+            </AccountDeletionGate>
           </AuthProvider>
         </MotionProvider>
       </AppearanceProvider>
@@ -50,7 +58,11 @@ function RootNavigator() {
           contentStyle: { backgroundColor: colors.background },
         }}
       >
-        <Stack.Screen name="(app)" options={{ gestureEnabled: false }} />
+        <Stack.Screen
+          name="(app)"
+          options={{ gestureEnabled: false, animation: "none" }}
+        />
+        <Stack.Screen name="onboarding" options={{ animation: "none" }} />
         <Stack.Screen
           name="create"
           options={{
@@ -62,6 +74,7 @@ function RootNavigator() {
           }}
         />
       </Stack>
+      <LaunchCover />
     </>
   );
 }

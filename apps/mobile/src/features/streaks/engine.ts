@@ -3,6 +3,7 @@ import { fluidTotals } from "../hydration/model";
 import {
   activeReminderTimes,
   completionAppliesToOccurrence,
+  reminderOccursOnDay,
   type Reminder,
   type ReminderCompletion,
 } from "../reminders/model";
@@ -53,20 +54,14 @@ export type Sources = {
   goals: GoalSnapshot[];
   coverage: Partial<
     Record<
-      | "food"
-      | "fluids"
-      | "training"
-      | "vitals"
-      | "reminders"
-      | "goals",
+      "food" | "fluids" | "training" | "vitals" | "reminders" | "goals",
       { from: string; complete: boolean }
     >
   >;
 };
 export type Period = {
   day: string;
-  state:
-    "met" | "open" | "not_met" | "unknown" | "not_scheduled";
+  state: "met" | "open" | "not_met" | "unknown" | "not_scheduled";
   count: number;
   target: number;
   explanation: string;
@@ -177,10 +172,7 @@ export function evaluateStreak(
     const vitals = data.vitals.filter(
       (s) => !s.deletedAt && s.value > 0 && inPeriod(s.occurredAt),
     );
-    const readings = vitals.filter(
-      (s) =>
-        habit === "bp" || rule.config.includeImports || s.source === "manual",
-    );
+    const readings = vitals;
     const reminders = data.reminders.filter(
       (r) => r.localDay === key && beforeNow(r.completedAt),
     );
@@ -325,9 +317,7 @@ export function evaluateStreak(
         !reminder ||
         !reminder.enabled ||
         reminder.repeat === "once" ||
-        key < reminder.startDate ||
-        ((reminder.repeat === "weekly" || reminder.repeat === "weekdays") &&
-          !reminder.weekdays.includes(weekday))
+        !reminderOccursOnDay(reminder, dateFromLocalDay(key))
       ) {
         period.explanation = "off_day";
         continue;

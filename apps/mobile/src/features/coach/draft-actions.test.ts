@@ -74,11 +74,13 @@ test("append preserves an existing workout while replace discards it", () => {
       },
     ],
     location: "Home",
+    entryDay: "2026-09-21",
     notes: "Existing",
   };
   const appended = mergeWorkoutDrafts(existing, proposed, "append");
   assert.equal(appended.entries.length, 2);
   assert.equal(appended.location, "Home");
+  assert.equal(appended.entryDay, "2026-09-21");
   assert.equal(
     mergeWorkoutDrafts(existing, proposed, "replace").entries.length,
     1,

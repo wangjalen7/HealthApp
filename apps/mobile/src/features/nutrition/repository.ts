@@ -1,3 +1,4 @@
+import { entryTimestamp } from "../../lib/entry-date";
 import { serviceErrorMessage } from "../../lib/service-errors";
 import { createRecords, changeRecord } from "../../lib/mutations";
 import { collectPages } from "../../lib/pagination";
@@ -628,7 +629,9 @@ export async function saveNutritionMeal(
   userId: string,
   mealType: MealType,
   foods: MealDraftEntry[],
+  entryDay?: string,
 ) {
+  const occurredAt = entryTimestamp(entryDay);
   const values = foods.map((food) => mealDraftEntrySchema.parse(food));
   if (!values.length) throw new Error("Add at least one food.");
   const profiledValues: MealDraftEntry[] = [];
@@ -641,12 +644,11 @@ export async function saveNutritionMeal(
     profiledValues.push(mealDraftEntrySchema.parse({ ...food, ...profile }));
   }
   const mealLogId = createId();
-  const occurredAt = new Date().toISOString();
   await createRecords(
     userId,
     "nutrition_entries",
     "meal:create",
-    { mealType, foods: values },
+    { mealType, foods: values, entryDay },
     () =>
       profiledValues.map((food) => ({
         id: createId(),

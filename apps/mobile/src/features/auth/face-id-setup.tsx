@@ -41,7 +41,9 @@ export function FaceIdSetup() {
   async function disable() {
     setBusy(true);
     try {
-      await setFaceIdEnabled(false);
+      const result = await setFaceIdEnabled(false);
+      if (!result.success)
+        throw new Error(result.message ?? "Could not disable Face ID.");
       setMessage("Face ID disabled.");
     } catch (e) {
       setMessage(authIssue(e));

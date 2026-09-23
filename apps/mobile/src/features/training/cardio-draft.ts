@@ -1,7 +1,9 @@
+import { entryDaySchema } from "../../lib/entry-date";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { z } from "zod";
 
 export const cardioDraftSchema = z.object({
+  entryDay: entryDaySchema,
   activityType: z
     .enum(["walk", "run", "swim", "tennis", "cycle", "other"])
     .optional(),
@@ -27,6 +29,7 @@ function queue(key: string, write: () => Promise<void>) {
 
 export function cardioDraftHasContent(draft: CardioDraft) {
   return Boolean(
+    draft.entryDay ||
     draft.activityType ||
     draft.durationMinutes ||
     draft.distanceMiles !== undefined ||

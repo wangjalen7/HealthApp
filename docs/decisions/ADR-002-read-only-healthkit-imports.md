@@ -4,7 +4,7 @@
 
 ## Decision
 
-Use a native iOS adapter backed by `@kingstinct/react-native-healthkit`. Request read access only when the signed-in user taps **Connect Apple Health** in Profile. For the initial integration, import only the latest year of weight and blood-pressure correlations during Summary foreground sync.
+Use a native iOS adapter backed by `@kingstinct/react-native-healthkit`. Request read access only when the signed-in user taps **Connect Apple Health** in Profile > Apple Health. For the initial integration, import only the latest year of weight and blood-pressure correlations during Summary foreground sync.
 
 Persist HealthKit anchors locally per app user because anchors belong to a specific device Health store. Generate stable database IDs from the Supabase user ID, record kind, and HealthKit UUID. Store HealthKit UUIDs and source names in HealthHub for provenance and reconciliation.
 
@@ -16,7 +16,7 @@ Defer all HealthKit workout import. Manual cardio remains available, and generic
 
 - Health data remains available offline after a successful import through the existing vital cache, while remote data is isolated by existing Supabase RLS.
 - Repeated imports and retries are idempotent; HealthKit deletions are reflected without duplicating records.
-- After a successful connection, Summary imports Apple Health automatically when the tab receives focus. Its single **Sync now** control runs the same combined Supabase and Apple Health sync manually; there is no separate Apple Health sync button.
+- After a successful connection, Summary imports Apple Health automatically when the tab receives focus. The **Sync now** control in Profile > Sync & Pending Changes runs the same combined Supabase and Apple Health sync manually; there is no separate Apple Health sync button.
 - The app cannot distinguish a denied HealthKit read permission from an authorized type with no data, matching Apple's privacy model.
 - Any native HealthKit package/configuration change requires a new EAS iOS build. TypeScript and UI-only changes continue through Metro from Windows.
 - Web and non-iOS builds use the same Supabase/manual features and can display Apple-origin records already synced by an iPhone, but they cannot request Apple Health access or read the device Health store directly.

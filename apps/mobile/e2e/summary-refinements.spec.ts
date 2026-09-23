@@ -17,6 +17,15 @@ test("streak widgets share the current calendar week in Small and Large sizes", 
     version: 1,
     config: {},
   }));
+  backend.tables.streak_goal_snapshots = [
+    {
+      user_id: user,
+      effective_day: "2026-09-01",
+      calorie_goal: 2200,
+      protein_goal: 20,
+      fluid_goal_ml: 2400,
+    },
+  ];
   backend.tables.nutrition_entries = [
     {
       id: "week-food",
@@ -40,13 +49,13 @@ test("streak widgets share the current calendar week in Small and Large sizes", 
               id: "week-food",
               type: "streaks",
               size: "small",
-              config: { habits: ["food_logging"] },
+              config: { habits: ["protein_target"] },
             },
             {
               id: "week-weight",
               type: "streaks",
               size: "small",
-              config: { habits: ["weight"] },
+              config: { habits: ["fluid_target"] },
             },
             {
               id: "week-training",
@@ -60,7 +69,7 @@ test("streak widgets share the current calendar week in Small and Large sizes", 
     { key },
   );
   await signIn(page);
-  for (const habit of ["food_logging", "weight", "training"]) {
+  for (const habit of ["protein_target", "fluid_target", "training"]) {
     const week = page.getByTestId(`streak-week-${habit}`);
     await expect(week).toBeVisible();
     const days = week.locator('[aria-label^="2026-"]');
@@ -86,8 +95,8 @@ test("streak widgets share the current calendar week in Small and Large sizes", 
   }
   await expect(
     page
-      .getByTestId("streak-week-food_logging")
-      .getByLabel("2026-09-22: Met", { exact: true }),
+      .getByTestId("streak-week-protein_target")
+      .getByLabel("2026-09-22: Goal reached", { exact: true }),
   ).toBeVisible();
   await expect(page.getByText(/since 2026-09-01/)).toHaveCount(0);
   await page
@@ -119,10 +128,10 @@ for (const width of [390, 320]) {
                 size: "wide",
                 config: {
                   habits: [
-                    "daily_logging",
-                    "food_logging",
                     "calorie_target",
                     "protein_target",
+                    "fluid_target",
+                    "training",
                   ],
                 },
               },
@@ -138,13 +147,13 @@ for (const width of [390, 320]) {
     const scroll = page.getByTestId("settings-sheet-scroll");
     const sheet = page.getByTestId("settings-sheet");
     for (const habit of [
-      "daily_logging",
-      "food_logging",
       "calorie_target",
       "protein_target",
-      "protein_target",
-      "reminder",
-      "reminder",
+      "fluid_target",
+      "training",
+      "training",
+      "fluid_target",
+      "fluid_target",
     ]) {
       const choice = page.getByRole("checkbox", {
         name: habitLabels[habit as keyof typeof habitLabels],
@@ -188,13 +197,13 @@ test("Streaks and Quick Actions edit directly with isolated save and discard", a
         id: "habits",
         type: "streaks",
         size: "wide",
-        config: { habits: ["daily_logging"] },
+        config: { habits: ["calorie_target"] },
       },
       {
         id: "other-habits",
         type: "streaks",
         size: "small",
-        config: { habits: ["weight"] },
+        config: { habits: ["fluid_target"] },
       },
     ],
   };
@@ -250,10 +259,10 @@ test("Streaks and Quick Actions edit directly with isolated save and discard", a
     .getByRole("button", { name: "Edit Streaks widget", exact: true })
     .click();
   await page
-    .getByRole("checkbox", { name: "Food logging", exact: true })
+    .getByRole("checkbox", { name: "Protein target", exact: true })
     .click();
   expect(
-    backend.tables.streak_rules?.some((r) => r.habit === "food_logging") ??
+    backend.tables.streak_rules?.some((r) => r.habit === "protein_target") ??
       false,
   ).toBe(false);
   await page
@@ -261,7 +270,7 @@ test("Streaks and Quick Actions edit directly with isolated save and discard", a
     .click();
   await page.getByRole("button", { name: "Discard", exact: true }).click();
   expect(
-    backend.tables.streak_rules?.some((r) => r.habit === "food_logging") ??
+    backend.tables.streak_rules?.some((r) => r.habit === "protein_target") ??
       false,
   ).toBe(false);
   await page
@@ -269,7 +278,7 @@ test("Streaks and Quick Actions edit directly with isolated save and discard", a
     .getByRole("button", { name: "Edit Streaks widget", exact: true })
     .click();
   await page
-    .getByRole("checkbox", { name: "Food logging", exact: true })
+    .getByRole("checkbox", { name: "Protein target", exact: true })
     .click();
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(page.getByTestId("settings-sheet")).toHaveCount(0);
@@ -278,12 +287,12 @@ test("Streaks and Quick Actions edit directly with isolated save and discard", a
     key,
   );
   expect(saved.widgets[1].config.habits).toEqual([
-    "daily_logging",
-    "food_logging",
+    "calorie_target",
+    "protein_target",
   ]);
   expect(saved.widgets[2]).toEqual(layout.widgets[2]);
   expect(
-    backend.tables.streak_rules?.some((r) => r.habit === "food_logging"),
+    backend.tables.streak_rules?.some((r) => r.habit === "protein_target"),
   ).toBe(true);
   await page
     .getByTestId("summary-widget-habits")
@@ -380,7 +389,7 @@ test("retired completion disappears from saved widgets, rules and configuration"
   ).toHaveCount(0);
   await expect(
     page.getByRole("checkbox", { name: "Food logging", exact: true }),
-  ).toBeChecked();
+  ).toHaveCount(0);
 });
 
 test("original Summary and editor have stable visual captures", async ({
@@ -411,17 +420,15 @@ test("all streak sheets remain bounded on narrow screens and expose their specif
     day = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
       .toISOString()
       .slice(0, 10);
-  backend.tables.streak_rules = habits
-    .filter((h) => h !== "reminder")
-    .map((habit) => ({
-      user_id: user,
-      habit,
-      effective_day: day,
-      activation_day: day,
-      enabled: true,
-      version: 1,
-      config: { calorieMode: "under" },
-    }));
+  backend.tables.streak_rules = habits.map((habit) => ({
+    user_id: user,
+    habit,
+    effective_day: day,
+    activation_day: day,
+    enabled: true,
+    version: 1,
+    config: { calorieMode: "under" },
+  }));
   backend.tables.streak_goal_snapshots = [
     {
       user_id: user,
@@ -468,14 +475,6 @@ test("all streak sheets remain bounded on narrow screens and expose their specif
     const box = (await sheet.boundingBox())!;
     expect(box.height).toBeLessThanOrEqual(724);
     expect(box.width).toBeLessThanOrEqual(320);
-    if (habit === "bp") {
-      await expect(
-        page.getByText("Scheduled weekdays", { exact: true }),
-      ).toHaveCount(0);
-      await expect(
-        page.getByText(/Manual and imported readings count automatically/),
-      ).toBeVisible();
-    }
     if (habit === "training")
       await expect(
         page.getByLabel("Training days per week", { exact: true }),
@@ -486,7 +485,7 @@ test("all streak sheets remain bounded on narrow screens and expose their specif
       ).toBeVisible();
       await expect(page.getByLabel("Calorie tolerance percent")).toHaveCount(0);
     }
-    if (habit === "food_logging")
+    if (habit === "protein_target")
       await page.screenshot({
         path: info.outputPath("compact-food-streak-320.png"),
       });
@@ -589,10 +588,10 @@ test("adding a streak activates only on Done; short detail sheets fit their cont
     .getByRole("button", { name: "Customize Streaks", exact: true })
     .click();
   await page
-    .getByRole("checkbox", { name: "Daily logging", exact: true })
+    .getByRole("checkbox", { name: "Calorie target", exact: true })
     .click();
   await page
-    .getByRole("checkbox", { name: "Food logging", exact: true })
+    .getByRole("checkbox", { name: "Protein target", exact: true })
     .click();
   await page
     .getByRole("button", { name: "Back to layout", exact: true })
@@ -600,36 +599,48 @@ test("adding a streak activates only on Done; short detail sheets fit their cont
   await page.getByRole("button", { name: "Done", exact: true }).click();
   await expect
     .poll(() =>
-      backend.tables.streak_rules?.some((r) => r.habit === "food_logging"),
+      backend.tables.streak_rules?.some((r) => r.habit === "protein_target"),
     )
     .toBe(true);
   await page
-    .getByRole("button", { name: "Food logging streak details", exact: true })
+    .getByRole("button", { name: "Protein target streak details", exact: true })
     .click();
   await expect(page.getByText("Set up this optional habit")).toHaveCount(0);
   const heading = await page
-    .getByRole("heading", { name: "Food logging", exact: true })
+    .getByRole("heading", { name: "Protein target", exact: true })
     .boundingBox();
   expect(heading!.y).toBeGreaterThan(30);
   await page.waitForTimeout(350);
   await page.screenshot({ path: info.outputPath("food-streak-sheet.png") });
 });
-test("signed-out entry goes directly to login and sync lives in Settings", async ({
+test("first launch shows welcome, returning entry uses login and sync lives in Profile", async ({
   page,
   backend,
 }) => {
   void backend;
   await page.goto("/");
+  await expect(page.getByText("Your health, in one place.")).toBeVisible();
+  await page
+    .getByRole("button", {
+      name: "Already have an account? Sign in",
+      exact: true,
+    })
+    .click();
+  await page.goto("/");
   await expect(
     page.getByRole("button", { name: "Sign in", exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("Your health, in one place.")).toHaveCount(0);
+  await expect(page.getByText("Back to welcome", { exact: true })).toHaveCount(
+    0,
+  );
   await signIn(page);
   await expect(page.getByRole("button", { name: "Sync now" })).toHaveCount(0);
   await page.getByRole("tab", { name: "Profile", exact: true }).click();
-  await page.getByRole("tab", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: /^Sync & Pending Changes,/ }).click();
   await page.getByRole("button", { name: "Sync now", exact: true }).click();
-  await expect(page.getByText("Sync complete.", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Up to Date", { exact: true }).filter({ visible: true }),
+  ).toBeVisible();
 });
 test("deletion requires password and deliberate confirmation, resumes after failure and clears this account only", async ({
   page,
@@ -641,6 +652,8 @@ test("deletion requires password and deliberate confirmation, resumes after fail
   await page.route("**/functions/v1/delete-account", async (route) => {
     const body = route.request().postDataJSON();
     expect(body.userId).toBeUndefined();
+    if (body.action === "status")
+      return route.fulfill({ json: { ready: true } });
     if (body.action === "prepare") {
       expect(body.password).toBe("synthetic-password");
       expect(body.confirmation).toBe("DELETE");
@@ -669,7 +682,9 @@ test("deletion requires password and deliberate confirmation, resumes after fail
     { user },
   );
   await page.getByRole("tab", { name: "Profile", exact: true }).click();
-  await page.getByRole("tab", { name: "Settings", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Manage Account", exact: true })
+    .click();
   await page
     .getByRole("button", { name: "Delete Account", exact: true })
     .click();
@@ -694,6 +709,15 @@ test("deletion requires password and deliberate confirmation, resumes after fail
     }),
   ).toBeVisible();
   await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Sign in", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Resume account deletion", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Continue deletion", exact: true })
+    .click();
   await expect(
     page.getByRole("button", { name: "Sign in", exact: true }),
   ).toBeVisible();

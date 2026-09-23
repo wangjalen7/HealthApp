@@ -18,23 +18,49 @@ import {
 import { createLayoutStore } from "./layout-store";
 import { todaysMeals } from "./meals";
 test("retiring food-day completion preserves other widgets and active habits", async () => {
-  const mixed = { id: "mixed", type: "streaks", size: "wide", config: { habits: ["food_logging", "food_complete", "calorie_target"] } };
-  const retired = { id: "retired", type: "streaks", size: "small", config: { habits: ["food_complete"] } };
+  const mixed = {
+    id: "mixed",
+    type: "streaks",
+    size: "wide",
+    config: { habits: ["food_logging", "food_complete", "calorie_target"] },
+  };
+  const retired = {
+    id: "retired",
+    type: "streaks",
+    size: "small",
+    config: { habits: ["food_complete"] },
+  };
   const weight = defaultLayout().widgets[0];
   const raw = JSON.stringify({ version: 1, widgets: [weight, retired, mixed] });
   const result = readLayout(raw);
   assert.equal(result.recovered, false);
   assert.equal(result.migrated, true);
-  assert.deepEqual(result.layout.widgets, [weight, { ...mixed, config: { habits: ["food_logging", "calorie_target"] } }]);
+  assert.deepEqual(result.layout.widgets, [
+    weight,
+    { ...mixed, config: { habits: ["calorie_target"] } },
+  ]);
   let stored = raw;
-  const store = createLayoutStore({ getItem: async () => stored, setItem: async (_key, value) => { stored = value; } });
+  const store = createLayoutStore({
+    getItem: async () => stored,
+    setItem: async (_key, value) => {
+      stored = value;
+    },
+  });
   await store.load("synthetic");
   assert.deepEqual(JSON.parse(stored), result.layout);
   const only = readLayout(JSON.stringify({ version: 1, widgets: [retired] }));
   assert.equal(only.recovered, false);
   assert.deepEqual(only.layout.widgets, []);
-  const duplicate = { ...mixed, id: "active", config: { habits: ["food_logging", "calorie_target"] } };
-  assert.equal(readLayout(JSON.stringify({ version: 1, widgets: [mixed, duplicate] })).layout.widgets.length, 1);
+  const duplicate = {
+    ...mixed,
+    id: "active",
+    config: { habits: ["calorie_target"] },
+  };
+  assert.equal(
+    readLayout(JSON.stringify({ version: 1, widgets: [mixed, duplicate] }))
+      .layout.widgets.length,
+    1,
+  );
 });
 test("PR retirement preserves IDs, order, sizes, settings and intentional emptiness", () => {
   const custom = {
@@ -168,7 +194,7 @@ test("layout preserves intentional empty, rejects corrupt/older/duplicate data a
     id: "streak",
     type: "streaks",
     size: "wide",
-    config: { habits: ["daily_logging", "training"] },
+    config: { habits: ["calorie_target", "training"] },
   };
   assert.equal(
     layoutSchema.safeParse({
@@ -178,7 +204,7 @@ test("layout preserves intentional empty, rejects corrupt/older/duplicate data a
         {
           ...streak,
           id: "second",
-          config: { habits: ["training", "daily_logging"] },
+          config: { habits: ["training", "calorie_target"] },
         },
       ],
     }).success,
@@ -349,4 +375,36 @@ test("default Summary contains only the original eight widgets in their original
       ["bp_trend", "wide"],
     ],
   );
+});
+
+test("logging-only widgets retire without removing records or unrelated layout settings", () => {
+  const logging = [
+    "daily_logging",
+    "food_logging",
+    "fluid_logging",
+    "weight",
+    "bp",
+    "reminder",
+  ];
+  const widgets = logging.map((habit, index) => ({
+    id: String(index),
+    type: "streaks",
+    size: "small",
+    config: { habits: [habit] },
+  }));
+  const mixed = {
+    id: "goals",
+    type: "streaks",
+    size: "wide",
+    config: { habits: ["weight", "protein_target", "training"] },
+  };
+  const normal = defaultLayout().widgets[0];
+  const result = readLayout(
+    JSON.stringify({ version: 1, widgets: [...widgets, mixed, normal] }),
+  );
+  assert.equal(result.recovered, false);
+  assert.deepEqual(result.layout.widgets, [
+    { ...mixed, config: { habits: ["protein_target", "training"] } },
+    normal,
+  ]);
 });

@@ -21,7 +21,7 @@ export function DrinkSelector({
   disabled = false,
   inline = false,
 }: {
-  categoryId: DrinkCategoryId;
+  categoryId?: DrinkCategoryId;
   alcoholStatus: AlcoholStatus;
   onChange: (id: DrinkCategoryId, status: AlcoholStatus) => void;
   disabled?: boolean;
@@ -29,7 +29,7 @@ export function DrinkSelector({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [query, setQuery] = useState("");
-  const selected = getDrinkCategory(categoryId)!;
+  const selected = categoryId ? getDrinkCategory(categoryId) : undefined;
   const common = [
     "water",
     "coffee",
@@ -193,7 +193,7 @@ export function DrinkSelector({
           </SafeAreaView>
         </Modal>
       ) : null}
-      {"askAlcohol" in selected ? (
+      {selected && "askAlcohol" in selected ? (
         <>
           <Text style={trackingStyles.label}>
             Does this drink contain alcohol?
@@ -215,7 +215,7 @@ export function DrinkSelector({
                   checked: status === alcoholStatus,
                   disabled,
                 }}
-                onPress={() => onChange(categoryId, status)}
+                onPress={() => onChange(selected.id, status)}
                 style={[
                   styles.choice,
                   status === alcoholStatus && styles.selected,
@@ -235,13 +235,15 @@ export function DrinkSelector({
         </>
       ) : null}
       <Text style={styles.copy}>
-        {alcoholStatus === "alcoholic"
-          ? "Alcohol is logged separately and does not count toward your fluid goal. This does not mean it contains no water."
-          : alcoholStatus === "unknown"
-            ? "Save the volume now. Goal contribution stays pending until you confirm whether it contains alcohol."
-            : "The consumed beverage volume counts toward your fluid goal. This is not a measure of hydration efficiency. Calories are logged separately in Food."}
+        {!selected
+          ? "Choose the drink you want to log."
+          : alcoholStatus === "alcoholic"
+            ? "Alcohol is logged separately and does not count toward your fluid goal. This does not mean it contains no water."
+            : alcoholStatus === "unknown"
+              ? "Save the volume now. Goal contribution stays pending until you confirm whether it contains alcohol."
+              : "The consumed beverage volume counts toward your fluid goal. This is not a measure of hydration efficiency. Calories are logged separately in Food."}
       </Text>
-      {["bubble_tea", "broth"].includes(categoryId) ? (
+      {["bubble_tea", "broth"].includes(categoryId ?? "") ? (
         <Text style={styles.copy}>
           Enter the liquid portion only; exclude toppings, solids and uneaten
           ice. Log this fluid once.

@@ -1,6 +1,6 @@
 # Summary refinements - September 22, 2026
 
-Implemented locally for Expo 57 / React Native. Existing uncommitted work, account identity and health records were preserved. Summary migration 202609220001 was subsequently deployed on September 22 to fix the missing RPC. Its exact Data API signature, initialization, repeat-call preservation and anonymous rejection passed disposable-account verification; the fixture was removed. Account-deletion backend deployment remains pending. No real-account deletion was performed.
+Implemented locally for Expo 57 / React Native. Existing uncommitted work, account identity and health records were preserved. Summary migration 202609220001 was subsequently deployed on September 22 to fix the missing RPC. Its exact Data API signature, initialization, repeat-call preservation and anonymous rejection passed disposable-account verification; the fixture was removed. Account-deletion migration 202609220002 is now deployed. The user explicitly approved --no-verify-jwt; delete-account v1 is deployed and disposable hosted verification passes. No real-account deletion was performed.
 
 ## Latest follow-up: food-day completion removed
 
@@ -13,7 +13,7 @@ The user subsequently requested removing this feature. The completion control an
 - Manual sync and last-success status live in Profile > Settings > Health Data & Sync. Focus/foreground synchronization and Apple Health imports continue.
 - Optional Today's Meals groups actual saved nutrition rows by meal for the current local day, shows up to five meals and totals all saved meals, and opens food history. It handles unavailable coverage separately from an empty day. It never reads unsaved AI estimates.
 - In AI review, labels mean reusable My Foods records. The meal switch derives all/mixed/none from the food selections. Switching it changes all foods; individual switches remain editable. Re-estimation preserves matched food choices. Every food still contributes to saved nutrition and calorie/protein totals.
-- Signed-out entry uses the requested login-first fallback. No device-level introduction flag is necessary because Welcome is no longer an automatic gate. Completed setup remains per account on the server; new accounts retain optional/resumable setup. Process-only sessions, Face ID and privacy lock remain.
+- Signed-out entry uses the requested login-first fallback. Superseded by the latest first-use request: Welcome uses a device-level seen flag and returning launches go directly to sign-in. Completed setup remains per account on the server; new accounts retain optional/resumable setup. Process-only sessions, Face ID and privacy lock remain.
 - Done initializes absent selected streak habits. Preview/Cancel does not initialize them. Existing valid rules, including disabled rules, remain. Daily maintenance of dated goals continues only outside the editor. Missing reminder selection is requested in widget configuration.
 - Newly enabled habits use available historical source evidence; missing dated targets remain unknown. BP counts at most one valid manual/imported pair per local day. Existing BP history is intentionally reinterpreted as daily, with explanation in details.
 - Training uses an accessible integer slider from 1 to 7, distinct qualifying days, weekly progress and consecutive qualifying weeks. Current incomplete weeks stay open. Existing target changes begin next Monday.
@@ -24,8 +24,8 @@ The user subsequently requested removing this feature. The completion control an
 Apply migrations in repository order, including any earlier pending migrations:
 
 1. `202609220001_summary_refinements.sql` - deployed and live RPC verified
-2. `202609220002_account_deletion.sql`
-3. Deploy `delete-account` with the gateway JWT check disabled: `supabase functions deploy delete-account --no-verify-jwt`. This is required because cleanup retries must work after Auth sessions/the account have been removed. The handler independently verifies bearer identity and the current password before preparing deletion. Do not ship the client deletion feature ahead of this backend.
+2. `202609220002_account_deletion.sql` - deployed September 22; function v1 also deployed after explicit approval
+3. Deployed `delete-account` v1 with the gateway JWT check disabled after explicit user approval: `supabase functions deploy delete-account --no-verify-jwt`. This is required because cleanup retries must work after Auth sessions/the account have been removed. The handler independently verifies bearer identity and the current password before preparing deletion. Do not ship the client deletion feature ahead of this backend.
 
 The client never supplies an account ID to the function and contains no administrator key. Preparation requires typed DELETE and server-side password reauthentication matching the verified bearer user. The existing email/password account system is supported; dormant phone-only accounts must not be introduced without adding a corresponding reauthentication path.
 
@@ -33,7 +33,7 @@ A high-entropy recovery token is saved on the device before preparation; only it
 
 Preparation revokes biometric device credentials and removes sessions. Restrictive access policies and per-account write guards reject further client and background writes. Cleanup enumerates Storage objects themselves, including orphaned progress photos, removes objects through the Storage API, deletes the Auth account through the Admin API, and verifies that owned database records and objects are gone before completing the receipt. Account-owned tables include profiles/setup, goals/streaks/confirmations, nutrition/reusable labels/recipes, drinks, workouts/sets/cardio, vitals/sync history, progress-photo metadata, Coach records/quotas, device credentials and mutation receipts. Shared public food/barcode cache remains.
 
-Completion/cancellation receipts retain no user ID. Partial cleanup returns an error and is retried idempotently. The device gates account UI and resumes on relaunch; keep the installation until cleanup finishes. Server cleanup is request-driven, not a scheduled worker. Operational recovery of an abandoned job requires an administrator; no automatic job worker was added.
+Completion/cancellation receipts retain no user ID. Partial cleanup returns an error and is retried idempotently. The device gates the affected account UI, respects the privacy lock, and exposes explicit recovery from sign-in after relaunch. Sign-out preserves the recovery capability; only server-confirmed cancellation/completion clears it. Keep the installation until cleanup finishes. Server cleanup is request-driven, not a scheduled worker. Operational recovery of an abandoned job requires an administrator; no automatic job worker was added.
 
 Only after verified server completion does the device drain current sync, cancel this account's reminder notifications, clear owned cached vitals/outboxes, drafts, account-keyed storage, Face ID/remembered credentials and sessions, clear disposable native file cache, and return to login. Other accounts' persistent records remain. Apple Health and exports saved outside the app are not deleted. Native disposable cache is application-wide; it contains temporary files, not persistent account records.
 
@@ -56,8 +56,12 @@ Logs: `dist/summary-refinements-check.log`, `dist/summary-refinements-sql.log`, 
 
 The isolated database harness requires the optional PGlite installation under `dist/summary-db-check` and never connects to hosted Supabase. It simulates Auth/Storage API effects; it does not prove live Supabase integration.
 
+## Hosted deletion verification - September 22
+
+scripts/check-account-deletion-hosted.mjs passed against HealthHub after explicit deployment approval. It creates fresh disposable accounts, uses commit_health_mutation for fixture logs, verifies missing bearer/wrong password rejection, blocks previously valid writes after preparation, removes an orphan photo and the account, verifies absent owned records, repeats completion without a session, checks sealed cancellation and confirms the other account remains intact. All fixtures are removed in finally. No real account was targeted. Log: dist/account-deletion-hosted-final.log. The first attempt failed at a prohibited direct fixture insert; all its fixtures were removed and the script was corrected to use the normal save API.
+
 ## Remaining validation
 
-- After deployment, use disposable hosted accounts only: wrong/missing password and unauthorized requests; all owned resource types and orphan files; network failure before/after preparation and final response; retry after Auth deletion; rejected old-device access; actual Auth/Storage cascade behavior and zero remaining owned records. Confirm another disposable account is unchanged. No real user's account should be used.
+- Hosted baseline above passes. Broader live fault injection across all populated resource types and network interruptions remains additional coverage; local SQL/browser tests cover these boundaries. No real user's account should be used for tests.
 - On an actual iPhone development client: light/dark/Device appearance for every streak sheet, Dynamic Type including full-width fallback, VoiceOver reorder/slider/switch announcements and modal focus, Reduce Motion, keyboard/home-indicator safe areas, tap/hold/drag/edge scrolling and chart gesture release.
 - On iPhone: automatic/manual Apple Health sync, imported BP pairing, permission failures, last-success status, force-close/reopen/login/setup continuity, Face ID/privacy lock, deletion recovery and native SQLite/SecureStore/notifications/file cleanup. An iOS export verifies compilation only. The browser adapter does not validate native dark appearance, native font scaling or VoiceOver.

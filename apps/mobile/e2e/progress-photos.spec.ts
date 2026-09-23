@@ -132,6 +132,10 @@ test("weight photos have independent three-photo limits and centered upload cont
     160,
     0,
   );
+  await page
+    .getByLabel("Entry date", { exact: true })
+    .filter({ visible: true })
+    .fill(localPhotoDay(yesterday));
   for (let count = 1; count <= 3; count += 1) {
     const chooser = page.waitForEvent("filechooser");
     await library.click();
@@ -144,6 +148,9 @@ test("weight photos have independent three-photo limits and centered upload cont
   }
   expect(backend.tables.progress_photos.at(-1)?.weight_sample_id).toBe(
     weightIds[2],
+  );
+  expect(backend.tables.progress_photos.at(-1)?.local_day).toBe(
+    localPhotoDay(yesterday),
   );
   await expect(
     page.getByRole("button", { name: "Library", exact: true }),

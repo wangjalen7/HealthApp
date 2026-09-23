@@ -155,13 +155,13 @@ export async function saveFaceIdLoginCredential(
   await SecureStore.deleteItemAsync(faceIdCredentialKey(credential.userId));
   await SecureStore.setItemAsync(
     faceIdCredentialKey(credential.userId),
-    JSON.stringify(credential),
+    JSON.stringify({ ...credential, phone: credential.phone || undefined }),
     biometricCredentialOptions,
   );
   const account: FaceIdLoginAccount = {
     credentialId: credential.credentialId,
     email: credential.email,
-    phone: credential.phone,
+    phone: credential.phone || undefined,
     userId: credential.userId,
   };
   await secureStoreAdapter.setItem(faceIdAccountKey, JSON.stringify(account));
@@ -287,7 +287,8 @@ export async function revokeFaceIdLoginCredential(
 export async function removeFaceIdLoginCredential(
   userId: string,
 ): Promise<void> {
-  if (Platform.OS !== "web") await SecureStore.deleteItemAsync(faceIdCredentialKey(userId));
+  if (Platform.OS !== "web")
+    await SecureStore.deleteItemAsync(faceIdCredentialKey(userId));
   else await secureStoreAdapter.removeItem(faceIdCredentialKey(userId));
   await secureStoreAdapter.removeItem(faceIdPreferenceKey(userId));
   const account = await getFaceIdLoginAccount();

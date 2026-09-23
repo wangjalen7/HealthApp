@@ -104,50 +104,49 @@ test("custom fluid goals need no sex and suggested activity goals require explic
 }) => {
   await signIn(page);
   await page.getByRole("tab", { name: "Profile", exact: true }).first().click();
+  await page.getByRole("button", { name: /^Fluids,/ }).click();
   await page
-    .getByRole("button", { name: "Find my fluid goal", exact: true })
+    .getByRole("button", { name: "Find My Fluid Goal", exact: true })
     .click();
-  await page.getByRole("radio", { name: "Custom goal", exact: true }).click();
+  await page.getByRole("radio", { name: "Custom", exact: true }).click();
   await page.getByRole("radio", { name: "Milliliters", exact: true }).click();
   await page
     .getByLabel("Custom beverage goal (mL)", { exact: true })
     .fill("bad");
-  await page
-    .getByRole("button", { name: "Calculate fluid goal", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Calculate", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Use this goal", exact: true }),
+    page.getByRole("button", { name: "Use This Goal", exact: true }),
   ).toHaveCount(0);
   await page
     .getByLabel("Custom beverage goal (mL)", { exact: true })
     .fill("2357");
   await page.getByRole("radio", { name: "US fl oz", exact: true }).click();
   await page.getByRole("radio", { name: "Milliliters", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Calculate fluid goal", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Calculate", exact: true }).click();
   expect(backend.tables.profiles[0].daily_water_goal_ml).toBe(2400);
   await page
-    .getByRole("button", { name: "Use this goal", exact: true })
+    .getByRole("button", { name: "Use This Goal", exact: true })
     .click();
   await expect
     .poll(() => backend.tables.profiles[0].daily_water_goal_ml)
     .toBe(2357);
   await page
-    .getByRole("button", { name: "Find my fluid goal", exact: true })
+    .getByRole("button", { name: "Edit & Recalculate", exact: true })
+    .last()
     .click();
-  await page.getByRole("radio", { name: "Women", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Edit & Recalculate", exact: true })
+    .click();
+  await page.getByRole("radio", { name: "Suggested", exact: true }).click();
+  await page.getByRole("radio", { name: "Female", exact: true }).click();
   await page
     .getByRole("radio", { name: "Moderately active", exact: true })
     .click();
+  await page.getByRole("button", { name: "Recalculate", exact: true }).click();
+  await expect(page.getByText("2700 mL/day", { exact: true })).toBeVisible();
   await page
-    .getByRole("button", { name: "Calculate fluid goal", exact: true })
-    .click();
-  await expect(
-    page.getByText("About 91 US fl oz/day", { exact: true }),
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Use this goal", exact: true })
+    .getByRole("button", { name: "Use This Goal", exact: true })
     .click();
   await expect
     .poll(() => backend.tables.profiles[0].daily_water_goal_ml)

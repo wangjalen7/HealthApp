@@ -26,6 +26,19 @@
     "plugins": [
       "expo-router",
       [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F4F7F4",
+          "image": "./assets/sustain/symbol.png",
+          "imageWidth": 112,
+          "resizeMode": "contain",
+          "dark": {
+            "backgroundColor": "#0B1913",
+            "image": "./assets/sustain/symbol.png"
+          }
+        }
+      ],
+      [
         "expo-secure-store",
         {
           "faceIDPermission": "Allow HealthApp to use Face ID to protect access to your health information."

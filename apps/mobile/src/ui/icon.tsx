@@ -3,6 +3,17 @@ import type { ColorValue } from "react-native";
 import { Platform } from "react-native";
 
 export type IconName =
+  | "face-id"
+  | "sun"
+  | "ruler"
+  | "sync"
+  | "export"
+  | "shield"
+  | "mail"
+  | "device"
+  | "back"
+  | "sign-out"
+  | "settings"
   | "check"
   | "calendar"
   | "heart"
@@ -57,6 +68,52 @@ export function Icon({
             importantForAccessibility: "no-hide-descendants" as const,
           })}
     >
+      {name === "face-id" && (
+        <Path d="M8 3H5a2 2 0 0 0-2 2v3m13-5h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3m8 0h3a2 2 0 0 0 2-2v-3M8 8v2m8-2v2m-4-2v5h-1m-3 3c2 2 6 2 8 0" />
+      )}
+      {name === "sun" && (
+        <>
+          <Circle cx={12} cy={12} r={4} />
+          <Path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.4 1.4m11.2 11.2L19 19M5 19l1.4-1.4M17.6 6.4 19 5" />
+        </>
+      )}
+      {name === "ruler" && (
+        <>
+          <Rect x={3} y={6} width={18} height={12} rx={2} />
+          <Path d="M7 6v5m5-5v7m5-7v5" />
+        </>
+      )}
+      {name === "sync" && (
+        <Path d="M20 9a8 8 0 0 0-14-3L3 9m0-6v6h6m-5 6a8 8 0 0 0 14 3l3-3m0 6v-6h-6" />
+      )}
+      {name === "export" && (
+        <Path d="M12 15V2m-4 4 4-4 4 4M7 10H4v11h16V10h-3" />
+      )}
+      {name === "shield" && (
+        <Path d="m12 2 8 3v6c0 5-4 9-8 11-4-2-8-6-8-11V5l8-3Zm-4 9 3 3 5-5" />
+      )}
+      {name === "mail" && (
+        <>
+          <Rect x={3} y={5} width={18} height={14} rx={3} />
+          <Path d="m3 6 9 7 9-7" />
+        </>
+      )}
+      {name === "device" && (
+        <>
+          <Rect x={6} y={2} width={12} height={20} rx={3} />
+          <Path d="M10 5h4m-3 14h2" />
+        </>
+      )}
+      {name === "back" && <Path d="m15 5-7 7 7 7" />}
+      {name === "sign-out" && <Path d="M10 3H4v18h6m-1-9h12m-4-4 4 4-4 4" />}
+      {name === "settings" && (
+        <>
+          <Path d="M4 6h16M4 12h16M4 18h16" />
+          <Circle cx={8} cy={6} r={2} />
+          <Circle cx={16} cy={12} r={2} />
+          <Circle cx={10} cy={18} r={2} />
+        </>
+      )}
       {name === "check" && <Path d="m5 12 4 4L19 6" />}
       {name === "calendar" && (
         <>

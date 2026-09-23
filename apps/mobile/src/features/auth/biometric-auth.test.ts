@@ -9,6 +9,7 @@ test("Face ID rotation reads once, recreates protected storage without an update
   const account = {
     userId: "user-1",
     email: "test@example.invalid",
+    phone: "",
     credentialId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
   };
   const deviceId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -68,7 +69,30 @@ test("Face ID rotation reads once, recreates protected storage without an update
     },
     supabase: {
       functions: {
-        async invoke(_name: string, { body }: { body: { secret: string } }) {
+        async invoke(
+          _name: string,
+          {
+            body,
+          }: {
+            body: {
+              action: string;
+              secret?: string;
+              password?: string;
+              deviceId?: string;
+            };
+          },
+        ) {
+          if (body.action === "enroll") {
+            assert.equal(body.password, "synthetic-password");
+            assert.ok(body.deviceId);
+            return {
+              data: {
+                credentialId: account.credentialId,
+                secret: serverSecret,
+              },
+              error: null,
+            };
+          }
           assert.equal(body.secret, serverSecret);
           serverSecret = String.fromCharCode(98 + sessions).repeat(43);
           events.push("rotate");
@@ -139,12 +163,16 @@ test("Face ID rotation reads once, recreates protected storage without an update
       ],
     });
     await writeFile(output, result.outputFiles[0].contents);
-    const auth = createRequire(output)(
-      output,
-    ) as typeof import("./biometric-auth");
+    const require = createRequire(output);
+    const auth = require(output) as typeof import("./biometric-auth");
     assert.equal((await auth.signInWithFaceIdCredential()).success, true);
     assert.deepEqual(events, ["read", "rotate", "delete", "create", "session"]);
     assert.equal(prompts, 1);
+    assert.equal(JSON.parse(protectedItems.get(key)!).phone, undefined);
+    assert.equal(
+      JSON.parse(markers.get("healthapp.face-id-account")!).phone,
+      undefined,
+    );
     assert.equal((await auth.signInWithFaceIdCredential()).success, true);
     assert.equal(
       prompts,
@@ -162,6 +190,15 @@ test("Face ID rotation reads once, recreates protected storage without an update
       "never accept a session before protected persistence succeeds",
     );
     assert.equal(protectedItems.has(key), false);
+    failWrite = false;
+    await auth.enrollFaceIdLoginCredential(account, "synthetic-password");
+    // A fresh module has no login state; only the persisted Keychain/markers survive.
+    delete require.cache[output];
+    const reopened = require(output) as typeof import("./biometric-auth");
+    assert.equal(await reopened.isFaceIdEnabled(account.userId), true);
+    assert.equal((await reopened.signInWithFaceIdCredential()).success, true);
+    assert.equal(await reopened.isFaceIdEnabled(account.userId), true);
+    assert.equal(sessions, 3);
   } finally {
     await unlink(output).catch(() => undefined);
     Reflect.deleteProperty(globalThis, "__biometricRotationTest");

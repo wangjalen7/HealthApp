@@ -12,6 +12,70 @@ import {
 const credentialId = "2ecb0193-ec57-4a71-88c0-8ab33edb1034";
 const secret = "abcdefghijklmnopqrstuvwxyzABCDEFGH012345678";
 
+test("email-only enrollment survives an empty phone field after reopening", () => {
+  const stored = {
+    credentialId,
+    secret,
+    email: "person@example.com",
+    phone: "",
+    userId: "user-1",
+    deviceId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+  };
+  const marker = parseFaceIdLoginAccount(JSON.stringify(stored));
+  assert.ok(marker);
+  const restored = parseFaceIdLoginCredential(JSON.stringify(stored), marker);
+  assert.ok(
+    restored,
+    "the protected credential must match its normalized account marker",
+  );
+  assert.equal(restored.deviceId, stored.deviceId);
+  assert.equal(restored.phone, undefined);
+});
+
+test("phone normalization preserves account binding and rejects malformed identities", () => {
+  const marker = {
+    credentialId,
+    email: "person@example.com",
+    userId: "user-1",
+  };
+  for (const phone of [undefined, null, ""])
+    assert.ok(
+      parseFaceIdLoginCredential(
+        JSON.stringify({ ...marker, secret, phone }),
+        marker,
+      ),
+    );
+  for (const phone of [false, 123, {}, "invalid", "+15555550123"])
+    assert.equal(
+      parseFaceIdLoginCredential(
+        JSON.stringify({ ...marker, secret, phone }),
+        marker,
+      ),
+      undefined,
+    );
+  const phoneAccount = { ...marker, phone: "+15555550123" };
+  assert.ok(
+    parseFaceIdLoginCredential(
+      JSON.stringify({ ...phoneAccount, secret }),
+      phoneAccount,
+    ),
+  );
+  assert.equal(
+    parseFaceIdLoginCredential(
+      JSON.stringify({ ...phoneAccount, phone: "+15555550124", secret }),
+      phoneAccount,
+    ),
+    undefined,
+  );
+  assert.equal(
+    parseFaceIdLoginCredential(
+      JSON.stringify({ ...marker, email: "other@example.com", secret }),
+      marker,
+    ),
+    undefined,
+  );
+});
+
 test("parses only complete Face ID account markers", () => {
   assert.deepEqual(
     parseFaceIdLoginAccount(

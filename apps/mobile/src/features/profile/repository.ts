@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { supabase } from "../../lib/supabase";
+import { assertAccount } from "../../lib/mutations";
 
 const profileNameSchema = z.object({
   firstName: z.string().trim().min(1, "Enter your first name.").max(80),
@@ -35,6 +36,7 @@ export async function saveProfileName(
   input: ProfileName,
 ): Promise<ProfileName> {
   const name = profileNameSchema.parse(input);
+  await assertAccount(userId);
   const displayName = `${name.firstName} ${name.lastName}`;
   const { error } = await supabase
     .from("profiles")
@@ -46,6 +48,7 @@ export async function saveProfileName(
     })
     .eq("id", userId);
   if (error) throw new Error(error.message);
+  await assertAccount(userId);
   const { error: authError } = await supabase.auth.updateUser({
     data: {
       display_name: displayName,
@@ -54,5 +57,6 @@ export async function saveProfileName(
     },
   });
   if (authError) throw new Error(authError.message);
+  await assertAccount(userId);
   return name;
 }

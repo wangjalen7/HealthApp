@@ -7,13 +7,26 @@ test("login reveals passwords, remembers the account and centers the brand", asy
   void backend;
   await page.setViewportSize({ width: 320, height: 568 });
   await page.goto("/sign-in");
+  await expect(page.getByLabel("Email", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("sustain-launch-cover")).toHaveCount(0);
   await expect(page.getByText("Welcome back")).toHaveCount(0);
   await expect(page.getByText("Your health, all in one place.")).toHaveCount(0);
-  const brand = await page
-    .getByText("HealthApp", { exact: true })
-    .boundingBox();
-  expect(brand!.x + brand!.width / 2).toBeCloseTo(160, 0);
-  expect(brand!.y).toBeLessThan(150);
+  await expect(page.getByLabel("Sustain", { exact: true })).toBeVisible();
+  await expect
+    .poll(async () => {
+      const brand = await page
+        .getByLabel("Sustain", { exact: true })
+        .boundingBox();
+      return brand ? brand.x + brand.width / 2 : -1;
+    })
+    .toBeCloseTo(160, 0);
+  await expect
+    .poll(
+      async () =>
+        (await page.getByLabel("Sustain", { exact: true }).boundingBox())?.y ??
+        1000,
+    )
+    .toBeLessThan(150);
   const password = page.getByLabel("Password", { exact: true });
   await password.fill("synthetic-password");
   await expect(password).toHaveAttribute("type", "password");
@@ -33,7 +46,7 @@ test("login reveals passwords, remembers the account and centers the brand", asy
   await expect(page.getByText("Hi Review,", { exact: true })).toBeVisible();
   const signOut = async () => {
     await page.getByRole("tab", { name: "Profile", exact: true }).click();
-    await page.getByRole("button", { name: "Sign out", exact: true }).click();
+    await page.getByRole("button", { name: "Sign Out", exact: true }).click();
     await expect(
       page.getByRole("button", { name: "Sign in", exact: true }),
     ).toBeVisible();
@@ -52,13 +65,15 @@ test("login reveals passwords, remembers the account and centers the brand", asy
   await expect(remember).not.toBeChecked();
 });
 
-test("Summary indicates sync in flight and clears it on failure or completion", async ({
+test("Profile sync indicates in-flight, failed and completed states", async ({
   page,
   backend,
 }) => {
   void backend;
   await signIn(page);
-  const sync = page.getByRole("button", { name: "Sync now" });
+  await page.getByRole("tab", { name: "Profile", exact: true }).click();
+  await page.getByRole("button", { name: /^Sync & Pending Changes,/ }).click();
+  const sync = page.getByRole("button", { name: /^Sync( now|ing\.\.\.)$/ });
   await expect(sync).toBeEnabled();
   let release!: () => void;
   const gate = new Promise<void>((resolve) => {
@@ -73,7 +88,9 @@ test("Summary indicates sync in flight and clears it on failure or completion", 
   });
   try {
     await sync.click();
-    await expect(page.getByLabel("Syncing summary")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Syncing...", exact: true }),
+    ).toBeVisible();
     await expect(sync).toBeDisabled();
   } finally {
     release();
@@ -82,7 +99,9 @@ test("Summary indicates sync in flight and clears it on failure or completion", 
     page.getByText("Sync waiting: Synthetic sync unavailable"),
   ).toBeVisible();
   await expect(sync).toBeEnabled();
-  await expect(page.getByLabel("Syncing summary")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Syncing...", exact: true }),
+  ).toHaveCount(0);
   await page.unroute("**/rest/v1/rpc/read_vital_changes");
   await sync.click();
   await expect(sync).toBeEnabled();

@@ -20,16 +20,25 @@ const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const secretPattern = /^[A-Za-z0-9_-]{43}$/;
 
+// Supabase email-only users can have phone: "". Treat absent phone values
+// identically in the public marker and protected credential, including old saves.
+function optionalPhone(value: unknown): string | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value !== "string" || !/^\+?[1-9]\d{6,14}$/.test(value))
+    throw new Error("Invalid biometric account phone.");
+  return value;
+}
+
 export function parseFaceIdLoginAccount(
   raw: string | null,
 ): FaceIdLoginAccount | undefined {
   if (!raw) return undefined;
   try {
     const parsed = JSON.parse(raw) as Partial<FaceIdLoginAccount>;
+    const phone = optionalPhone(parsed.phone);
     if (
       typeof parsed.email !== "string" ||
-      (!parsed.email.includes("@") &&
-        !/^\+?[1-9]\d{6,14}$/.test(parsed.phone ?? "")) ||
+      (!parsed.email.includes("@") && !phone) ||
       typeof parsed.userId !== "string" ||
       !parsed.userId ||
       typeof parsed.credentialId !== "string" ||
@@ -40,7 +49,7 @@ export function parseFaceIdLoginAccount(
     return {
       credentialId: parsed.credentialId,
       email: parsed.email,
-      ...(parsed.phone ? { phone: parsed.phone } : {}),
+      ...(phone ? { phone } : {}),
       userId: parsed.userId,
     };
   } catch {
@@ -55,10 +64,11 @@ export function parseFaceIdLoginCredential(
   if (!raw) return undefined;
   try {
     const parsed = JSON.parse(raw) as Partial<FaceIdLoginCredential>;
+    const phone = optionalPhone(parsed.phone);
     if (
       parsed.userId !== account.userId ||
       parsed.email !== account.email ||
-      parsed.phone !== account.phone ||
+      phone !== optionalPhone(account.phone) ||
       parsed.credentialId !== account.credentialId ||
       typeof parsed.secret !== "string" ||
       !secretPattern.test(parsed.secret)
@@ -68,7 +78,7 @@ export function parseFaceIdLoginCredential(
     return {
       credentialId: parsed.credentialId,
       email: parsed.email,
-      ...(parsed.phone ? { phone: parsed.phone } : {}),
+      ...(phone ? { phone } : {}),
       secret: parsed.secret,
       deviceId:
         typeof parsed.deviceId === "string" && uuidPattern.test(parsed.deviceId)

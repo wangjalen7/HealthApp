@@ -1,3 +1,5 @@
+import { mealDraftForReminder } from "../../src/features/reminders/meal-intent";
+import { EntryDateField } from "../../src/ui/entry-date-field";
 import { completePendingDraftSave } from "../../src/lib/mutations";
 import { ConfirmationActions } from "../../src/ui/confirmation-actions";
 import { IconButton } from "../../src/ui/icon-button";
@@ -50,9 +52,10 @@ function persistDraft(userId: string, draft: NutritionDraft) {
 }
 
 export default function NutritionScreen() {
-  const { estimate } = useLocalSearchParams<{ estimate?: string }>();
+  const { estimate, routineMeal } = useLocalSearchParams<{ estimate?: string; routineMeal?: string }>();
   const { session } = useAuth();
   const userId = session?.user.id;
+  const [entryDay, setEntryDay] = useState<string>();
   const [mealType, setMealType] = useState<MealType>();
   const [entries, setEntries] = useState<MealDraftEntry[]>([]);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -66,8 +69,8 @@ export default function NutritionScreen() {
   const [saving, setSaving] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
   const draft = useMemo<NutritionDraft>(
-    () => ({ mealType, entries }),
-    [entries, mealType],
+    () => ({ mealType, entries, entryDay }),
+    [entries, mealType, entryDay],
   );
   const draftRef = useRef(draft);
   const savingDraftRef = useRef(false);
@@ -95,6 +98,7 @@ export default function NutritionScreen() {
     }
     const next = appendEstimatedEntries(draftRef.current.entries, profiled);
     await saveNutritionDraft(userId, {
+      entryDay: draftRef.current.entryDay,
       mealType: draftRef.current.mealType,
       entries: next,
     });
@@ -105,6 +109,7 @@ export default function NutritionScreen() {
   useEffect(() => {
     let active = true;
     setMealType(undefined);
+    setEntryDay(undefined);
     setEntries([]);
     setFeedback("");
     setDraftLoaded(false);
@@ -116,6 +121,7 @@ export default function NutritionScreen() {
       if (!active) return;
       if (saved) {
         setMealType(saved.mealType);
+        setEntryDay(saved.entryDay);
         setEntries(deduplicateAiDraftEntries(saved.entries));
       }
       setDraftLoaded(true);
@@ -129,15 +135,26 @@ export default function NutritionScreen() {
     useCallback(() => {
       let active = true;
       if (!userId || !draftLoaded) return () => undefined;
-      void loadNutritionDraft(userId).then((saved) => {
-        if (!active || !saved) return;
+      void loadNutritionDraft(userId).then(async (saved) => {
+        if (!active) return;
+        if (routineMeal && ["breakfast", "lunch", "dinner"].includes(routineMeal)) {
+          const existing = nutritionDraftHasContent(draftRef.current) ? draftRef.current : saved;
+          if (!existing || !nutritionDraftHasContent(existing)) {
+            saved = mealDraftForReminder(existing, routineMeal)!;
+            await saveNutritionDraft(userId, saved);
+            if (!active) return;
+          } else saved = existing;
+          router.setParams({ routineMeal: "" });
+        }
+        if (!saved) return;
         setMealType(saved.mealType);
+        setEntryDay(saved.entryDay);
         setEntries(deduplicateAiDraftEntries(saved.entries));
       });
       return () => {
         active = false;
       };
-    }, [draftLoaded, userId]),
+    }, [draftLoaded, userId, routineMeal]),
   );
 
   useEffect(() => {
@@ -200,12 +217,13 @@ export default function NutritionScreen() {
     try {
       savingDraftRef.current = true;
       await persistDraft(userId!, draftRef.current);
-      await saveNutritionMeal(userId, mealType, entries);
+      await saveNutritionMeal(userId, mealType, entries, entryDay);
       draftRef.current = { mealType: undefined, entries: [] };
       await clearNutritionDraft(userId);
       await completePendingDraftSave(userId, "meal:create");
       setEntries([]);
       setMealType(undefined);
+      setEntryDay(undefined);
       setFeedback("Meal saved.");
     } catch (error) {
       setFeedback(
@@ -221,6 +239,7 @@ export default function NutritionScreen() {
     if (userId) await clearNutritionDraft(userId);
     setEntries([]);
     setMealType(undefined);
+    setEntryDay(undefined);
     setDiscardOpen(false);
     setFeedback("");
   }
@@ -306,6 +325,11 @@ export default function NutritionScreen() {
           </View>
         </View>
 
+        <EntryDateField
+          value={entryDay}
+          onChange={setEntryDay}
+          disabled={saving || !draftLoaded}
+        />
         {entries.map((entry) => (
           <View key={entry.id} style={styles.foodCard}>
             <View style={styles.foodHeader}>

@@ -1,3 +1,4 @@
+import { entryDaySchema, entryTimestamp } from "../../lib/entry-date";
 import { serviceErrorMessage } from "../../lib/service-errors";
 import { runMutation, createRecords, changeRecord } from "../../lib/mutations";
 import { collectPages } from "../../lib/pagination";
@@ -41,6 +42,7 @@ export type { ExerciseGuidance, ExerciseMemory } from "./progression";
 export async function saveWorkout(
   userId: string,
   input: {
+    entryDay?: string;
     title: string;
     muscleGroups: string[];
     templateName?: string;
@@ -49,6 +51,7 @@ export async function saveWorkout(
     sets: WorkoutSetInput[];
   },
 ): Promise<void> {
+  const occurredAt = entryTimestamp(input.entryDay);
   const sets = input.sets.map((set) => workoutSetSchema.parse(set));
   if (!sets.length) throw new Error("Add at least one completed set.");
   if (sets.some((set) => !input.muscleGroups.includes(set.muscleGroup))) {
@@ -68,7 +71,7 @@ export async function saveWorkout(
         template_name: input.templateName ?? null,
         location: input.location?.trim() ?? "",
         notes: input.notes?.trim() ?? "",
-        occurred_at: new Date().toISOString(),
+        occurred_at: occurredAt,
         sets: sets.map((set) => {
           const n = (numbers.get(set.exerciseName) ?? 0) + 1;
           numbers.set(set.exerciseName, n);
@@ -363,6 +366,7 @@ export async function getWorkoutById(
 }
 
 const cardioSchema = z.object({
+  entryDay: entryDaySchema,
   activityType: z.enum(["walk", "run", "swim", "tennis", "cycle", "other"]),
   durationMinutes: z.number().int().min(1).max(1440),
   distanceMiles: z.number().min(0).max(1000).optional(),
@@ -411,6 +415,7 @@ export async function saveCardio(
   input: CardioInput,
 ): Promise<void> {
   const value = cardioSchema.parse(input);
+  const occurredAt = entryTimestamp(value.entryDay);
   await createRecords(
     userId,
     "cardio_entries",
@@ -425,7 +430,7 @@ export async function saveCardio(
         duration_minutes: value.durationMinutes,
         distance_miles: value.distanceMiles ?? null,
         notes: value.notes?.trim() || null,
-        occurred_at: new Date().toISOString(),
+        occurred_at: occurredAt,
         source: "manual",
       },
     ],

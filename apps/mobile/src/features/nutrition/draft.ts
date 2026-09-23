@@ -17,7 +17,7 @@ function queueWrite(key: string, operation: () => Promise<void>) {
 }
 
 export function nutritionDraftHasContent(draft: NutritionDraft) {
-  return Boolean(draft.mealType || draft.entries.length);
+  return Boolean(draft.entryDay || draft.mealType || draft.entries.length);
 }
 
 export async function loadNutritionDraft(
@@ -36,7 +36,9 @@ export async function loadNutritionDraft(
 export function saveNutritionDraft(userId: string, draft: NutritionDraft) {
   const value = nutritionDraftSchema.parse(draft);
   const key = draftKey(userId);
-  return queueWrite(key, () => AsyncStorage.setItem(key, JSON.stringify(value)));
+  return queueWrite(key, () =>
+    AsyncStorage.setItem(key, JSON.stringify(value)),
+  );
 }
 
 export function clearNutritionDraft(userId: string) {

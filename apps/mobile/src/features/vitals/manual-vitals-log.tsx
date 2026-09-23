@@ -1,3 +1,5 @@
+import { EntryDateField } from "../../ui/entry-date-field";
+import { entryTimestamp, localEntryDay } from "../../lib/entry-date";
 import { IconButton } from "../../ui/icon-button";
 import { trackingStyles } from "../../ui/tracking-styles";
 import { ScreenScrollView } from "../../ui/screen-scroll-view";
@@ -50,12 +52,13 @@ function sample(
     occurredAt,
     correlationId,
     source: "manual",
-    createdAt: occurredAt,
+    createdAt: new Date().toISOString(),
   };
 }
 
 export function ManualVitalsLog({ mode }: { mode: ManualVitalsLogMode }) {
   const { session, configured } = useAuth();
+  const [entryDay, setEntryDay] = useState<string>();
   const [weight, setWeight] = useState("");
   const [systolic, setSystolic] = useState("");
   const [diastolic, setDiastolic] = useState("");
@@ -97,7 +100,12 @@ export function ManualVitalsLog({ mode }: { mode: ManualVitalsLogMode }) {
       );
     }
 
-    const occurredAt = new Date().toISOString();
+    let occurredAt: string;
+    try {
+      occurredAt = entryTimestamp(entryDay);
+    } catch {
+      return setFeedback("Choose a valid entry date, today or earlier.");
+    }
     const correlationId = isWeight ? undefined : createId();
     const samples = isWeight
       ? [sample(session.user.id, "weight", weight, occurredAt)]
@@ -139,7 +147,12 @@ export function ManualVitalsLog({ mode }: { mode: ManualVitalsLogMode }) {
       if (isWeight && selectedPhoto && configured) {
         try {
           const prepared = await prepareProgressPhoto(selectedPhoto);
-          await uploadProgressPhoto(session.user.id, prepared, samples[0].id);
+          await uploadProgressPhoto(
+            session.user.id,
+            prepared,
+            samples[0].id,
+            localEntryDay(new Date(occurredAt)),
+          );
           photoUploaded = true;
           setSelectedPhoto(undefined);
         } catch (error) {
@@ -147,6 +160,7 @@ export function ManualVitalsLog({ mode }: { mode: ManualVitalsLogMode }) {
             error instanceof Error ? error.message : "Could not upload photo.";
         }
       }
+      setEntryDay(undefined);
       if (isWeight) setWeight("");
       else {
         setSystolic("");
@@ -184,6 +198,11 @@ export function ManualVitalsLog({ mode }: { mode: ManualVitalsLogMode }) {
       <Text accessibilityRole="header" style={styles.title}>
         {isWeight ? "Weight" : "Blood pressure"}
       </Text>
+      <EntryDateField
+        value={entryDay}
+        onChange={setEntryDay}
+        disabled={saving}
+      />
       {isWeight ? (
         <>
           <Field label="Weight (lb)" value={weight} onChangeText={setWeight} />

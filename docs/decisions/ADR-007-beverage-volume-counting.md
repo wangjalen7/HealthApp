@@ -24,3 +24,8 @@ The user explicitly approved migration application and Coach deployment, resolvi
 ## 2026-09-17: Simpler fluid and drink flow
 
 At the user's request, the full drink catalog now opens in a popup from Water; common and recent choices remain inline. My Drinks creation and management were removed from that screen without deleting stored presets or historical records. The fluid recommendation uses a sex/activity questionnaire and custom bypass; measured sweat loss and exercise-duration inputs were removed. Exact activity increments are transparent product planning assumptions, documented in [goal-helper evidence](../GOAL_HELPER_EVIDENCE.md).
+
+
+## 2026-09-22: Persisted helper estimates and input drafts
+
+Calorie/fluid profile JSON now retains a versioned latestCalculation snapshot independently of top-level applied-goal provenance. Calculating never changes numeric goals. Per-account local drafts hold unfinished edits; explicit recalculation and Use This Goal are distinct actions. Manual goals preserve the prior estimate. Existing beverage formulas and canonical mL remain unchanged. Loss planning uses local-calendar deadlines with exact supported rates, retaining optional comparisons. No new table or migration; see [goal-helper evidence](../GOAL_HELPER_EVIDENCE.md).

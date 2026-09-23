@@ -1,3 +1,4 @@
+import { entryDaySchema } from "../../lib/entry-date";
 import { z } from "zod";
 import {
   drinkCategories,
@@ -14,6 +15,7 @@ export type HydrationUnit = z.infer<typeof hydrationUnitSchema>;
 
 export const hydrationInputSchema = z
   .object({
+    entryDay: entryDaySchema,
     categoryId: z.enum(
       drinkCategories.map((item) => item.id) as [
         DrinkCategoryId,

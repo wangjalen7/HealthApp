@@ -1,3 +1,4 @@
+import { EntryDateField } from "../../src/ui/entry-date-field";
 import { trackingStyles } from "../../src/ui/tracking-styles";
 import { ScreenScrollView } from "../../src/ui/screen-scroll-view";
 import { Pressable } from "../../src/ui/pressable";
@@ -37,8 +38,9 @@ const quickOunces = [8, 12, 16, 20, 24, 40];
 
 export default function WaterScreen() {
   const { session } = useAuth();
-  const [fluidName, setFluidName] = useState("Water");
-  const [categoryId, setCategoryId] = useState<DrinkCategoryId>("water");
+  const [entryDay, setEntryDay] = useState<string>();
+  const [fluidName, setFluidName] = useState("");
+  const [categoryId, setCategoryId] = useState<DrinkCategoryId>();
   const [alcoholStatus, setAlcoholStatus] =
     useState<AlcoholStatus>("nonalcoholic");
   const [recent, setRecent] = useState<HydrationHistoryEntry[]>([]);
@@ -78,10 +80,12 @@ export default function WaterScreen() {
     if (!Number.isFinite(parsed) || parsed <= 0) {
       return setFeedback("Enter an amount greater than zero.");
     }
+    if (!categoryId) return setFeedback("Choose a drink category.");
     setSaving(true);
     setFeedback("");
     try {
       const input = {
+        entryDay,
         fluidName: fluidName.trim() || getDrinkCategory(categoryId)!.label,
         amount: parsed,
         unit,
@@ -95,6 +99,7 @@ export default function WaterScreen() {
       }
       await saveHydration(session.user.id, input);
       setAmount("");
+      setEntryDay(undefined);
       setFeedback("Fluid saved.");
       await load();
     } catch (error) {
@@ -142,7 +147,12 @@ export default function WaterScreen() {
           ) : null}
         </View>
       </View>
-      <Text style={styles.label}>Quick water amount</Text>
+      <EntryDateField
+        value={entryDay}
+        onChange={setEntryDay}
+        disabled={saving}
+      />
+      <Text style={styles.label}>Quick fluid amount</Text>
       <View style={styles.chips}>
         {quickOunces.map((ounces) => (
           <Pressable
@@ -150,22 +160,15 @@ export default function WaterScreen() {
             accessibilityLabel={`${ounces} fluid ounces`}
             accessibilityRole="radio"
             accessibilityState={{
-              checked:
-                fluidName === "Water" &&
-                unit === "fl_oz" &&
-                Number(amount) === ounces,
+              checked: unit === "fl_oz" && Number(amount) === ounces,
             }}
             onPress={() => {
-              setFluidName("Water");
-              setCategoryId("water");
-              setAlcoholStatus("nonalcoholic");
               setAmount(String(ounces));
               setUnit("fl_oz");
             }}
             style={[
               styles.quickChip,
-              fluidName === "Water" &&
-                unit === "fl_oz" &&
+              unit === "fl_oz" &&
                 Number(amount) === ounces &&
                 styles.unitChipActive,
             ]}
@@ -174,9 +177,7 @@ export default function WaterScreen() {
               name="water"
               size={15}
               color={
-                fluidName === "Water" &&
-                unit === "fl_oz" &&
-                Number(amount) === ounces
+                unit === "fl_oz" && Number(amount) === ounces
                   ? "#fff"
                   : colors.blue
               }
@@ -184,8 +185,7 @@ export default function WaterScreen() {
             <Text
               style={[
                 styles.quickText,
-                fluidName === "Water" &&
-                  unit === "fl_oz" &&
+                unit === "fl_oz" &&
                   Number(amount) === ounces &&
                   styles.unitTextActive,
               ]}
@@ -252,7 +252,7 @@ export default function WaterScreen() {
         accessibilityLabel="Fluid name"
         maxLength={80}
         onChangeText={setFluidName}
-        placeholder="Water"
+        placeholder="Drink name"
         placeholderTextColor={colors.tertiary}
         style={styles.input}
         value={fluidName}

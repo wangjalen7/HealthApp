@@ -8,6 +8,7 @@ test("water glass follows saved totals, goal changes and goal completion", async
   backend.tables.profiles[0].daily_water_goal_ml = 1000;
   await signIn(page);
   await quickLog(page, "Water");
+  await page.getByRole("radio", { name: "Water", exact: true }).click();
   const glass = page.getByRole("progressbar", { name: "Daily water goal" });
   await expect(glass).toHaveAttribute("aria-valuenow", "0");
   await page.getByRole("radio", { name: "mL", exact: true }).click();
@@ -35,10 +36,12 @@ test("water glass follows saved totals, goal changes and goal completion", async
   backend.tables.profiles[0].daily_water_goal_ml = 2500;
   await page.getByRole("tab", { name: "Summary", exact: true }).click();
   await quickLog(page, "Water");
+  await page.getByRole("radio", { name: "Water", exact: true }).click();
   await expect(glass).toHaveAttribute("aria-valuenow", "50");
   backend.tables.profiles[0].daily_water_goal_ml = null;
   await page.getByRole("tab", { name: "Summary", exact: true }).click();
   await quickLog(page, "Water");
+  await page.getByRole("radio", { name: "Water", exact: true }).click();
   await expect(glass).toHaveAttribute("aria-valuetext", "No water goal set");
 });
 

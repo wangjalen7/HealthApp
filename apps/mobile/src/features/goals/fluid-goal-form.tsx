@@ -1,306 +1,288 @@
-import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { Pressable } from "../../ui/pressable";
-import { TextInput } from "../../ui/text-input";
-import { colors } from "../../ui/profile-theme";
+import { ActivityIndicator, Text, View } from "react-native";
+import { useHelperState } from "./use-helper-state";
 import {
-  calculateFluidGoal,
+  appliedCalculation,
+  fluidDefaults,
+  fluidDraftSchema,
+  fluidUnits,
+  calculateFluidResult,
+  restoreFluid,
+  displayNumber,
+  parseNumber,
+  type FluidDraft,
+} from "./helper-model";
+import {
   fluidActivities,
-  type FluidActivity,
   fluidOuncesToMilliliters,
   millilitersToFluidOunces,
-  type EnergyEquationSex,
 } from "./calculator";
+import {
+  Choices,
+  Disclosure,
+  Field,
+  GenderField,
+  Group,
+  HelperButton,
+  ResultCard,
+  helperStyles as s,
+} from "./helper-components";
+import type { DailyGoals } from "./repository";
+import { useAuth } from "../auth/auth-provider";
 
 export function FluidGoalForm({
   initialUnit = "fl_oz",
   onPreview,
   savedGoalMl,
   onUse,
+  onGoalsChange,
 }: {
   initialUnit?: "fl_oz" | "ml";
   onPreview?: (ml: number) => void;
   savedGoalMl?: number;
   onUse: (ml: number, calculation: Record<string, unknown>) => Promise<void>;
+  onGoalsChange?: (goals: DailyGoals) => void;
 }) {
-  const [mode, setMode] = useState("suggested");
-  const [sex, setSex] = useState<EnergyEquationSex>();
-  const [unit, setUnit] = useState(initialUnit);
-  const [customMl, setCustomMl] = useState(savedGoalMl);
-  const [custom, setCustom] = useState(
-    savedGoalMl
-      ? initialUnit === "ml"
-        ? String(savedGoalMl)
-        : millilitersToFluidOunces(savedGoalMl).toFixed(1)
-      : "",
+  const { session } = useAuth();
+  return session ? (
+    <FluidForm
+      key={session.user.id}
+      userId={session.user.id}
+      initialUnit={initialUnit}
+      onPreview={onPreview}
+      savedGoalMl={savedGoalMl}
+      onUse={onUse}
+      onGoalsChange={onGoalsChange}
+    />
+  ) : null;
+}
+function FluidForm({
+  userId,
+  initialUnit,
+  onPreview,
+  savedGoalMl,
+  onUse,
+  onGoalsChange,
+}: {
+  userId: string;
+  initialUnit: FluidDraft["unit"];
+  onPreview?: (ml: number) => void;
+  savedGoalMl?: number;
+  onUse: (ml: number, calculation: Record<string, unknown>) => Promise<void>;
+  onGoalsChange?: (goals: DailyGoals) => void;
+}) {
+  const defaults = fluidDefaults(initialUnit, savedGoalMl);
+  const h = useHelperState({
+    userId,
+    kind: "fluids",
+    schema: fluidDraftSchema,
+    defaults,
+    onGoalsChange,
+    restore: (goals) => {
+      const restored = restoreFluid(
+        goals.fluidCalculation,
+        fluidDefaults(initialUnit, goals.waterGoalMl),
+        goals.waterGoalMl,
+      );
+      // Reuse an explicitly supplied category from the other helper only for a new form.
+      if (!goals.fluidCalculation) {
+        const other = goals.calorieCalculation?.latestCalculation as
+          { inputs?: { sex?: unknown } } | undefined;
+        const sex = other?.inputs?.sex ?? goals.calorieCalculation?.sex;
+        if (sex === "male" || sex === "female") restored.inputs.sex = sex;
+      }
+      return restored;
+    },
+  });
+  const d = h.inputs,
+    r = h.result;
+  const change = (patch: Partial<FluidDraft>) => h.change({ ...d, ...patch });
+  const units = (
+    <Choices
+      value={d.unit}
+      onChange={(unit) => h.change(fluidUnits(d, unit))}
+      disabled={h.busy}
+      items={[
+        { value: "fl_oz", label: "US fl oz" },
+        { value: "ml", label: "Milliliters" },
+      ]}
+    />
   );
-  const [activity, setActivity] = useState<FluidActivity>();
-  const [preview, setPreview] = useState<{
-    ml: number;
-    calculation: Record<string, unknown>;
-  }>();
-  const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
-  function reset() {
-    setPreview(undefined);
-    setError("");
-  }
-  function value(text: string) {
-    return text.trim() ? Number(text.replace(",", ".")) : Number.NaN;
-  }
-  function calculate() {
-    reset();
-    try {
-      const input =
-        mode === "custom"
-          ? { mode: "custom" as const, customMl }
-          : {
-              mode: "suggested" as const,
-              sex,
-              activity,
-            };
-      const ml = calculateFluidGoal(input);
-      onPreview?.(ml);
-      setPreview({
-        ml,
-        calculation: {
-          method: "beverage_activity_goal_v2",
-          ...input,
-          acceptedAt: new Date().toISOString(),
-        },
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Check the amounts.");
-    }
-  }
-  const field = (
-    label: string,
-    text: string,
-    setter: (text: string) => void,
-  ) => (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
-      <TextInput
-        accessibilityLabel={label}
-        keyboardType="decimal-pad"
-        value={text}
-        onChangeText={(next) => {
-          setter(next);
-          reset();
-        }}
-        style={styles.input}
-      />
-    </View>
-  );
-  const choice = (
-    items: [string, string][],
-    selected: string | undefined,
-    setter: (value: string) => void,
-  ) => (
-    <View style={styles.choices}>
-      {items.map(([id, label]) => (
-        <Pressable
-          key={id}
-          accessibilityRole="radio"
-          accessibilityLabel={label}
-          accessibilityState={{ checked: selected === id }}
-          onPress={() => {
-            setter(id);
-            reset();
-          }}
-          style={[styles.choice, selected === id && styles.selected]}
-        >
-          <Text style={styles.label}>{label}</Text>
-        </Pressable>
-      ))}
-    </View>
-  );
+  if (!h.loaded)
+    return (
+      <View>
+        {h.error ? (
+          <>
+            <Text style={s.error}>{h.error}</Text>
+            <HelperButton label="Retry" onPress={h.retry} />
+          </>
+        ) : (
+          <ActivityIndicator />
+        )}
+      </View>
+    );
   return (
     <View>
-      <Text accessibilityRole="header" style={styles.title}>
-        Find a daily fluid goal
+      <Text accessibilityRole="header" style={s.title}>
+        Daily fluid goal
       </Text>
-      <Text style={styles.copy}>
-        A flexible beverage starting goal. Food water is already accounted for;
-        this does not measure your hydration status.
-      </Text>
-      {choice(
-        [
-          ["suggested", "Suggested goal"],
-          ["custom", "Custom goal"],
-        ],
-        mode,
-        setMode,
-      )}
-      {choice(
-        [
-          ["fl_oz", "US fl oz"],
-          ["ml", "Milliliters"],
-        ],
-        unit,
-        (next) => {
-          setUnit(next as "ml" | "fl_oz");
-          if (customMl !== undefined && Number.isFinite(customMl))
-            setCustom(
-              next === "ml"
-                ? String(customMl)
-                : millilitersToFluidOunces(customMl).toFixed(1),
-            );
-        },
-      )}
-      {mode === "custom" ? (
+      {!h.editing && r ? (
         <>
-          {field(
-            `Custom beverage goal (${unit === "ml" ? "mL" : "US fl oz"})`,
-            custom,
-            (text) => {
-              setCustom(text);
-              const n = value(text);
-              setCustomMl(unit === "ml" ? n : fluidOuncesToMilliliters(n));
-            },
-          )}
-          <Text style={styles.copy}>
-            Use your preferred or clinician-directed goal. Exercise allowances
-            are not added.
-          </Text>
+          <ResultCard
+            accent="fluids"
+            target={
+              d.unit === "ml"
+                ? `${displayNumber(r.target, 0)} mL/day`
+                : `${displayNumber(millilitersToFluidOunces(r.target), 1)} US fl oz/day`
+            }
+            summary={
+              r.inputs.mode === "custom"
+                ? "Your custom daily beverage goal"
+                : `${r.inputs.sex === "male" ? "Male" : r.inputs.sex === "female" ? "Female" : "Saved"} reference · ${fluidActivities.find((a) => a.id === r.inputs.activity)?.label ?? "Saved activity"}`
+            }
+            calculatedAt={r.calculatedAt}
+            applied={
+              h.goals.waterGoalMl !== undefined &&
+              Math.abs(h.goals.waterGoalMl - r.target) < 0.000001
+            }
+          >
+            {units}
+          </ResultCard>
+          {h.hasDraft ? (
+            <Text style={s.copy}>
+              Unfinished edits are saved on this device.
+            </Text>
+          ) : null}
+          <HelperButton
+            label={h.busy ? "Saving..." : "Use This Goal"}
+            disabled={h.busy}
+            onPress={() =>
+              void h.apply(async (result) => {
+                await onUse(result.target, appliedCalculation(result));
+              })
+            }
+          />
+          <HelperButton
+            label="Edit & Recalculate"
+            secondary
+            disabled={h.busy}
+            onPress={h.edit}
+          />
         </>
       ) : (
         <>
-          <Text style={styles.label}>What is your sex?</Text>
-          {choice(
-            [
-              ["female", "Women"],
-              ["male", "Men"],
-            ],
-            sex,
-            (next) => setSex(next as EnergyEquationSex),
-          )}
-          <Text style={styles.copy}>
-            About 2.2 L for women or 3.0 L for men from beverages. These are
-            population references, not individual minimums. For a prescribed
-            fluid limit, use Custom goal.
-          </Text>
-          <Text style={styles.label}>How active are you on a typical day?</Text>
-          {choice(
-            fluidActivities.map((item) => [item.id, item.label]),
-            activity,
-            (next) => setActivity(next as FluidActivity),
-          )}
-          <Text style={styles.copy}>
-            {fluidActivities.find((item) => item.id === activity)?.detail ??
-              "Choose the description that fits most days."}
-          </Text>
-          <Text style={styles.copy}>
-            Activity adds a small planning allowance. This is an adjustable
-            starting goal, not a measurement of your needs. Adjust to thirst and
-            extra sweating.
-          </Text>
+          {r ? (
+            <Text style={[s.copy, { marginBottom: 16 }]}>
+              Your saved estimate is from the previous calculation. Recalculate
+              to update it; your applied goal stays unchanged.
+            </Text>
+          ) : null}
+          <Group title="Goal Type" icon="water">
+            <Choices
+              value={d.mode}
+              onChange={(mode) => change({ mode })}
+              disabled={h.busy}
+              items={[
+                { value: "suggested", label: "Suggested" },
+                { value: "custom", label: "Custom" },
+              ]}
+            />
+            <Text style={s.copy}>
+              For a prescribed fluid limit, use Custom.
+            </Text>
+          </Group>
+          {d.mode === "suggested" ? (
+            <Group title="Your Details" icon="person">
+              <GenderField
+                value={d.sex}
+                onChange={(sex) => change({ sex })}
+                disabled={h.busy}
+              />
+              <Text style={s.label}>Usual activity</Text>
+              <Choices
+                value={d.activity}
+                onChange={(activity) => change({ activity })}
+                disabled={h.busy}
+                items={fluidActivities.map((a) => ({
+                  value: a.id,
+                  label: a.label,
+                  detail: a.detail,
+                }))}
+              />
+            </Group>
+          ) : null}
+          <Group title="Units and Amount" icon="water">
+            {units}
+            {d.mode === "custom" ? (
+              <Field
+                label={`Custom beverage goal (${d.unit === "ml" ? "mL" : "US fl oz"})`}
+                value={d.custom}
+                disabled={h.busy}
+                onChange={(custom) => {
+                  const n = parseNumber(custom);
+                  change({
+                    custom,
+                    customMl:
+                      n === undefined
+                        ? undefined
+                        : d.unit === "ml"
+                          ? n
+                          : fluidOuncesToMilliliters(n),
+                  });
+                }}
+              />
+            ) : (
+              <Text style={s.copy}>Choose how to display your daily goal.</Text>
+            )}
+          </Group>
+          {h.error ? (
+            <Text accessibilityRole="alert" style={s.error}>
+              {h.error}
+            </Text>
+          ) : null}
+          <HelperButton
+            label={
+              h.busy ? "Saving calculation..." : r ? "Recalculate" : "Calculate"
+            }
+            disabled={h.busy}
+            onPress={() =>
+              void h.calculate((input) => {
+                const result = calculateFluidResult(input);
+                onPreview?.(result.target);
+                return result;
+              })
+            }
+          />
+          {r ? (
+            <HelperButton
+              label="Cancel edits"
+              secondary
+              disabled={h.busy}
+              onPress={() => void h.cancel()}
+            />
+          ) : null}
         </>
       )}
-      <Pressable
-        accessibilityRole="button"
-        onPress={calculate}
-        disabled={saving}
-        style={styles.button}
-      >
-        <Text style={styles.buttonText}>Calculate fluid goal</Text>
-      </Pressable>
-      {preview ? (
-        <View style={styles.preview}>
-          <Text style={styles.title}>
-            {unit === "ml"
-              ? `About ${Math.round(preview.ml).toLocaleString()} mL/day`
-              : `About ${Math.round(millilitersToFluidOunces(preview.ml))} US fl oz/day`}
-          </Text>
-          <Text style={styles.copy}>
-            {Math.round(preview.ml).toLocaleString()} mL ·{" "}
-            {mode === "custom"
-              ? "Your custom goal"
-              : "Adjustable starting estimate"}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            disabled={saving}
-            style={styles.button}
-            onPress={async () => {
-              setSaving(true);
-              setError("");
-              try {
-                await onUse(preview.ml, {
-                  ...preview.calculation,
-                  acceptedAt: new Date().toISOString(),
-                });
-              } catch (e) {
-                setError(
-                  e instanceof Error ? e.message : "Could not save the goal.",
-                );
-              } finally {
-                setSaving(false);
-              }
-            }}
-          >
-            <Text style={styles.buttonText}>
-              {saving ? "Saving..." : "Use this goal"}
-            </Text>
-          </Pressable>
-        </View>
-      ) : null}
-      {error ? (
-        <Text accessibilityLiveRegion="polite" style={styles.copy}>
-          {error}
+      {!h.editing && h.error ? (
+        <Text accessibilityRole="alert" style={s.error}>
+          {h.error}
         </Text>
       ) : null}
+      <Disclosure title="How fluid estimates work">
+        <Text style={s.copy}>
+          Suggested mode starts with 3.0 L for the male reference or 2.2 L for
+          the female reference, from beverages. Food water is already accounted
+          for. These are flexible adult population references, not individual
+          minimums.
+        </Text>
+        <Text style={s.copy}>
+          Usual activity adds 0, 250, 500 or 750 mL. These app planning
+          allowances do not measure your fluid losses. Adjust for thirst and
+          sweating. Custom mode uses only the amount you enter.
+        </Text>
+        <Text style={s.copy}>
+          This is a daily beverage goal, not a measurement of hydration status.
+        </Text>
+      </Disclosure>
     </View>
   );
 }
-const styles = StyleSheet.create({
-  title: {
-    fontSize: 23,
-    fontWeight: "700",
-    color: colors.text,
-    marginBottom: 12,
-  },
-  copy: {
-    fontSize: 14,
-    lineHeight: 21,
-    color: colors.secondary,
-    marginBottom: 16,
-  },
-  label: { fontSize: 14, fontWeight: "600", color: colors.text },
-  choices: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginVertical: 12,
-  },
-  choice: {
-    minHeight: 44,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: colors.separator,
-    borderRadius: 12,
-    justifyContent: "center",
-  },
-  selected: { borderColor: colors.blue, backgroundColor: colors.blueSoft },
-  field: { marginBottom: 14, gap: 8 },
-  input: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: colors.separator,
-    borderRadius: 12,
-    padding: 12,
-    color: colors.text,
-    fontSize: 17,
-  },
-  button: {
-    minHeight: 48,
-    backgroundColor: colors.blue,
-    borderRadius: 12,
-    padding: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  preview: { marginTop: 16 },
-});

@@ -101,7 +101,6 @@ export function Dashboard({
   onEditingChange,
   header,
   onCommit,
-  reminders = [],
 }: {
   user: string;
   header?: (begin: () => void, ready: boolean) => ReactNode;
@@ -543,32 +542,6 @@ export function Dashboard({
                               }}
                             />
                           ))}
-                        </View>
-                      ) : null}
-                      {w.type === "streaks" ? (
-                        <View style={{ gap: 6 }}>
-                          <Text style={styles.heading}>Recurring reminder</Text>
-                          {reminders.length ? (
-                            reminders.map((r) => (
-                              <ChoiceRow
-                                key={r.id}
-                                disabled={
-                                  !w.config.habits?.includes("reminder")
-                                }
-                                label={r.label}
-                                selected={w.config.reminderId === r.id}
-                                onPress={() =>
-                                  patch(w.id, {
-                                    config: { ...w.config, reminderId: r.id },
-                                  })
-                                }
-                              />
-                            ))
-                          ) : (
-                            <Text style={styles.copy}>
-                              Create a recurring reminder in Reminders first.
-                            </Text>
-                          )}
                         </View>
                       ) : null}
                       <Action

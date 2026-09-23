@@ -119,20 +119,9 @@ test("review all screens at phone and desktop widths", async ({
         ).toBeVisible();
       if (title === "Profile") {
         await expect(
-          page.getByRole("button", { name: "Name saved", exact: true }),
-        ).toBeDisabled();
-        await page.getByRole("tab", { name: "Settings", exact: true }).click();
-        await expect(
-          page.getByText("Appearance", { exact: true }),
+          page.getByRole("button", { name: /^Personal Details,/ }),
         ).toBeVisible();
-        expect(await unnamedVisibleControls(page)).toEqual([]);
-        await page.screenshot({
-          path: testInfo.outputPath(`Settings-${width}.png`),
-        });
-        await page
-          .getByRole("tab", { name: "Profile", exact: true })
-          .first()
-          .click();
+        await expect(page.getByRole("textbox")).toHaveCount(0);
       }
       expect(await unnamedVisibleControls(page)).toEqual([]);
       await page.screenshot({
@@ -163,6 +152,7 @@ test("water save, retry and deletion stay separate from food history", async ({
   ];
   await signIn(page);
   await quickLog(page, "Water");
+  await page.getByRole("radio", { name: "Water", exact: true }).click();
   await page.getByRole("button", { name: "Save fluid", exact: true }).click();
   await expect(
     page.getByText("Enter an amount greater than zero."),
@@ -535,40 +525,15 @@ test("profile name persistence and browser reminder guidance", async ({
 }) => {
   await signIn(page);
   await page.getByRole("tab", { name: "Profile", exact: true }).first().click();
-  await page.getByRole("tab", { name: "Settings", exact: true }).click();
-  await expect(page.getByText("Appearance", { exact: true })).toBeVisible();
-  await expect(
-    page.getByRole("radio", { name: "Device", exact: true }),
-  ).toBeChecked();
-  await page.getByRole("radio", { name: "Dark", exact: true }).click();
-  await expect(
-    page.getByRole("radio", { name: "Dark", exact: true }),
-  ).toBeChecked();
-  await page.getByRole("tab", { name: "Profile", exact: true }).first().click();
-  await expect(
-    page.getByRole("button", { name: "Name saved", exact: true }),
-  ).toBeDisabled();
-  await page.getByPlaceholder("First name", { exact: true }).fill("Updated");
-  await page.getByRole("button", { name: "Save name", exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "Name saved", exact: true }),
-  ).toBeDisabled();
-  expect(backend.tables.profiles[0].first_name).toBe("Updated");
-  await page
-    .getByRole("textbox", { name: "Calories / day", exact: true })
-    .fill("2300");
-  await page.getByRole("button", { name: "Save goals", exact: true }).click();
+  await page.getByRole("button", { name: /^Personal Details,/ }).click();
+  await page.getByLabel("First name", { exact: true }).fill("Updated");
+  await page.getByRole("button", { name: "Save details", exact: true }).click();
   await expect
-    .poll(() => backend.tables.profiles[0].daily_calorie_goal)
-    .toBe(2300);
-  await page.getByRole("tab", { name: "Settings", exact: true }).click();
-  await expect(
-    page.getByText("Export your data", { exact: true }),
-  ).toBeVisible();
+    .poll(() => backend.tables.profiles[0].first_name)
+    .toBe("Updated");
+  await page.getByRole("button", { name: "Export Data", exact: true }).click();
   const downloadPromise = page.waitForEvent("download");
-  await page
-    .getByRole("button", { name: "Export records", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Export", exact: true }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toMatch(
     /^HealthApp-data-\d{4}-\d{2}-\d{2}\.zip$/,
@@ -576,6 +541,9 @@ test("profile name persistence and browser reminder guidance", async ({
   await expect(
     page.getByText("Export finished.", { exact: true }),
   ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Back to Profile", exact: true })
+    .click();
   await quickLog(page, "Reminders");
   await expect(page.getByText("Set reminders on your iPhone")).toBeVisible();
   await expect(page.getByRole("button", { name: "Save reminder" })).toHaveCount(
@@ -583,7 +551,7 @@ test("profile name persistence and browser reminder guidance", async ({
   );
   await page.getByRole("tab", { name: "Profile", exact: true }).click();
   await page.getByRole("tab", { name: "Profile", exact: true }).first().click();
-  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  await page.getByRole("button", { name: "Sign Out", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Sign in", exact: true }),
   ).toBeVisible();

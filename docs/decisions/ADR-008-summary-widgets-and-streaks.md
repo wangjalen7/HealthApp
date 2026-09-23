@@ -1,6 +1,6 @@
 # ADR-008: Device-local Summary layout and dated streak evidence
 
-Status: Original September 18 implementation deployed. September 22 refinements implemented locally; Summary migration 202609220001 deployed; account-deletion deployment and physical-iPhone validation pending.
+Status: Original September 18 implementation deployed. September 22 refinements implemented locally; Summary migration 202609220001 deployed; account-deletion migration/function deployed and disposable hosted checks pass; physical-iPhone validation pending.
 Date: 2026-09-18
 
 ## Presentation
@@ -51,7 +51,7 @@ Linked SQL/RLS verification and database lint passed on 2026-09-18 after the per
 - BP now counts one valid manual/imported pair per local day regardless of old weekday/import settings. Detail copy explains the changed historical interpretation; pairing/deduplication remains.
 - Training retains valid completed lifting/cardio rules and Monday-Sunday boundaries. Show days this week and consecutive qualifying weeks; future days do not break an unfinished week. New rules cover available whole-week history, while edits apply next Monday.
 - New calorie settings are inclusive at-or-under / at-or-over the saved numeric target and still require a nonempty, confirmed day with complete evidence. Legacy tolerance/range revisions remain readable historically; the migration adds an under revision for the next local day (or the existing future boundary). Goal edits remain prospective.
-- Reviewed migration 202609220001 is now deployed and live RPC initialization/retry/permission checks pass. Secure deletion migration 202609220002 remains pending. See SUMMARY_REFINEMENTS.md for evidence and rollout.
+- Reviewed migration 202609220001 is now deployed and live RPC initialization/retry/permission checks pass. Secure deletion migration 202609220002 and delete-account v1 are deployed; disposable hosted authorization, cleanup, recovery and isolation checks pass. See SUMMARY_REFINEMENTS.md for evidence and rollout.
 
 ## Subsequent September 22 removal (supersedes confirmation rules above)
 
@@ -66,3 +66,9 @@ The full preview is accessed through Preview widget in a separate view of the sa
 ## Current-week streak indicators - September 22
 
 Small and Large streak cards share seven Monday-Sunday columns, with weekday initials, green checks for qualifying days and day-of-month numbers underneath. Daily habits use that date's evaluated period; training uses distinct training dates from the current week's evidence, not the weekly result for each day. Upcoming days remain neutral, unknown days show a question mark and unscheduled/pre-activation days show a dash. This changes presentation only: lifetime current/best streak counts and detail history remain. The Summary card omits the activation date; details retain the best-streak history start date, which may differ by habit because available evidence and dated goals begin on different days.
+
+## Goal-only streaks and entry dates - September 22 (supersedes logging options above)
+
+The selectable streaks are now calorie target, protein target, fluid target and weekly training consistency. Logging-only and reminder streaks retire from saved layouts and the picker; mixed cards retain their goal selections and IDs, empty cards disappear and duplicate resulting selections coalesce. Server records are retained, while active rule loading ignores retired habits. Current-week checks remain; daily Met/progress copy is removed. Legacy weight evaluation no longer filters imported readings using an old includeImports preference, matching the combined-source rule for BP and existing goal evidence.
+
+Health entries accept an optional local entry day, defaulting to today at save time. Weight/BP, meal, fluid, lifting and cardio forms share a native/web date control; explicit dates persist in meal/workout/cardio drafts and survive AI appends. Repositories validate dates, reject future entries and preserve the chosen local calendar day when constructing occurrence timestamps. The selected day participates in mutation identity, while resolved timestamps stay in the persisted mutation payload for retries. Weight photos use the selected entry day; gallery uploads allow their own date. This does not change goal effective-date history, source permissions or health records already saved.

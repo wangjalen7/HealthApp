@@ -68,6 +68,7 @@ export function mergeWorkoutDrafts(
 ): WorkoutDraft {
   if (!existing || mode === "replace") return proposed;
   return {
+    entryDay: existing.entryDay,
     muscleGroups: [
       ...new Set([...existing.muscleGroups, ...proposed.muscleGroups]),
     ],

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { habits, type Habit } from "../summary/layout";
+import { legacyHabits, retiredHabits, type Habit } from "../summary/layout";
 export const ruleConfigSchema = z
   .object({
     weekdays: z
@@ -8,7 +8,7 @@ export const ruleConfigSchema = z
       .max(7)
       .default([0, 1, 2, 3, 4, 5, 6]),
     trainingDays: z.number().int().min(1).max(7).default(3),
-    includeImports: z.boolean().default(false),
+    includeImports: z.boolean().default(true),
     calorieMode: z
       .enum(["under", "over", "tolerance", "range"])
       .default("under"),
@@ -24,22 +24,39 @@ export const ruleConfigSchema = z
     "Enter a valid inclusive calorie range.",
   );
 export type RuleConfig = z.infer<typeof ruleConfigSchema>;
-export const ruleSchema = z.preprocess((input) => {
-  if (input && typeof input === "object" && "habit" in input && input.habit === "calorie_target" && "config" in input && input.config && typeof input.config === "object" && !("calorieMode" in input.config))
-    return { ...input, config: { ...input.config, calorieMode: "tolerance" } };
-  return input;
-}, z.object({
-  habit: z.enum(habits),
-  effective_day: z.string(),
-  activation_day: z.string(),
-  enabled: z.boolean(),
-  version: z.literal(1),
-  config: ruleConfigSchema,
-}));
+export const ruleSchema = z.preprocess(
+  (input) => {
+    if (
+      input &&
+      typeof input === "object" &&
+      "habit" in input &&
+      input.habit === "calorie_target" &&
+      "config" in input &&
+      input.config &&
+      typeof input.config === "object" &&
+      !("calorieMode" in input.config)
+    )
+      return {
+        ...input,
+        config: { ...input.config, calorieMode: "tolerance" },
+      };
+    return input;
+  },
+  z.object({
+    habit: z.enum(legacyHabits),
+    effective_day: z.string(),
+    activation_day: z.string(),
+    enabled: z.boolean(),
+    version: z.literal(1),
+    config: ruleConfigSchema,
+  }),
+);
 export type Rule = z.infer<typeof ruleSchema>;
 // Keep retired server records intact, but never offer or evaluate this habit.
 export function parseActiveRules(rows: { habit: string }[]): Rule[] {
-  return rows.filter((row) => row.habit !== "food_complete").map((row) => ruleSchema.parse(row));
+  return rows
+    .filter((row) => !retiredHabits.includes(row.habit))
+    .map((row) => ruleSchema.parse(row));
 }
 export type GoalSnapshot = {
   effective_day: string;

@@ -1,3 +1,5 @@
+import { RestToday } from "../../src/features/reminders/rest-today";
+import { EntryDateField } from "../../src/ui/entry-date-field";
 import { completePendingDraftSave } from "../../src/lib/mutations";
 import { AiActionCard } from "../../src/ui/ai-action-card";
 import { ExerciseSetFields } from "../../src/features/training/exercise-set-fields";
@@ -20,7 +22,10 @@ import {
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { useAuth } from "../../src/features/auth/auth-provider";
-import { CardioLog } from "../../src/features/training/cardio-log";
+import {
+  CardioLog,
+  useCardioLog,
+} from "../../src/features/training/cardio-log";
 import { ExerciseReorderControls } from "../../src/features/training/exercise-reorder-controls";
 import { suggestGymLocations } from "../../src/features/training/catalog";
 import {
@@ -82,7 +87,9 @@ function persistWorkoutDraft(
 }
 
 export default function WorkoutScreen() {
-  const { section: requestedSection, planned } = useLocalSearchParams<{
+  const cardio = useCardioLog();
+  const { section: requestedSection, planned, routineWorkout } = useLocalSearchParams<{
+    routineWorkout?: string;
     section?: string;
     planned?: string;
   }>();
@@ -95,6 +102,7 @@ export default function WorkoutScreen() {
     if (requestedSection === "cardio" || requestedSection === "lifting")
       setSection(requestedSection);
   }, [requestedSection]);
+  const [entryDay, setEntryDay] = useState<string>();
   const [selectedGroups, setSelectedGroups] = useState<MuscleGroup[]>([]);
   const [entries, setEntries] = useState<ExerciseEntry[]>([]);
   const [activeEntry, setActiveEntry] = useState<string>();
@@ -117,6 +125,7 @@ export default function WorkoutScreen() {
   });
   const draft = useMemo<WorkoutDraft>(
     () => ({
+      entryDay,
       muscleGroups: selectedGroups,
       entries: entries.map(
         ({
@@ -144,7 +153,7 @@ export default function WorkoutScreen() {
       location,
       notes,
     }),
-    [entries, location, notes, selectedGroups],
+    [entries, location, notes, selectedGroups, entryDay],
   );
   const savingDraftRef = useRef(false);
   if (!savingDraftRef.current) draftRef.current = draft;
@@ -153,6 +162,7 @@ export default function WorkoutScreen() {
     let active = true;
     setDraftLoaded(false);
     setSelectedGroups([]);
+    setEntryDay(undefined);
     setEntries([]);
     setLocation("");
     setNotes("");
@@ -169,6 +179,7 @@ export default function WorkoutScreen() {
       if (savedDraft) {
         const normalizedDraft = normalizeWorkoutDraftStructure(savedDraft);
         setSelectedGroups(normalizedDraft.muscleGroups);
+        setEntryDay(normalizedDraft.entryDay);
         setEntries(
           normalizedDraft.entries.map((entry) => ({
             ...entry,
@@ -202,6 +213,7 @@ export default function WorkoutScreen() {
         if (!active || !savedDraft) return;
         const normalizedDraft = normalizeWorkoutDraftStructure(savedDraft);
         setSelectedGroups(normalizedDraft.muscleGroups);
+        setEntryDay(normalizedDraft.entryDay);
         setEntries(
           normalizedDraft.entries.map((entry) => ({
             ...entry,
@@ -493,6 +505,7 @@ export default function WorkoutScreen() {
       savingDraftRef.current = true;
       await persistWorkoutDraft(userId!, draftRef.current);
       await saveWorkout(session.user.id, {
+        entryDay,
         title: `${selectedGroups.join(", ")} lift`,
         muscleGroups: selectedGroups,
         location,
@@ -521,6 +534,7 @@ export default function WorkoutScreen() {
       setLocation("");
       setNotes("");
       setSelectedGroups([]);
+      setEntryDay(undefined);
     } catch (error) {
       setFeedback(
         error instanceof Error ? error.message : "Could not save workout.",
@@ -557,6 +571,16 @@ export default function WorkoutScreen() {
           <Text accessibilityRole="header" style={styles.title}>
             Workout
           </Text>
+          {routineWorkout === "true" ? <RestToday /> : null}
+          <EntryDateField
+            value={section === "lifting" ? entryDay : cardio.entryDay}
+            onChange={section === "lifting" ? setEntryDay : cardio.setEntryDay}
+            disabled={
+              section === "lifting"
+                ? saving || !draftLoaded
+                : cardio.saving || !cardio.draftLoaded
+            }
+          />
           <AiActionCard
             title="Plan workout with AI"
             subtitle="AI creates editable lifting and cardio drafts"
@@ -602,7 +626,9 @@ export default function WorkoutScreen() {
               onChange={setSection}
             />
           </View>
-          {draftLoaded && workoutDraftHasContent(draft) ? (
+          {section === "lifting" &&
+          draftLoaded &&
+          workoutDraftHasContent(draft) ? (
             <Text style={styles.draftStatus}>
               Unfinished workout saved on this device.
             </Text>
@@ -711,7 +737,7 @@ export default function WorkoutScreen() {
               )}
             </>
           ) : (
-            <CardioLog />
+            <CardioLog log={cardio} />
           )}
         </>
       }

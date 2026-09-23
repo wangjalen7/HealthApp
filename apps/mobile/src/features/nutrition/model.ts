@@ -1,3 +1,4 @@
+import { entryDaySchema } from "../../lib/entry-date";
 import { z } from "zod";
 
 export const foodUnitSchema = z.enum([
@@ -119,6 +120,7 @@ export type FoodHistorySnapshot = {
 };
 
 export const nutritionDraftSchema = z.object({
+  entryDay: entryDaySchema,
   mealType: z.enum(["breakfast", "lunch", "dinner", "snack"]).optional(),
   entries: z.array(mealDraftEntrySchema).max(100),
 });

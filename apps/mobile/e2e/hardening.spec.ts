@@ -62,6 +62,7 @@ test("lost fluid response survives restart and retry without a duplicate", async
 }) => {
   await signIn(page);
   await quickLog(page, "Water");
+  await page.getByRole("radio", { name: "Water", exact: true }).click();
   await page.getByLabel("Fluid amount", { exact: true }).fill("8");
   backend.loseNextResponse = "hydration_entries";
   await page.getByRole("button", { name: "Save fluid", exact: true }).click();
@@ -71,10 +72,8 @@ test("lost fluid response survives restart and retry without a duplicate", async
   ).toBeEnabled();
   await signIn(page); // New app process, same durable device storage.
   await page.getByRole("tab", { name: "Profile", exact: true }).first().click();
-  await page.getByRole("tab", { name: "Settings", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Pending readings and saves" })
-    .click();
+  await page.getByRole("button", { name: /^Sync & Pending Changes,/ }).click();
+  await page.getByRole("button", { name: "Refresh pending changes" }).click();
   await expect(
     page.getByText(/Unconfirmed hydration entries save/),
   ).toBeVisible();
@@ -82,6 +81,7 @@ test("lost fluid response survives restart and retry without a duplicate", async
   await expect(page.getByText(/Save confirmed\. Check History/)).toBeVisible();
   expect(backend.tables.hydration_entries).toHaveLength(1);
   await quickLog(page, "Water");
+  await page.getByRole("radio", { name: "Water", exact: true }).click();
   await page.getByLabel("Fluid amount", { exact: true }).fill("8");
   await page.getByRole("button", { name: "Save fluid", exact: true }).click();
   await expect.poll(() => backend.tables.hydration_entries.length).toBe(2);
@@ -97,15 +97,22 @@ test("independent goal edits merge and same-field conflicts retain the local for
     name: "Calories / day",
     exact: true,
   });
+  await page.getByRole("button", { name: /^Calories,/ }).click();
+  await page
+    .getByRole("button", { name: "Edit Manually", exact: true })
+    .click();
   await expect(calories).toHaveValue("2200");
   backend.tables.profiles[0].daily_protein_goal = 180;
   await calories.fill("2300");
-  await page.getByRole("button", { name: "Save goals", exact: true }).click();
-  await expect(page.getByText("Goals saved.", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Save goal", exact: true }).click();
+  await expect(page.getByText(/Goal saved\./)).toBeVisible();
   expect(backend.tables.profiles[0].daily_protein_goal).toBe(180);
+  await page
+    .getByRole("button", { name: "Edit Manually", exact: true })
+    .click();
   backend.tables.profiles[0].daily_calorie_goal = 2500;
   await calories.fill("2400");
-  await page.getByRole("button", { name: "Save goals", exact: true }).click();
+  await page.getByRole("button", { name: "Save goal", exact: true }).click();
   await expect(
     page.getByText(/This record changed on another device/),
   ).toBeVisible();
@@ -175,10 +182,8 @@ test("stale vital edit stays local until the deletion conflict is explicitly res
   expect(backend.tables.vital_samples[0].value).toBe(170);
   expect(backend.tables.vital_samples[0].deleted_at).toBeTruthy();
   await page.getByRole("tab", { name: "Profile", exact: true }).first().click();
-  await page.getByRole("tab", { name: "Settings", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Pending readings and saves" })
-    .click();
+  await page.getByRole("button", { name: /^Sync & Pending Changes,/ }).click();
+  await page.getByRole("button", { name: "Refresh pending changes" }).click();
   await expect(
     page.getByText("On this device: 175 lb", { exact: true }),
   ).toBeVisible();
@@ -186,6 +191,8 @@ test("stale vital edit stays local until the deletion conflict is explicitly res
     .getByRole("button", { name: "Use the saved version", exact: true })
     .click();
   await expect(
-    page.getByText("All saves are confirmed.", { exact: true }),
+    page.getByText("No pending health-data saves on this device.", {
+      exact: true,
+    }),
   ).toBeVisible();
 });

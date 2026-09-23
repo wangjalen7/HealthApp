@@ -16,10 +16,14 @@ test("late account-A initialization cannot publish its identity or Face ID prefe
   let sessionCheck!: (value: unknown) => void;
   const preferences = new Map<string, (value: boolean) => void>();
   const scopes: string[] = [];
+  let revocations = 0;
   const initialPromise = new Promise((resolve) => {
     initial = resolve;
   });
   const harness = {
+    revoke: async () => {
+      revocations++;
+    },
     onAppState: (callback: typeof appState) => {
       appState = callback;
       return { remove() {} };
@@ -61,19 +65,21 @@ test("late account-A initialization cannot publish its identity or Face ID prefe
           builder.onResolve(
             {
               filter:
-                /^(react-native|\.\.\/\.\.\/lib\/(supabase|config)|\.\/biometric-auth)$/,
+                /^(react-native|\.\.\/\.\.\/lib\/(supabase|config)|\.\/biometric-auth|\.\/welcome-storage)$/,
             },
             (args) => ({ path: args.path, namespace: "auth-test" }),
           );
           builder.onLoad({ filter: /.*/, namespace: "auth-test" }, (args) => ({
             contents:
-              args.path === "react-native"
-                ? "export const AppState={addEventListener:(_,cb)=>globalThis.__healthAuthTest.onAppState(cb)};export const Linking={getInitialURL:async()=>null,addEventListener:()=>({remove(){}})};"
-                : args.path.endsWith("config")
-                  ? "export const supabaseConfig={isConfigured:true};"
-                  : args.path.endsWith("supabase")
-                    ? "export const supabase={auth:globalThis.__healthAuthTest.auth,rpc:globalThis.__healthAuthTest.rpc};export const removeLegacyPersistedSupabaseSession=async()=>{};"
-                    : "export const getFaceIdAvailability=async()=>({available:true});export const isFaceIdEnabled=globalThis.__healthAuthTest.preference;export const authenticateWithFaceId=async()=>({success:true});export const enrollFaceIdLoginCredential=async()=>{};export const revokeFaceIdLoginCredential=async()=>{};",
+              args.path === "./welcome-storage"
+                ? "export const finishWelcomeIntro=async()=>{};"
+                : args.path === "react-native"
+                  ? "export const AppState={addEventListener:(_,cb)=>globalThis.__healthAuthTest.onAppState(cb)};export const Linking={getInitialURL:async()=>null,addEventListener:()=>({remove(){}})};"
+                  : args.path.endsWith("config")
+                    ? "export const supabaseConfig={isConfigured:true};"
+                    : args.path.endsWith("supabase")
+                      ? "export const supabase={auth:globalThis.__healthAuthTest.auth,rpc:globalThis.__healthAuthTest.rpc};export const removeLegacyPersistedSupabaseSession=async()=>{};"
+                      : "export const getFaceIdAvailability=async()=>({available:true});export const isFaceIdEnabled=globalThis.__healthAuthTest.preference;export const authenticateWithFaceId=async()=>({success:true});export const enrollFaceIdLoginCredential=async()=>{};export const revokeFaceIdLoginCredential=globalThis.__healthAuthTest.revoke;",
           }));
         },
       },
@@ -102,12 +108,18 @@ test("late account-A initialization cannot publish its identity or Face ID prefe
     await act(async () => {
       emit("SIGNED_IN", a);
       emit("SIGNED_IN", b);
+      emit("TOKEN_REFRESHED", { ...b });
     });
     await act(async () => {
       preferences.get("b")!(false);
     });
     assert.equal(state.session?.user.id, "b");
     assert.equal(state.faceIdEnabled, false);
+    assert.equal(
+      state.sessionReady,
+      true,
+      "a token refresh does not invalidate the pending device-security read",
+    );
     await act(async () => {
       preferences.get("a")!(true);
       initial({ data: { session: a } });
@@ -115,6 +127,14 @@ test("late account-A initialization cannot publish its identity or Face ID prefe
     assert.equal(state.session?.user.id, "b");
     assert.equal(state.faceIdEnabled, false);
     assert.equal(state.biometricLocked, false);
+    await act(async () => {
+      appState("background");
+    });
+    assert.equal(
+      state.biometricLocked,
+      false,
+      "background locking is opt-in through Face ID",
+    );
     await act(async () => {
       appState("active");
     });
@@ -149,11 +169,35 @@ test("late account-A initialization cannot publish its identity or Face ID prefe
     );
     assert.deepEqual(scopes, ["local"]);
     await act(async () => {
-      emit("TOKEN_REFRESHED", b);
+      emit("SIGNED_IN", b);
     });
+    await act(async () => {
+      preferences.get("b")!(true);
+    });
+    assert.equal(state.faceIdEnabled, true);
+    await act(async () => {
+      appState("background");
+    });
+    assert.equal(state.biometricLocked, true);
+    await act(async () => {
+      await state.unlockWithFaceId();
+    });
+    assert.equal(state.biometricLocked, false);
     await act(() => state.signOut());
     assert.deepEqual(scopes, ["local", "local"]);
+    assert.equal(revocations, 0);
     assert.equal(state.session, null);
+    await act(async () => {
+      emit("SIGNED_IN", b);
+    });
+    await act(async () => {
+      preferences.get("b")!(true);
+    });
+    assert.equal(
+      state.faceIdEnabled,
+      true,
+      "local sign-out does not revoke Face ID enrollment",
+    );
   } finally {
     if (tree) await act(() => tree.unmount());
     await unlink(output);

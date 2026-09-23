@@ -6,6 +6,7 @@ const running = new Map<
 >();
 const status = new Map<string, string>();
 export const healthSyncStatus = (user: string) => status.get(user) ?? "";
+export const healthSyncInProgress = (user: string) => running.has(user);
 export function synchronizeHealthData(user: string, configured = true) {
   const previous = running.get(user);
   if (previous) return previous;

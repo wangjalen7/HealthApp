@@ -1,3 +1,4 @@
+import { entryDaySchema } from "../../lib/entry-date";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { z } from "zod";
 
@@ -30,6 +31,7 @@ const draftEntrySchema = z.object({
 });
 
 export const workoutDraftSchema = z.object({
+  entryDay: entryDaySchema,
   muscleGroups: z.array(muscleGroupSchema).max(7),
   entries: z.array(draftEntrySchema).max(30),
   location: z.string().max(160).default(""),
@@ -77,6 +79,7 @@ function queueWrite(key: string, write: () => Promise<void>): Promise<void> {
 
 export function workoutDraftHasContent(draft: WorkoutDraft): boolean {
   return Boolean(
+    draft.entryDay ||
     draft.muscleGroups.length ||
     draft.entries.length ||
     draft.location.trim() ||

@@ -232,7 +232,7 @@ function BaseWidget({
           onNext={() => moveCalendarMonth(1)}
           onPrevious={() => moveCalendarMonth(-1)}
           reference={calendarMonth}
-          totals={monthCalories}
+          totals={loading ? {} : monthCalories}
         />
       );
     case "weight_trend":

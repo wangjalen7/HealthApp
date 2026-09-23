@@ -17,6 +17,7 @@ export const reminderRepeats = [
   "multiple_daily",
   "weekdays",
   "weekly",
+  "interval",
 ] as const;
 export type ReminderRepeat = (typeof reminderRepeats)[number];
 
@@ -41,6 +42,7 @@ export const reminderSchema = z.object({
     .max(5)
     .default([]),
   repeat: z.enum(reminderRepeats),
+  intervalDays: z.number().int().min(2).max(365).default(2),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   weekdays: z.array(z.number().int().min(0).max(6)).max(7),
   enabled: z.boolean(),
@@ -106,7 +108,7 @@ export function reminderKindLabel(kind: ReminderKind): string {
     supplement: "Supplement",
     blood_pressure: "Blood pressure",
     weight: "Weight",
-    custom: "Custom",
+    custom: "Other",
   }[kind];
 }
 
@@ -126,15 +128,18 @@ export function reminderTimes(
 export function activeReminderTimes(
   reminder: Pick<Reminder, "repeat" | "time" | "additionalTimes">,
 ): string[] {
-  return reminder.repeat === "multiple_daily"
-    ? reminderTimes(reminder)
-    : [reminder.time];
+  return reminder.repeat === "once" ? [reminder.time] : reminderTimes(reminder);
 }
 
 export function repeatSummary(
   reminder: Pick<
     Reminder,
-    "repeat" | "weekdays" | "startDate" | "time" | "additionalTimes"
+    | "repeat"
+    | "weekdays"
+    | "startDate"
+    | "time"
+    | "additionalTimes"
+    | "intervalDays"
   >,
 ): string {
   const times = activeReminderTimes(reminder)
@@ -149,6 +154,8 @@ export function repeatSummary(
   }
   if (reminder.repeat === "daily") return `Every day at ${times}`;
   if (reminder.repeat === "multiple_daily") return `Every day at ${times}`;
+  if (reminder.repeat === "interval")
+    return `Every ${reminder.intervalDays} days at ${times}, starting ${reminder.startDate}`;
   const days = reminder.weekdays.map((day) => weekdayLabels[day]).join(", ");
   return `${days || "Choose a day"} at ${times}`;
 }
@@ -164,7 +171,7 @@ export function createReminder(
     | "repeat"
     | "startDate"
     | "weekdays"
-  >,
+  > & { intervalDays?: number },
 ): Reminder {
   const now = new Date().toISOString();
   return reminderSchema.parse({
@@ -193,7 +200,7 @@ export function reminderCompletionTargetTime(
   reminder: Pick<Reminder, "repeat" | "time" | "additionalTimes">,
   at = new Date(),
 ): string | undefined {
-  if (reminder.repeat !== "multiple_daily") return undefined;
+  if (activeReminderTimes(reminder).length < 2) return undefined;
   const times = activeReminderTimes(reminder);
   const currentTime = timeFromDate(at);
   return times.filter((time) => time <= currentTime).at(-1) ?? times[0];
@@ -203,7 +210,7 @@ function completionScheduledTime(
   reminder: Pick<Reminder, "repeat" | "time" | "additionalTimes">,
   completion: ReminderCompletion,
 ): string | undefined {
-  if (reminder.repeat !== "multiple_daily") return undefined;
+  if (activeReminderTimes(reminder).length < 2) return undefined;
   return (
     completion.scheduledTime ??
     reminderCompletionTargetTime(reminder, new Date(completion.completedAt))
@@ -221,7 +228,7 @@ export function currentReminderCompletion(
     (completion) =>
       completion.reminderId === reminder.id &&
       completion.localDay === day &&
-      (reminder.repeat !== "multiple_daily" ||
+      (activeReminderTimes(reminder).length < 2 ||
         completionScheduledTime(reminder, completion) === targetTime),
   );
 }
@@ -246,13 +253,22 @@ export function completionAppliesToOccurrence(
   return (
     completion.reminderId === reminder.id &&
     completion.localDay === occurrence.localDay &&
-    (reminder.repeat !== "multiple_daily" ||
+    (activeReminderTimes(reminder).length < 2 ||
       completionScheduledTime(reminder, completion) ===
         occurrence.scheduledTime)
   );
 }
 
-function reminderOccursOnDay(reminder: Reminder, day: Date): boolean {
+export function reminderOccursOnDay(reminder: Reminder, day: Date): boolean {
+  if (localDay(day) < reminder.startDate) return false;
+  if (reminder.repeat === "interval") {
+    const [year, month, date] = reminder.startDate.split("-").map(Number);
+    const elapsed =
+      (Date.UTC(day.getFullYear(), day.getMonth(), day.getDate()) -
+        Date.UTC(year, month - 1, date)) /
+      86_400_000;
+    return elapsed >= 0 && elapsed % reminder.intervalDays === 0;
+  }
   if (reminder.repeat === "daily" || reminder.repeat === "multiple_daily") {
     return true;
   }
@@ -269,8 +285,6 @@ export function upcomingReminderOccurrences(
   limit = 60,
 ): ReminderOccurrence[] {
   const occurrences: ReminderOccurrence[] = [];
-  const horizon = new Date(now);
-  horizon.setDate(horizon.getDate() + 400);
 
   for (const reminder of reminders) {
     if (!reminder.enabled) continue;
@@ -296,9 +310,20 @@ export function upcomingReminderOccurrences(
     const firstDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const configuredStart = dateFromLocalDay(reminder.startDate, "00:00");
     if (configuredStart > firstDay) firstDay.setTime(configuredStart.getTime());
+    const horizon = new Date(firstDay);
+    horizon.setDate(
+      horizon.getDate() +
+        Math.max(
+          400,
+          reminder.repeat === "interval"
+            ? reminder.intervalDays * (Math.max(0, limit) + 1)
+            : 0,
+        ),
+    );
+    let found = 0;
     for (
       const day = new Date(firstDay);
-      day <= horizon;
+      day <= horizon && found < limit;
       day.setDate(day.getDate() + 1)
     ) {
       if (!reminderOccursOnDay(reminder, day)) continue;
@@ -318,6 +343,7 @@ export function upcomingReminderOccurrences(
           )
         ) {
           occurrences.push(occurrence);
+          found++;
         }
       }
     }

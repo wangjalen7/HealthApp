@@ -40,20 +40,22 @@ export function faceIdLoginFailure({
       success: false,
       invalidCredential: true,
       message:
-        "Reload or update HealthApp, sign in with your password, then enable Face ID again in Profile Settings.",
+        "Reload or update HealthApp, sign in with your password, then enable Face ID again in Profile > Face ID.",
     };
-  if (status === 401)
+  // A gateway/session 401 is not proof that the device credential was revoked.
+  // Only the biometric endpoint's explicit rejection may erase enrollment.
+  if (status === 401 && code === "invalid_device_credential")
     return {
       success: false,
       invalidCredential: true,
       message:
-        "Face ID sign-in needs to be enabled again. Sign in with your password, then enable Face ID in Profile Settings.",
+        "Face ID sign-in needs to be enabled again. Sign in with your password, then enable Face ID in Profile > Face ID.",
     };
   if (code === "session_unavailable")
     return {
       success: false,
       message:
-        "Face ID could not finish sign-in. Sign in with your password, then enable Face ID again in Profile Settings.",
+        "Face ID could not finish sign-in. Sign in with your password, then enable Face ID again in Profile > Face ID.",
     };
   return {
     success: false,

@@ -58,11 +58,17 @@ export async function listReminders(
     (value) => reminderSchema.safeParse(value),
     strict,
   );
-  return reminders.sort((left, right) => left.time.localeCompare(right.time));
+  if (strict && reminders.some((r) => r.userId !== userId))
+    throw Error("Reminder account does not match. Reopen this screen.");
+  return reminders
+    .filter((r) => r.userId === userId)
+    .sort((left, right) => left.time.localeCompare(right.time));
 }
 
 export function saveReminders(userId: string, reminders: Reminder[]) {
   const parsed = reminders.map((reminder) => reminderSchema.parse(reminder));
+  if (parsed.some((r) => r.userId !== userId))
+    throw Error("Reminder account changed.");
   return queueWrite(remindersKey(userId), async () => {
     await recordReminderSchedule(userId, await listReminders(userId), true);
     await recordReminderSchedule(userId, parsed);

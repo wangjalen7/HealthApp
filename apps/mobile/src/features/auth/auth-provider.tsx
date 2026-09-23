@@ -1,4 +1,6 @@
+import { prepareReminderSignOut } from "../reminders/lifecycle";
 import type { Session } from "@supabase/supabase-js";
+import { finishWelcomeIntro } from "./welcome-storage";
 import {
   createContext,
   useCallback,
@@ -34,6 +36,9 @@ type PasswordRecoveryState = {
 type AuthState = {
   session: Session | null;
   loading: boolean;
+  sessionReady: boolean;
+  sessionSecurityError: string;
+  retrySessionSecurity: () => Promise<void>;
   configured: boolean;
   biometricLocked: boolean;
   faceIdAvailability: FaceIdAvailability;
@@ -55,6 +60,8 @@ const AuthContext = createContext<AuthState | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionReady, setSessionReady] = useState(false);
+  const [sessionSecurityError, setSessionSecurityError] = useState("");
   const [biometricLocked, setBiometricLocked] = useState(false);
   const [faceIdAvailability, setFaceIdAvailability] =
     useState<FaceIdAvailability>({ available: false });
@@ -64,6 +71,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const sessionRef = useRef<Session | null>(null);
   const faceIdEnabledRef = useRef(false);
   const authenticatingRef = useRef(false);
+  const retrySecurityGeneration = useRef(0);
+  const retrySessionSecurity = useCallback(async () => {
+    const checked = sessionRef.current;
+    if (!checked) return;
+    const generation = ++retrySecurityGeneration.current;
+    setSessionSecurityError("");
+    try {
+      const [enabled, availability] = await Promise.all([
+        isFaceIdEnabled(checked.user.id),
+        getFaceIdAvailability(),
+      ]);
+      if (
+        sessionRef.current?.user.id !== checked.user.id ||
+        generation !== retrySecurityGeneration.current
+      )
+        return;
+      setFaceIdEnabledState(enabled);
+      setFaceIdAvailability(availability);
+      setSessionReady(true);
+    } catch {
+      if (
+        sessionRef.current?.user.id === checked.user.id &&
+        generation === retrySecurityGeneration.current
+      )
+        setSessionSecurityError(
+          "Could not read this device's security settings. Try again or sign out.",
+        );
+    }
+  }, []);
 
   useEffect(() => {
     faceIdEnabledRef.current = faceIdEnabled;
@@ -76,6 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     let active = true;
     let generation = 0;
+    let securityGeneration = 0;
     const initialGeneration = generation;
     void removeLegacyPersistedSupabaseSession()
       .catch(() => {
@@ -98,35 +135,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         sessionRef.current = restoredSession;
         setSession(restoredSession);
+        setSessionReady(true);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!active || generation !== initialGeneration) return;
+        // Never reveal an unverified restored session after a storage failure.
+        sessionRef.current = null;
+        setSession(null);
         setLoading(false);
       });
     const { data: subscription } = supabase.auth.onAuthStateChange(
       (event, nextSession) => {
         if (event === "INITIAL_SESSION") return;
-        const authGeneration = ++generation;
+        generation++;
+        retrySecurityGeneration.current++;
         sessionRef.current = nextSession;
         setSession(nextSession);
         setLoading(false);
         if (!nextSession) {
+          securityGeneration++;
+          setSessionReady(false);
           setBiometricLocked(false);
           setFaceIdEnabledState(false);
           return;
         }
         if (event === "SIGNED_IN") {
+          setSessionSecurityError("");
+          const checkGeneration = ++securityGeneration;
+          setSessionReady(false);
+          void finishWelcomeIntro().catch(() => undefined);
           void Promise.all([
             isFaceIdEnabled(nextSession.user.id),
             getFaceIdAvailability(),
-          ]).then(([enabled, availability]) => {
-            if (
-              !active ||
-              generation !== authGeneration ||
-              sessionRef.current?.user.id !== nextSession.user.id
-            )
-              return;
-            setFaceIdEnabledState(enabled);
-            setFaceIdAvailability(availability);
-            setBiometricLocked(false);
-          });
+          ])
+            .then(([enabled, availability]) => {
+              if (
+                !active ||
+                securityGeneration !== checkGeneration ||
+                sessionRef.current?.user.id !== nextSession.user.id
+              )
+                return;
+              setFaceIdEnabledState(enabled);
+              setFaceIdAvailability(availability);
+              setBiometricLocked(
+                enabled &&
+                  ["inactive", "background"].includes(AppState.currentState),
+              );
+              setSessionReady(true);
+            })
+            .catch(() => {
+              if (!active || securityGeneration !== checkGeneration) return;
+              setSessionSecurityError(
+                "Could not read this device's security settings. Try again or sign out.",
+              );
+            });
         }
       },
     );
@@ -195,7 +258,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (
         nextState !== "active" &&
         sessionRef.current &&
-        faceIdEnabledRef.current
+        faceIdEnabledRef.current &&
+        !authenticatingRef.current
       ) {
         setBiometricLocked(true);
       }
@@ -263,8 +327,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { success: false };
     }
     authenticatingRef.current = true;
+    const checkedSession = sessionRef.current;
     try {
       const result = await authenticateWithFaceId("Unlock HealthApp");
+      if (!checkedSession || sessionRef.current !== checkedSession)
+        return { success: false };
       if (result.success) setBiometricLocked(false);
       return result;
     } finally {
@@ -276,6 +343,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       session,
       loading,
+      sessionReady,
+      sessionSecurityError,
+      retrySessionSecurity,
       configured: supabaseConfig.isConfigured,
       biometricLocked,
       faceIdAvailability,
@@ -285,6 +355,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       refreshFaceIdAvailability,
       setFaceIdEnabled: changeFaceIdEnabled,
       signOut: async () => {
+        if (sessionRef.current)
+          await prepareReminderSignOut(sessionRef.current.user.id);
         const { error } = await supabase.auth.signOut({ scope: "local" });
         if (error) throw error;
       },
@@ -299,6 +371,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       passwordRecovery,
       refreshFaceIdAvailability,
       session,
+      sessionReady,
+      sessionSecurityError,
+      retrySessionSecurity,
       unlockWithFaceId,
     ],
   );

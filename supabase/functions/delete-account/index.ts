@@ -13,7 +13,7 @@ Deno.serve(async (request) => {
   if (request.method !== "POST") return json({ message: "Use POST." }, 405);
   let body;
   try { body = await request.json(); } catch { return json({ message: "Invalid request." }, 400); }
-  if (!body || typeof body !== "object" || !/^[a-f0-9-]{72}$/.test(body.token ?? "") || !["prepare", "run", "cancel"].includes(body.action)) return json({ message: "Invalid deletion request." }, 400);
+  if (!body || typeof body !== "object" || !/^[a-f0-9-]{72}$/.test(body.token ?? "") || !["status", "prepare", "run", "cancel"].includes(body.action)) return json({ message: "Invalid deletion request." }, 400);
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(body.token));
   const hash = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2,"0")).join("");
   const url = Deno.env.get("SUPABASE_URL")!;
@@ -27,6 +27,7 @@ Deno.serve(async (request) => {
     }
     const { data: job, error: readError } = await admin.from("account_deletion_jobs").select("user_id,completed,cancelled").eq("token_hash", hash).maybeSingle();
     if (readError) throw readError;
+    if (body.action === "status") return json({ ready: true });
     if (job?.cancelled) return json({ cancelled: true });
     if (job?.completed) return json({ completed: true });
     if (!job) {

@@ -50,6 +50,7 @@ test("weekly summaries state selected days and time", () => {
   assert.equal(
     repeatSummary({
       repeat: "weekly",
+      intervalDays: 2,
       weekdays: [1],
       startDate: "2026-09-04",
       time: "09:00",
@@ -172,4 +173,111 @@ test("early multiple-daily completion suppresses only the first upcoming time", 
     ),
     ["13:00", "18:00"],
   );
+});
+
+test("every few days uses the start-date anchor and independently completes each time", () => {
+  const r = createReminder({
+    userId: "a",
+    kind: "supplement",
+    name: "Synthetic supplement",
+    repeat: "interval",
+    intervalDays: 3,
+    startDate: "2026-09-01",
+    weekdays: [],
+    time: "08:00",
+    additionalTimes: ["20:00"],
+  });
+  const now = new Date(2026, 8, 3, 7);
+  const occurrences = upcomingReminderOccurrences([r], [], now, 5);
+  assert.deepEqual(
+    occurrences.map((o) => [o.localDay, o.scheduledTime]),
+    [
+      ["2026-09-04", "08:00"],
+      ["2026-09-04", "20:00"],
+      ["2026-09-07", "08:00"],
+      ["2026-09-07", "20:00"],
+      ["2026-09-10", "08:00"],
+    ],
+  );
+  const completion = createReminderCompletion(r, new Date(2026, 8, 4, 8));
+  assert.equal(completion.scheduledTime, "08:00");
+  assert.equal(
+    currentReminderCompletion(r, [completion], new Date(2026, 8, 4, 20)),
+    undefined,
+  );
+  const remaining = upcomingReminderOccurrences([r], [completion], now, 2);
+  assert.deepEqual(
+    remaining.map((o) => [o.localDay, o.scheduledTime]),
+    [
+      ["2026-09-04", "20:00"],
+      ["2026-09-07", "08:00"],
+    ],
+  );
+  assert.match(repeatSummary(r), /Every 3 days/);
+});
+test("selected weekdays support several times without adding off-day occurrences", () => {
+  const r = createReminder({
+    userId: "a",
+    kind: "medication",
+    name: "Synthetic",
+    repeat: "weekdays",
+    startDate: "2026-09-01",
+    weekdays: [1, 3],
+    time: "08:00",
+    additionalTimes: ["20:00"],
+  });
+  assert.deepEqual(
+    upcomingReminderOccurrences([r], [], new Date(2026, 8, 22, 7), 4).map(
+      (o) => [o.localDay, o.scheduledTime],
+    ),
+    [
+      ["2026-09-23", "08:00"],
+      ["2026-09-23", "20:00"],
+      ["2026-09-28", "08:00"],
+      ["2026-09-28", "20:00"],
+    ],
+  );
+});
+test("intervals keep local wall-clock time across DST and replenish long intervals", () => {
+  const previous = process.env.TZ;
+  process.env.TZ = "America/New_York";
+  try {
+    const r = createReminder({
+      userId: "a",
+      kind: "medication",
+      repeat: "interval",
+      intervalDays: 2,
+      startDate: "2026-03-07",
+      weekdays: [],
+      time: "09:00",
+      additionalTimes: [],
+    });
+    const list = upcomingReminderOccurrences(
+      [r],
+      [],
+      new Date(2026, 2, 7, 7),
+      3,
+    );
+    assert.deepEqual(
+      list.map((o) => o.localDay),
+      ["2026-03-07", "2026-03-09", "2026-03-11"],
+    );
+    assert.ok(list.every((o) => o.date.getHours() === 9));
+    assert.equal(
+      (list[1].date.getTime() - list[0].date.getTime()) / 3600000,
+      47,
+    );
+    assert.equal(
+      upcomingReminderOccurrences(
+        [{ ...r, intervalDays: 365 }],
+        [],
+        new Date(2026, 2, 7, 7),
+        14,
+      ).length,
+      14,
+    );
+  } finally {
+    if (previous === undefined) delete process.env.TZ;
+    else process.env.TZ = previous;
+  }
 });

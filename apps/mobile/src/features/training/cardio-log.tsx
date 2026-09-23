@@ -23,10 +23,11 @@ const activities: CardioInput["activityType"][] = [
   "cycle",
   "other",
 ];
-export function CardioLog() {
+export function useCardioLog() {
   const { session } = useAuth();
   const [activityType, setActivityType] =
     useState<CardioInput["activityType"]>();
+  const [entryDay, setEntryDay] = useState<string>();
   const [duration, setDuration] = useState("");
   const [distance, setDistance] = useState("");
   const [notes, setNotes] = useState("");
@@ -40,6 +41,7 @@ export function CardioLog() {
       const userId = session?.user.id;
       setDraftLoaded(false);
       setActivityType(undefined);
+      setEntryDay(undefined);
       setDuration("");
       setDistance("");
       setNotes("");
@@ -48,6 +50,7 @@ export function CardioLog() {
         if (!active) return;
         if (draft) {
           setActivityType(draft.activityType);
+          setEntryDay(draft.entryDay);
           setDuration(
             draft.durationMinutes === undefined
               ? ""
@@ -74,6 +77,7 @@ export function CardioLog() {
     const durationMinutes = Number(duration);
     const distanceMiles = Number(distance);
     const draft = {
+      entryDay,
       activityType,
       durationMinutes:
         Number.isInteger(durationMinutes) && durationMinutes >= 1
@@ -90,6 +94,7 @@ export function CardioLog() {
       : clearCardioDraft(userId));
   }, [
     activityType,
+    entryDay,
     distance,
     draftLoaded,
     duration,
@@ -118,6 +123,7 @@ export function CardioLog() {
     setFeedback("");
     try {
       await saveCardio(session.user.id, {
+        entryDay,
         activityType,
         durationMinutes,
         distanceMiles,
@@ -126,6 +132,7 @@ export function CardioLog() {
       await clearCardioDraft(session.user.id);
       await completePendingDraftSave(session.user.id, "cardio:create");
       setActivityType(undefined);
+      setEntryDay(undefined);
       setDuration("");
       setDistance("");
       setNotes("");
@@ -138,10 +145,45 @@ export function CardioLog() {
       setSaving(false);
     }
   }
+  return {
+    activityType,
+    setActivityType,
+    entryDay,
+    setEntryDay,
+    duration,
+    setDuration,
+    distance,
+    setDistance,
+    notes,
+    setNotes,
+    feedback,
+    saving,
+    draftLoaded,
+    save,
+  };
+}
+
+export function CardioLog({ log }: { log: ReturnType<typeof useCardioLog> }) {
+  const {
+    activityType,
+    setActivityType,
+    entryDay,
+    duration,
+    setDuration,
+    distance,
+    setDistance,
+    notes,
+    setNotes,
+    feedback,
+    saving,
+    draftLoaded,
+    save,
+  } = log;
   return (
     <View>
       {draftLoaded &&
       cardioDraftHasContent({
+        entryDay,
         activityType,
         durationMinutes: Number(duration) || undefined,
         distanceMiles: distance.trim() ? Number(distance) : undefined,

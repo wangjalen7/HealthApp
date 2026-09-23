@@ -1,5 +1,6 @@
 import { z } from "zod";
-export const habits = [
+// Retain legacy identifiers for reading historical rules without offering them.
+export const legacyHabits = [
   "daily_logging",
   "food_logging",
   "calorie_target",
@@ -11,7 +12,22 @@ export const habits = [
   "bp",
   "reminder",
 ] as const;
-export type Habit = (typeof habits)[number];
+export type Habit = (typeof legacyHabits)[number];
+export const habits = [
+  "calorie_target",
+  "protein_target",
+  "fluid_target",
+  "training",
+] as const;
+export const retiredHabits: readonly string[] = [
+  "food_complete",
+  "daily_logging",
+  "food_logging",
+  "fluid_logging",
+  "weight",
+  "bp",
+  "reminder",
+];
 export const habitLabels: Record<Habit, string> = {
   daily_logging: "Daily logging",
   food_logging: "Food logging",
@@ -156,10 +172,10 @@ export const registry: Record<WidgetType, Definition> = {
   streaks: definition(
     "streaks",
     "Streaks",
-    "Optional logging and target consistency",
+    "Calorie, protein, fluid and training goals",
     ["streaks"],
     false,
-    { habits: ["daily_logging", "training"] },
+    { habits: ["calorie_target", "training"] },
   ),
   calendar: definition(
     "calendar",
@@ -263,18 +279,26 @@ export function readLayout(raw: string | null): {
       );
     if (value?.version === 1 && Array.isArray(value.widgets)) {
       const seen = new Set<string>();
-      value.widgets = value.widgets.flatMap((widget: { type?: string; config?: { habits?: unknown[] } } | null) => {
-        if (widget?.type !== "streaks" || !Array.isArray(widget.config?.habits)) return [widget];
-        const selected = widget.config.habits;
-        const active = selected.filter((habit) => habit !== "food_complete");
-        if (active.length !== selected.length) migrated = true;
-        if (!active.length && selected.includes("food_complete")) return [];
-        const key = [...active].sort().join();
-        // Removal can make formerly distinct streak widgets identical.
-        if (seen.has(key) && migrated) return [];
-        seen.add(key);
-        return [{ ...widget, config: { ...widget.config, habits: active } }];
-      });
+      value.widgets = value.widgets.flatMap(
+        (widget: { type?: string; config?: { habits?: unknown[] } } | null) => {
+          if (
+            widget?.type !== "streaks" ||
+            !Array.isArray(widget.config?.habits)
+          )
+            return [widget];
+          const selected = widget.config.habits;
+          const active = selected.filter(
+            (habit) => !retiredHabits.includes(String(habit)),
+          );
+          if (active.length !== selected.length) migrated = true;
+          if (!active.length && active.length !== selected.length) return [];
+          const key = [...active].sort().join();
+          // Removal can make formerly distinct streak widgets identical.
+          if (seen.has(key) && migrated) return [];
+          seen.add(key);
+          return [{ ...widget, config: { ...widget.config, habits: active } }];
+        },
+      );
     }
     const parsed = layoutSchema.safeParse(value);
     if (parsed.success)

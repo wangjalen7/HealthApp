@@ -1,8 +1,9 @@
 import { PrivacyBoundary } from "../../ui/privacy-boundary";
+import { ContinueEntry } from "../auth/entry-provider";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Text, View } from "react-native";
-import { router, Redirect } from "expo-router";
+import { Text, View } from "react-native";
+import { Redirect } from "expo-router";
 import { useAuth } from "../auth/auth-provider";
 import { AccountContacts } from "../auth/account-contacts";
 import { FaceIdSetup } from "../auth/face-id-setup";
@@ -11,15 +12,19 @@ import {
   saveDailyGoals,
   type DailyGoals,
 } from "../goals/repository";
-import { GoalHelper } from "../goals/goal-helper";
-import { FluidGoalForm } from "../goals/fluid-goal-form";
+import { GoalHelper, type GoalHelperMode } from "../goals/goal-helper";
+import {
+  calorieDefaults,
+  fluidDefaults,
+  restoreCalorie,
+  restoreFluid,
+  displayNumber,
+} from "../goals/helper-model";
 import {
   poundsToKilograms,
   kilogramsToPounds,
   millilitersToFluidOunces,
 } from "../goals/calculator";
-import { useReducedMotion } from "../../ui/motion";
-import { colors } from "../../ui/theme";
 import { useAccountSetup } from "./provider";
 import { saveAccountSetup } from "./repository";
 import {
@@ -41,9 +46,9 @@ import {
 export function OnboardingScreen() {
   const { session, biometricLocked, unlockWithFaceId, signOut } = useAuth();
   const { setup } = useAccountSetup();
-  if (!session) return <Redirect href="/(auth)/welcome" />;
+  if (!session) return <Redirect href="/(auth)/sign-in" />;
   if (!setup) return <SetupLoading />;
-  if (setup.completed_at) return <Redirect href="/(app)" />;
+  if (setup.completed_at) return <ContinueEntry />;
   return (
     <PrivacyBoundary
       locked={biometricLocked}
@@ -92,7 +97,7 @@ function Flow() {
     [protein, setProtein] = useState(""),
     [weight, setWeight] = useState("");
   const [loadRevision, setLoadRevision] = useState(0);
-  const [helper, setHelper] = useState(false),
+  const [helper, setHelper] = useState<GoalHelperMode>(),
     [recovery, setRecovery] = useState(false),
     [ready, setReady] = useState(false),
     [busy, setBusy] = useState(false),
@@ -101,16 +106,6 @@ function Flow() {
     active = useRef(true);
   const storage = useRef(Promise.resolve());
   const draftKey = "healthapp:onboarding-draft:" + userId;
-  const [previewMl, setPreviewMl] = useState(0);
-  const fill = useRef(new Animated.Value(0)).current;
-  const reduced = useReducedMotion();
-  useEffect(() => {
-    Animated.timing(fill, {
-      toValue: Math.min(1, previewMl / 4000),
-      duration: reduced ? 0 : 240,
-      useNativeDriver: false,
-    }).start();
-  }, [previewMl, fill, reduced]);
   useEffect(() => {
     active.current = true;
     setReady(false);
@@ -120,7 +115,6 @@ function Flow() {
         const raw = await AsyncStorage.getItem(draftKey);
         if (!active.current) return;
         setGoals(saved);
-        setPreviewMl(saved.waterGoalMl ?? 0);
         setCalories(
           saved.calorieGoal === undefined ? "" : String(saved.calorieGoal),
         );
@@ -220,34 +214,47 @@ function Flow() {
     const next = await saveAccountSetup(state, { ...changes, step });
     if (active.current) accept(next);
   }
-  async function persistGoals(next: DailyGoals) {
+  async function persistGoals(
+    next: DailyGoals,
+    fields: ("calories" | "protein" | "weight")[] = [
+      "calories",
+      "protein",
+      "weight",
+    ],
+  ) {
     const saved = await saveDailyGoals(userId, next, goals!);
     if (active.current) {
       setGoals(saved);
-      setCalories(
-        saved.calorieGoal === undefined ? "" : String(saved.calorieGoal),
-      );
-      setProtein(
-        saved.proteinGoal === undefined ? "" : String(saved.proteinGoal),
-      );
-      setWeight(
-        saved.weightGoalLb === undefined
-          ? ""
-          : String(
-              units === "metric"
-                ? poundsToKilograms(saved.weightGoalLb)
-                : saved.weightGoalLb,
-            ),
-      );
+      if (fields.includes("calories"))
+        setCalories(
+          saved.calorieGoal === undefined ? "" : String(saved.calorieGoal),
+        );
+      if (fields.includes("protein"))
+        setProtein(
+          saved.proteinGoal === undefined ? "" : String(saved.proteinGoal),
+        );
+      if (fields.includes("weight"))
+        setWeight(
+          saved.weightGoalLb === undefined
+            ? ""
+            : String(
+                units === "metric"
+                  ? poundsToKilograms(saved.weightGoalLb)
+                  : saved.weightGoalLb,
+              ),
+        );
     }
     return saved;
   }
-  async function acceptSuggestedGoals(next: DailyGoals) {
+  async function acceptSuggestedGoals(
+    next: DailyGoals,
+    fields: ("calories" | "protein" | "weight")[],
+  ) {
     if (lock.current) throw Error("A save is already in progress.");
     lock.current = true;
     setBusy(true);
     try {
-      return await persistGoals(next);
+      return await persistGoals(next, fields);
     } finally {
       lock.current = false;
       if (active.current) setBusy(false);
@@ -281,7 +288,6 @@ function Flow() {
         const saved = await saveAccountSetup(state, { complete: true });
         await AsyncStorage.removeItem(draftKey);
         accept(saved);
-        router.replace("/(app)");
       }
     });
   }
@@ -302,7 +308,7 @@ function Flow() {
     fluids:
       "Water and other beverages count toward your fluid goal. Food moisture stays separate.",
     convenience:
-      "Choose what helps. You can change these choices later in Settings.",
+      "Choose what helps. You can change these choices later in Profile.",
     summary:
       "Here’s what is actually saved. You can edit any item before you start.",
   };
@@ -315,6 +321,20 @@ function Flow() {
         ? Math.round(goals.waterGoalMl) + " mL/day"
         : millilitersToFluidOunces(goals.waterGoalMl).toFixed(1) +
           " US fl oz/day";
+  const calorieEstimate = goals
+    ? restoreCalorie(
+        goals.calorieCalculation,
+        calorieDefaults(units, "maintain", undefined, goals.weightGoalLb),
+        goals.calorieGoal,
+      ).result
+    : undefined;
+  const fluidEstimate = goals
+    ? restoreFluid(
+        goals.fluidCalculation,
+        fluidDefaults(fluid, goals.waterGoalMl),
+        goals.waterGoalMl,
+      ).result
+    : undefined;
   return (
     <SetupFrame
       title={titles[state.step]}
@@ -391,14 +411,31 @@ function Flow() {
         </>
       ) : state.step === "goals" ? (
         <>
-          <SetupButton
-            label="Help estimate my goals"
-            secondary
-            onPress={() => setHelper(true)}
-          />
+          <View style={ui.surface}>
+            <Text style={ui.label}>Saved calorie goal</Text>
+            <Text style={ui.value}>
+              {goals?.calorieGoal === undefined
+                ? "Not set"
+                : goals.calorieGoal.toLocaleString() + " kcal/day"}
+            </Text>
+            {calorieEstimate ? (
+              <Text style={ui.copy}>
+                Last calculated estimate:{" "}
+                {calorieEstimate.target.toLocaleString()} kcal/day. Review it
+                before applying or recalculating.
+              </Text>
+            ) : null}
+            <SetupButton
+              label={
+                calorieEstimate ? "Edit & Recalculate" : "Find My Calorie Goal"
+              }
+              secondary
+              onPress={() => setHelper("calories")}
+            />
+          </View>
           <Text style={ui.caption}>
-            Estimates use the same calculator as Profile. Measurements entered
-            there are used only for calculation, not recorded as health
+            Use the same saved estimates and target-date planning as Profile, or
+            enter targets below. Calculation measurements do not add health
             readings.
           </Text>
           <SetupField
@@ -426,57 +463,36 @@ function Flow() {
         </>
       ) : state.step === "fluids" ? (
         <>
-          <View style={[ui.surface, { alignItems: "center" }]}>
-            <View
-              style={{
-                height: 84,
-                width: 56,
-                borderRadius: 15,
-                overflow: "hidden",
-                backgroundColor: colors.blueSoft,
-                justifyContent: "flex-end",
-              }}
-            >
-              <Animated.View
-                style={{
-                  backgroundColor: colors.blue,
-                  height: fill.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ["0%", "100%"],
-                  }),
-                }}
-              />
-            </View>
-            <Text style={ui.value}>
-              {previewMl
-                ? fluid === "ml"
-                  ? Math.round(previewMl) + " mL"
-                  : millilitersToFluidOunces(previewMl).toFixed(1) + " US fl oz"
-                : "Choose your target"}
+          <View style={ui.surface}>
+            <Text style={ui.label}>Saved daily fluid goal</Text>
+            <Text accessibilityLiveRegion="polite" style={ui.value}>
+              {displayFluid}
             </Text>
-            <Text style={ui.caption}>Saved: {displayFluid}</Text>
-          </View>
-          <FluidGoalForm
-            initialUnit={fluid}
-            savedGoalMl={goals?.waterGoalMl}
-            onPreview={setPreviewMl}
-            onUse={async (ml, calculation) => {
-              if (lock.current) throw Error("A save is already in progress.");
-              lock.current = true;
-              setBusy(true);
-              try {
-                await persistGoals({
-                  ...goals!,
-                  waterGoalMl: ml,
-                  fluidCalculation: calculation,
-                });
-                setPreviewMl(ml);
-              } finally {
-                lock.current = false;
-                setBusy(false);
+            {fluidEstimate ? (
+              <Text style={ui.copy}>
+                Last calculated estimate:{" "}
+                {fluid === "ml"
+                  ? displayNumber(fluidEstimate.target, 0) + " mL/day"
+                  : displayNumber(
+                      millilitersToFluidOunces(fluidEstimate.target),
+                      1,
+                    ) + " US fl oz/day"}
+                . Your saved estimate and applied goal are separate.
+              </Text>
+            ) : null}
+            <SetupButton
+              label={
+                fluidEstimate ? "Edit & Recalculate" : "Find My Fluid Goal"
               }
-            }}
-          />
+              secondary
+              onPress={() => setHelper("fluids")}
+            />
+          </View>
+          <Text style={ui.caption}>
+            Choose Suggested or Custom in the helper. Review your result, then
+            use it when you're ready. Your edits and calculations are kept for
+            later.
+          </Text>
         </>
       ) : state.step === "convenience" ? (
         <>
@@ -494,8 +510,9 @@ function Flow() {
           <View style={ui.surface}>
             <Text style={ui.label}>Reminders when you want them</Text>
             <Text style={ui.copy}>
-              After setup, open Reminders from Track to choose a reminder.
-              Notification permission is requested only when you enable one.
+              After setup, open Reminders in Profile to choose routine or custom
+              reminders. Notification permission is requested only when you
+              enable one.
             </Text>
           </View>
         </>
@@ -549,34 +566,41 @@ function Flow() {
         </>
       )}
       <GoalHelper
-        visible={helper}
+        onGoalsChange={setGoals}
+        visible={Boolean(helper)}
         defaultUnitSystem={units}
         defaultFluidUnit={fluid}
         defaultIntent="maintain"
-        initialMode="calories"
+        initialMode={helper ?? "calories"}
         savedWaterGoalMl={goals?.waterGoalMl}
         savedWeightGoalLb={goals?.weightGoalLb}
-        onClose={() => setHelper(false)}
+        onClose={() => setHelper(undefined)}
         onUseCalories={async (
           calorieGoal,
           weightGoalLb,
           calorieCalculation,
         ) => {
-          await acceptSuggestedGoals({
-            ...goals!,
-            calorieGoal,
-            weightGoalLb: weightGoalLb ?? goals?.weightGoalLb,
-            calorieCalculation,
-          });
-          setHelper(false);
+          await acceptSuggestedGoals(
+            {
+              ...goals!,
+              calorieGoal,
+              weightGoalLb: weightGoalLb ?? goals?.weightGoalLb,
+              calorieCalculation,
+            },
+            weightGoalLb === undefined ? ["calories"] : ["calories", "weight"],
+          );
+          setHelper(undefined);
         }}
         onUseFluid={async (waterGoalMl, fluidCalculation) => {
-          await acceptSuggestedGoals({
-            ...goals!,
-            waterGoalMl,
-            fluidCalculation,
-          });
-          setHelper(false);
+          await acceptSuggestedGoals(
+            {
+              ...goals!,
+              waterGoalMl,
+              fluidCalculation,
+            },
+            [],
+          );
+          setHelper(undefined);
         }}
       />
     </SetupFrame>

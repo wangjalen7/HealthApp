@@ -1,3 +1,4 @@
+import { entryTimestamp } from "../../lib/entry-date";
 import { runMutation, changeRecord } from "../../lib/mutations";
 import { z } from "zod";
 
@@ -132,7 +133,9 @@ export async function uploadProgressPhoto(
   userId: string,
   photo: PreparedProgressPhoto,
   weightSampleId: string,
+  entryDay?: string,
 ): Promise<ProgressPhoto> {
+  const takenAt = entryTimestamp(entryDay);
   if (photo.byteSize > progressPhotoMaxBytes) {
     throw new Error("Progress photos must be 2 MB or smaller.");
   }
@@ -141,12 +144,12 @@ export async function uploadProgressPhoto(
     `photo:create:${weightSampleId}`,
     {
       weightSampleId,
+      entryDay,
       base64: photo.base64,
       width: photo.width,
       height: photo.height,
     },
     () => {
-      const takenAt = new Date().toISOString();
       const localDay = localPhotoDay(takenAt);
       const id = createId();
       const objectPath = `${userId}/${localDay}/${id}.jpg`;

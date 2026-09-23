@@ -1,0 +1,1837 @@
+{
+  "reviewDate": "2026-09-23",
+  "head": "e39d7c003a9a3324e55d62e15398265b5d088fe0",
+  "scope": "Current local working tree, including uncommitted changes; hashes identify inventory and do not assert every line was manually audited.",
+  "dirtyStatus": [
+    "M apps/mobile/app/(app)/_layout.tsx",
+    " M apps/mobile/app/(app)/nutrition.tsx",
+    " M apps/mobile/app/(app)/placeholder.tsx",
+    " D apps/mobile/app/(app)/profile.tsx",
+    " M apps/mobile/app/(app)/reminders.tsx",
+    " M apps/mobile/app/(app)/water.tsx",
+    " M apps/mobile/app/(app)/workout.tsx",
+    " M apps/mobile/app/(auth)/welcome.tsx",
+    " M apps/mobile/app/index.tsx",
+    " M apps/mobile/e2e/drinks.spec.ts",
+    " M apps/mobile/e2e/goal-helper.spec.ts",
+    " M apps/mobile/e2e/hardening.spec.ts",
+    " M apps/mobile/e2e/interaction-revisions.spec.ts",
+    " M apps/mobile/e2e/login-controls.spec.ts",
+    " M apps/mobile/e2e/onboarding.spec.ts",
+    " M apps/mobile/e2e/progress-photos.spec.ts",
+    " M apps/mobile/e2e/review.spec.ts",
+    " M apps/mobile/e2e/summary-refinements.spec.ts",
+    " M apps/mobile/src/features/auth/account-contacts.tsx",
+    " M apps/mobile/src/features/auth/account-deletion.tsx",
+    " M apps/mobile/src/features/auth/auth-provider.test.ts",
+    " M apps/mobile/src/features/auth/auth-provider.tsx",
+    " M apps/mobile/src/features/auth/auth-screen.tsx",
+    " M apps/mobile/src/features/auth/biometric-function-error.ts",
+    " M apps/mobile/src/features/auth/face-id-setup.tsx",
+    " M apps/mobile/src/features/auth/security-settings.tsx",
+    " M apps/mobile/src/features/coach/draft-action-model.ts",
+    " M apps/mobile/src/features/coach/draft-actions.test.ts",
+    " M apps/mobile/src/features/coach/draft-actions.ts",
+    " M apps/mobile/src/features/goals/fluid-goal-form.tsx",
+    " M apps/mobile/src/features/goals/goal-helper.tsx",
+    " M apps/mobile/src/features/goals/repository.ts",
+    " M apps/mobile/src/features/healthkit/unified-sync.ts",
+    " M apps/mobile/src/features/hydration/drink-selector.tsx",
+    " M apps/mobile/src/features/hydration/model.ts",
+    " M apps/mobile/src/features/hydration/repository.ts",
+    " M apps/mobile/src/features/nutrition/draft.ts",
+    " M apps/mobile/src/features/nutrition/model.ts",
+    " M apps/mobile/src/features/nutrition/repository.ts",
+    " M apps/mobile/src/features/onboarding/account-preferences.tsx",
+    " M apps/mobile/src/features/onboarding/components.tsx",
+    " M apps/mobile/src/features/onboarding/onboarding-screen.tsx",
+    " M apps/mobile/src/features/profile/repository.ts",
+    " M apps/mobile/src/features/progress-photos/progress-photo-gallery.tsx",
+    " M apps/mobile/src/features/progress-photos/repository.ts",
+    " M apps/mobile/src/features/reminders/model.ts",
+    " M apps/mobile/src/features/reminders/notification-observer.tsx",
+    " M apps/mobile/src/features/reminders/notifications.native.ts",
+    " M apps/mobile/src/features/reminders/notifications.web.ts",
+    " M apps/mobile/src/features/reminders/repository.ts",
+    " M apps/mobile/src/features/streaks/engine.test.ts",
+    " M apps/mobile/src/features/streaks/engine.ts",
+    " M apps/mobile/src/features/streaks/initialize.ts",
+    " M apps/mobile/src/features/streaks/model.ts",
+    " M apps/mobile/src/features/summary/dashboard.tsx",
+    " M apps/mobile/src/features/summary/extra-widgets.tsx",
+    " M apps/mobile/src/features/summary/layout.ts",
+    " M apps/mobile/src/features/summary/summary.test.ts",
+    " M apps/mobile/src/features/training/cardio-draft.ts",
+    " M apps/mobile/src/features/training/cardio-log.tsx",
+    " M apps/mobile/src/features/training/repository.ts",
+    " M apps/mobile/src/features/training/workout-draft.ts",
+    " M apps/mobile/src/features/vitals/manual-vitals-log.tsx",
+    " M apps/mobile/src/features/vitals/sync.ts",
+    " M apps/mobile/src/ui/appearance.tsx",
+    " M apps/mobile/src/ui/icon.tsx",
+    " M apps/mobile/src/ui/settings-sheet.tsx",
+    " M apps/mobile/src/ui/text-input.tsx",
+    " M docs/GOAL_HELPER_EVIDENCE.md",
+    " M docs/IMPLEMENTATION_LOG.md",
+    " M docs/ROADMAP.md",
+    " M docs/STATUS.md",
+    " M docs/SUMMARY_REFINEMENTS.md",
+    " M docs/decisions/ADR-002-read-only-healthkit-imports.md",
+    " M docs/decisions/ADR-007-beverage-volume-counting.md",
+    " M docs/decisions/ADR-008-summary-widgets-and-streaks.md",
+    " M supabase/functions/delete-account/index.ts",
+    "?? apps/mobile/app/(app)/profile/",
+    "?? apps/mobile/e2e/deletion-recovery.spec.ts",
+    "?? apps/mobile/e2e/entry-dates.spec.ts",
+    "?? apps/mobile/e2e/profile-settings.spec.ts",
+    "?? apps/mobile/e2e/routine-reminders.spec.ts",
+    "?? apps/mobile/src/features/auth/welcome-intro.tsx",
+    "?? apps/mobile/src/features/auth/welcome-storage.ts",
+    "?? apps/mobile/src/features/goals/calorie-goal-form.tsx",
+    "?? apps/mobile/src/features/goals/helper-components.tsx",
+    "?? apps/mobile/src/features/goals/helper-draft.test.ts",
+    "?? apps/mobile/src/features/goals/helper-draft.ts",
+    "?? apps/mobile/src/features/goals/helper-model.test.ts",
+    "?? apps/mobile/src/features/goals/helper-model.ts",
+    "?? apps/mobile/src/features/goals/target-date-field.tsx",
+    "?? apps/mobile/src/features/goals/target-date-field.web.tsx",
+    "?? apps/mobile/src/features/goals/use-helper-state.ts",
+    "?? apps/mobile/src/features/profile/account-screens.tsx",
+    "?? apps/mobile/src/features/profile/goal-display.test.ts",
+    "?? apps/mobile/src/features/profile/goal-display.ts",
+    "?? apps/mobile/src/features/profile/goal-editor.tsx",
+    "?? apps/mobile/src/features/profile/health-data-screens.tsx",
+    "?? apps/mobile/src/features/profile/pending-changes.tsx",
+    "?? apps/mobile/src/features/profile/personal-details.tsx",
+    "?? apps/mobile/src/features/profile/preference-sheets.tsx",
+    "?? apps/mobile/src/features/profile/profile-landing.tsx",
+    "?? apps/mobile/src/features/profile/settings-ui.tsx",
+    "?? apps/mobile/src/features/profile/sync-status.ts",
+    "?? apps/mobile/src/features/profile/use-unsaved-changes.tsx",
+    "?? apps/mobile/src/features/reminders/custom-editor.tsx",
+    "?? apps/mobile/src/features/reminders/device.native.ts",
+    "?? apps/mobile/src/features/reminders/device.test.ts",
+    "?? apps/mobile/src/features/reminders/device.web.ts",
+    "?? apps/mobile/src/features/reminders/intent-storage.ts",
+    "?? apps/mobile/src/features/reminders/lifecycle.ts",
+    "?? apps/mobile/src/features/reminders/meal-intent.test.ts",
+    "?? apps/mobile/src/features/reminders/meal-intent.ts",
+    "?? apps/mobile/src/features/reminders/navigation-model.test.ts",
+    "?? apps/mobile/src/features/reminders/navigation-model.ts",
+    "?? apps/mobile/src/features/reminders/pending-prompt.tsx",
+    "?? apps/mobile/src/features/reminders/reminders-screen.tsx",
+    "?? apps/mobile/src/features/reminders/rest-today.tsx",
+    "?? apps/mobile/src/features/reminders/routine-controls.tsx",
+    "?? apps/mobile/src/features/reminders/routine-editor.tsx",
+    "?? apps/mobile/src/features/reminders/routine-model.test.ts",
+    "?? apps/mobile/src/features/reminders/routine-model.ts",
+    "?? apps/mobile/src/features/reminders/routine-storage.ts",
+    "?? apps/mobile/src/features/reminders/schedule-model.test.ts",
+    "?? apps/mobile/src/features/reminders/schedule-model.ts",
+    "?? apps/mobile/src/features/reminders/service.test.ts",
+    "?? apps/mobile/src/features/reminders/service.ts",
+    "?? apps/mobile/src/features/reminders/time-field.native.tsx",
+    "?? apps/mobile/src/features/reminders/time-field.web.tsx",
+    "?? apps/mobile/src/lib/entry-date.test.ts",
+    "?? apps/mobile/src/lib/entry-date.ts",
+    "?? apps/mobile/src/ui/adaptive-color.web.ts",
+    "?? apps/mobile/src/ui/entry-date-field.tsx",
+    "?? apps/mobile/src/ui/entry-date-field.web.tsx",
+    "?? apps/mobile/src/ui/keyboard-input-scope.tsx",
+    "?? docs/decisions/ADR-009-routine-reminders.md",
+    "?? scripts/check-account-deletion-hosted.mjs",
+    "?? tmp/"
+  ],
+  "files": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "8135be364ef8f1279015257621fcc3ce023acb157435f9cea891b5820113bcbd"
+    },
+    {
+      "path": "apps/mobile/app.config.ts",
+      "sha256": "1be2d41a380cca65f3cf257420b8cf27c3dce5bbad4b98daa9702f001e8a3fe0"
+    },
+    {
+      "path": "apps/mobile/app.json",
+      "sha256": "8319bb3369ac24a92aa5b8cd827533874447f090c9d40c3d7e16eef77fc509c1"
+    },
+    {
+      "path": "apps/mobile/app/(app)/_layout.tsx",
+      "sha256": "d37da43e940996b4f1219ac4bd7e788314f85b1a2ff9d1faa5b78cd75b9ed0ba"
+    },
+    {
+      "path": "apps/mobile/app/(app)/coach.tsx",
+      "sha256": "522b33ac476e2900fa4ac088caca9be41dd43c97694ba6416d2ccc57f5d34fb0"
+    },
+    {
+      "path": "apps/mobile/app/(app)/history.tsx",
+      "sha256": "3681138f9c6cbf735172bd2383bdeaf115f9efafc46afa6b49113cef89340402"
+    },
+    {
+      "path": "apps/mobile/app/(app)/history/[id].tsx",
+      "sha256": "2d1d905b8496c7743e35e43897615987b1c6588342efa9e1694676263fbd4636"
+    },
+    {
+      "path": "apps/mobile/app/(app)/history/edit.tsx",
+      "sha256": "bec652723ccf77ef03ddaa4ff9976d6449fa5704951cbd0c03c0fd35c31f9b0d"
+    },
+    {
+      "path": "apps/mobile/app/(app)/index.tsx",
+      "sha256": "9b75607a25f2f590f7fb7bcf5a4e3d3a0777b45a7653d58a8c5d4ba4d16a4dd9"
+    },
+    {
+      "path": "apps/mobile/app/(app)/nutrition.tsx",
+      "sha256": "ad043307d36772a24e57d7b4d8cb85f568f57f2ada6e429901d6e5c04b7f9a96"
+    },
+    {
+      "path": "apps/mobile/app/(app)/placeholder.tsx",
+      "sha256": "a8c8b6bb651bbfc3647d683db797a575cc7640790bda091b85bcded2dfca6335"
+    },
+    {
+      "path": "apps/mobile/app/(app)/profile/_layout.tsx",
+      "sha256": "f58a690e6ad84f1c8f8d4940575a2758661c80d5275066a4497941178a29c489"
+    },
+    {
+      "path": "apps/mobile/app/(app)/profile/contacts.tsx",
+      "sha256": "c85c21dc3af3dca77594354200ded3bfec3fa82c0c395280dab65fa3e04b84f2"
+    },
+    {
+      "path": "apps/mobile/app/(app)/profile/devices.tsx",
+      "sha256": "ef96a0ee9ff55e84d132e01d0f48a838425c1b31eb65eef44f460effb298bf0c"
+    },
+    {
+      "path": "apps/mobile/app/(app)/profile/export.tsx",
+      "sha256": "7b5af87262ce2486a0728f68c417da8da10ce2aafebeceab0095a64cd95271c6"
+    },
+    {
+      "path": "apps/mobile/app/(app)/profile/face-id.tsx",
+      "sha256": "77f018e96981d63ab818130fdc09f1a52c9886a48633df6d216d3f56dd8a4c6d"
+    },
+    {
+      "path": "apps/mobile/app/(app)/profile/goal/[kind].tsx",
+      "sha256": "6e7a968f0346d492daab25470c5c5fe37bde2197446dfe6cff1d106bfcf2c089"
+    },
+    {
+      "path": "apps/mobile/app/(app)/profile/health.tsx",
+      "sha256": "032051ac9996b566e01b7cc4be4c459d922865f0fc8f657290009b159cef03c4"
+    },
+    {
+      "path": "apps/mobile/app/(app)/profile/index.tsx",
+      "sha256": "ea0750e4bfc3c4b9c305e0141766e1b4aabf636b642381358ab8c4acc32afac3"
+    },
+    {
+      "path": "apps/mobile/app/(app)/profile/manage.tsx",
+      "sha256": "c0089f05b18f7a8312be60aca98af0b9531367ccc5f05c38a6f6ca046efbf9a8"
+    },
+    {
+      "path": "apps/mobile/app/(app)/profile/personal.tsx",
+      "sha256": "6e05f9d92d8f698c5f9f1948763de0ec00e03da9a55c93a502a038051ce90a8e"
+    },
+    {
+      "path": "apps/mobile/app/(app)/profile/reminders.tsx",
+      "sha256": "7f704539ee6d393159c4f0c25c8fab68fe57daa870ffe325953f7b18d778bd60"
+    },
+    {
+      "path": "apps/mobile/app/(app)/profile/sync.tsx",
+      "sha256": "c1dbb156750815c5b2e34fc7c24434ff01f3145ba57aef5dd0bc6dbd3bee3322"
+    },
+    {
+      "path": "apps/mobile/app/(app)/reminders.tsx",
+      "sha256": "31c89428aed10ce50c302079ed4f46bd1ab894eec4443b3622c6f6b415a053f3"
+    },
+    {
+      "path": "apps/mobile/app/(app)/track.tsx",
+      "sha256": "93f3f18072e7b313cdf9cdc6c68d2ffc4cd5f5c32b414604a0822374bbcdb4e5"
+    },
+    {
+      "path": "apps/mobile/app/(app)/water.tsx",
+      "sha256": "54c34100dfb871c65b69499dc1381d1e48354de163da464c17ab931ccda537c4"
+    },
+    {
+      "path": "apps/mobile/app/(app)/weight.tsx",
+      "sha256": "4b03813bd9918c2fdd6d7b162424736ab8afa4c5a5e37c4371222df8bde384b1"
+    },
+    {
+      "path": "apps/mobile/app/(app)/workout.tsx",
+      "sha256": "7c3235d95f157a65ea306fbf218620ef5e51793f6a2421cf50b17facabe4aab1"
+    },
+    {
+      "path": "apps/mobile/app/(auth)/check-email.tsx",
+      "sha256": "bea615a3b38ea115dd27a4853881ed1b948bfb90dd628c1e51dbd621ebd12732"
+    },
+    {
+      "path": "apps/mobile/app/(auth)/forgot-password.tsx",
+      "sha256": "c86eae05f0e8b5eef687b3a31c9b536f62bdae7d94b0f35ce6194dd8448b98cb"
+    },
+    {
+      "path": "apps/mobile/app/(auth)/phone.tsx",
+      "sha256": "c75f256171472232ee3c1e3f5c7995e519b23dc207fc6bf738013af0a339c3a0"
+    },
+    {
+      "path": "apps/mobile/app/(auth)/reset-password.tsx",
+      "sha256": "f05b9152f317248a95fb5d461d33ab6516cf82dc39075bfacdc291f00afcf498"
+    },
+    {
+      "path": "apps/mobile/app/(auth)/sign-in.tsx",
+      "sha256": "3f8f84dcf67c5867667c9f2b6bef7a5cbd8f654eb2093cac271b17bd0f6dacb5"
+    },
+    {
+      "path": "apps/mobile/app/(auth)/sign-up.tsx",
+      "sha256": "dfcb93165e394008cc226a28501927c1bd05125811bc0263427a03e7a00e2abd"
+    },
+    {
+      "path": "apps/mobile/app/(auth)/welcome.tsx",
+      "sha256": "0a885816b0e6cedd43dbbdd740f032c9ddfca62b5ad75f2b36f7cc0fc9c853ab"
+    },
+    {
+      "path": "apps/mobile/app/_layout.tsx",
+      "sha256": "39b1f19e0cd31663b28cedf19f12d36cdb42ddeb3feeecb84250f9a5ffea5e5f"
+    },
+    {
+      "path": "apps/mobile/app/create.tsx",
+      "sha256": "2e1a6875f81e6beede6cdbd09622070bcd78a720b777e8d6c16ff8134c1f59ef"
+    },
+    {
+      "path": "apps/mobile/app/index.tsx",
+      "sha256": "0ae3fedc858199550c40dc489f2edeb44fcdd538080b4a8514ebc0d1240d95fa"
+    },
+    {
+      "path": "apps/mobile/app/onboarding.tsx",
+      "sha256": "ca18666038bb4f457eb6c03479fd25e37272cdc9e60ae703e4791ae7376c87bb"
+    },
+    {
+      "path": "apps/mobile/e2e/ai-meal.spec.ts",
+      "sha256": "8ff4ae18370d535de7d0ca0b3f6789e2674dff761334cddd45092e6cb8ec345e"
+    },
+    {
+      "path": "apps/mobile/e2e/coach.spec.ts",
+      "sha256": "1f07208b9fd11ca9a4c610039071b2f12d515e2d18929f97a75dae9688a8c993"
+    },
+    {
+      "path": "apps/mobile/e2e/deletion-recovery.spec.ts",
+      "sha256": "1d6da8750ccd5b4cb3af2cc53859f63746ef49ee12deef3faaed540007e03603"
+    },
+    {
+      "path": "apps/mobile/e2e/design.spec.ts",
+      "sha256": "a58abc3d8ae481619409431b91670f79fb1c992bdcaf0ec24c63658dd6cf4ccb"
+    },
+    {
+      "path": "apps/mobile/e2e/drinks.spec.ts",
+      "sha256": "64891731c1e14d8d8fa429ce893652d92c643be9a84430759e8aef244dba08da"
+    },
+    {
+      "path": "apps/mobile/e2e/entry-dates.spec.ts",
+      "sha256": "f0443a51d4b828c0679c0eb3306e05b9fa207465e6415781724a3f64fbd2a49e"
+    },
+    {
+      "path": "apps/mobile/e2e/fixture.ts",
+      "sha256": "7eaa2f04665c3dc0d09f0523d07f82e3b9f081cc336842e41d8c9b0b09637c3f"
+    },
+    {
+      "path": "apps/mobile/e2e/goal-helper.spec.ts",
+      "sha256": "4568e28882918d1d887f393c498d297866103d146609fd33d785c9280737f0f3"
+    },
+    {
+      "path": "apps/mobile/e2e/hardening.spec.ts",
+      "sha256": "0658499b40dad6690759a0e2f192873dccf2156c262eb9eb58dcdba3292678d2"
+    },
+    {
+      "path": "apps/mobile/e2e/interaction-revisions.spec.ts",
+      "sha256": "95ee60473f8c8cc687a16868c60deda33f8bd0ec459779f94abc4cd1f027e2dd"
+    },
+    {
+      "path": "apps/mobile/e2e/login-controls.spec.ts",
+      "sha256": "982a5c2387ecd9fe137f87d58e8f5d88e61f729ed0b6668f39a7f34e6b223397"
+    },
+    {
+      "path": "apps/mobile/e2e/onboarding.spec.ts",
+      "sha256": "981dbdb36de58559fc26d9589d25148189c3b744a93828557db2f01c5d1dbaad"
+    },
+    {
+      "path": "apps/mobile/e2e/profile-settings.spec.ts",
+      "sha256": "7dc160fb6112de9ee4fcd045f78157ae2bf1a156e3df0579422bf282547ad2a8"
+    },
+    {
+      "path": "apps/mobile/e2e/progress-photos.spec.ts",
+      "sha256": "6669e37cb1d219ec2776ff6df1f8f17ef4498ba3b1cfc176be5b8a26190a97b0"
+    },
+    {
+      "path": "apps/mobile/e2e/recipes.spec.ts",
+      "sha256": "b5bb2e1ee6e342b36735df4b3f3fef5e0cfeff39fd38a962abf7111fcedbef52"
+    },
+    {
+      "path": "apps/mobile/e2e/review.spec.ts",
+      "sha256": "17cce735a71b9693c229338af0818221f5bcef0b44c5d5af23932eda6806753e"
+    },
+    {
+      "path": "apps/mobile/e2e/routine-reminders.spec.ts",
+      "sha256": "e2ff0c5fd3b71e5e8bbe4313ab7abbacf42ed21b4001cf44bb3319e6e6604416"
+    },
+    {
+      "path": "apps/mobile/e2e/summary-refinements.spec.ts",
+      "sha256": "f3870e284a1f54b7c7cdf10485b37b88879f757f7f53af282d9440bd522bad04"
+    },
+    {
+      "path": "apps/mobile/e2e/summary.spec.ts",
+      "sha256": "58d1aaab2135675e47cec4c194992cc3c63db68a0f0fef0a6cae95e8e5999fa9"
+    },
+    {
+      "path": "apps/mobile/eas.json",
+      "sha256": "51a1625d276e59fadfda4148289d527a0a5265531fd826b3e9d702f54a4e924b"
+    },
+    {
+      "path": "apps/mobile/package.json",
+      "sha256": "a3fa689ae444defc806afad10bf29d769b5214b95c6e67a75ab5d5365ad97ce3"
+    },
+    {
+      "path": "apps/mobile/src/domain/vital-ranges.test.ts",
+      "sha256": "803b0af03ee6a92be113dcc4549c8653b42d5daa07163c5a11a32b1ee98e4f08"
+    },
+    {
+      "path": "apps/mobile/src/domain/vitals.test.ts",
+      "sha256": "d20c6ec2ec07d228aa4f4a1d94ea826321bbe88ef2524f1072d30b49158f5459"
+    },
+    {
+      "path": "apps/mobile/src/domain/vitals.ts",
+      "sha256": "225234d0507c07a37d1e7a00803f2d8b185ced33670d0d19c478c88099cf04fd"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/account-contacts.tsx",
+      "sha256": "d60e47dcfd0708424c1feeb3fa28b28f8ff4650ca4fea69369c8c45d7c38b0b1"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/account-deletion.tsx",
+      "sha256": "b74fd479d9def3b98a61d2f7eb7a0095281342dc1cdc9ff75ebdc25c0f054703"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/auth-callback.test.ts",
+      "sha256": "8700ba35a9c4bd8e08d073a1d9335c00d5ac62aa747b46c490e8327f3a0c1238"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/auth-callback.ts",
+      "sha256": "06e28d1c455abfbb90b673ec06075d955ac1e51d70b333ad4eeca25e9a47d01e"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/auth-provider.test.ts",
+      "sha256": "8b2211451dba7fe79b530ed7123374f75c1d1778cc2055729bae411907946b24"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/auth-provider.tsx",
+      "sha256": "5a113a162b527a43eff3078cf28379f7ca5d753e4c1543af8b954b2095f7be53"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/auth-screen.tsx",
+      "sha256": "4685bc20b69b9d8811471d813bfe06ec90aa505c11c699044b266404b986367c"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/biometric-auth.test.ts",
+      "sha256": "5d3dd752f85934c1aedfc6d7c05d965959fb739a57e9fbfc14263a1041475355"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/biometric-auth.ts",
+      "sha256": "d857d036bfdd8a0da810ee498a4bb413bc2728c47cd53ccaa5b9faefc57fb35c"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/biometric-credential.test.ts",
+      "sha256": "fb3993697dee3dacba34c90df72b7c292f62c036808df41225b4463628694212"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/biometric-credential.ts",
+      "sha256": "868bc944bf20bea2dd65f3f99efe5c5ef5715c2da28bfe421925fe7a9124d161"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/biometric-function-error.test.ts",
+      "sha256": "d922b366bff5fa876d7da4d9fbc1748a19b7c2d8bee7ce2e0d38c31205bb64ee"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/biometric-function-error.ts",
+      "sha256": "c205748e419ed5e3de27d007f149f5e9742fcd22e986cef06b2510a84f8af66e"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/biometric-lock-navigation.test.ts",
+      "sha256": "30ac5ba763a04d452481cc363792ad274c0cebb1fd25bac71539a4271147fa29"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/biometric-lock-navigation.ts",
+      "sha256": "434026c25b504a64b64d2d9d40fe2a90e89f6cc6c0c0ea09ae3a55e59ba8bcb5"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/code-input.tsx",
+      "sha256": "abeb224ed594de0bda81a0ffb581317cd4b3071cc8b4297df5fe79780317dfc9"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/contact-service.ts",
+      "sha256": "6c7dbfc7e85519e7d4acd29124933c79f19abb86c967ff6eb2ee4f4d8617ca5e"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/country-names.json",
+      "sha256": "4a480689f59d570d8e05539a9def459448170b819f191189beea096948fa6519"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/face-id-setup.tsx",
+      "sha256": "be312b3c9ec311041ae8fef47389dcb364954479ab4dc932554feef30afd56ee"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/phone-field.tsx",
+      "sha256": "47769579d0e155a1fa82360320af255357862c1243a8227d5e2c3d8d7ecaef81"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/phone-model.test.ts",
+      "sha256": "0fa2b469b0b0ec3f75d0572803fabe3eb65da79aa390554d90aa2fd352d36d33"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/phone-model.ts",
+      "sha256": "edc142f95aff36753d1cdda577337e185b5c55c415adc71981c9b49f134f49ab"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/private-cache.native.ts",
+      "sha256": "a4f66138710c552ca3d94c6118f3087a630f55e97f76e765753d947e54ee93c0"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/private-cache.ts",
+      "sha256": "2a4406bec5ee0b7c92ed4863c928ecc89ea159bb0c2143400cbcfbba4fdcac9a"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/security-settings.tsx",
+      "sha256": "7848449115e3ad41835b7a82d78b1a8ee91fdb68c329d51d856b2ca7b3cea839"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/validation.test.ts",
+      "sha256": "79bdfcec84199dd4b31376470dc8737b3c248566eb9eb377b329448733ea8b51"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/validation.ts",
+      "sha256": "5ee1c29964a317af172e7d79badbfaecdb01bde08f73c685ca5383efaecfe453"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/welcome-intro.tsx",
+      "sha256": "fd150a323664433fe2a84cf31592a0ea54092904ecf0da189a4993a92e3b2c7b"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/welcome-storage.ts",
+      "sha256": "14f532e0b7523c91969b6da91048cf842dc28b0ce7b075a88cb31d93236d298d"
+    },
+    {
+      "path": "apps/mobile/src/features/coach/coach-action-review.tsx",
+      "sha256": "f3224d9b5e60508c655e536736039a8eac4f52f7d7b7d1f95cefa99f768f58aa"
+    },
+    {
+      "path": "apps/mobile/src/features/coach/coach-setup.tsx",
+      "sha256": "800525206d601e7571816e86531a22ab8a530874bd78b27a081fa2215545efcb"
+    },
+    {
+      "path": "apps/mobile/src/features/coach/draft-action-model.ts",
+      "sha256": "8e015e6d5920ec51b4fd33e6e5fbc3fad1a4f3b0188d41834f55e5f3bc0f0d14"
+    },
+    {
+      "path": "apps/mobile/src/features/coach/draft-actions.test.ts",
+      "sha256": "b3c0b47b3d76f4c9099d59fa6b09b4285ee11888c0f92e94ad891c84917688e6"
+    },
+    {
+      "path": "apps/mobile/src/features/coach/draft-actions.ts",
+      "sha256": "61d9edbecb81301348cff04840c1f4ae602f6180623d9d6aadce2071fe77bd37"
+    },
+    {
+      "path": "apps/mobile/src/features/coach/repository.ts",
+      "sha256": "4bd7113e3642c340813e5c4fd9a2721a5138f6a462f53957b506e4e4408d6c93"
+    },
+    {
+      "path": "apps/mobile/src/features/coach/workout-questionnaire.tsx",
+      "sha256": "25478c53658f902d0d39ab93497c94c4711f8c6711e638956e882d0da4c12459"
+    },
+    {
+      "path": "apps/mobile/src/features/data-export/archive.native.ts",
+      "sha256": "4438f4eacb822eeed0ec6ac59f4e388c2169c3794f563cc0a4c73408e0207b2d"
+    },
+    {
+      "path": "apps/mobile/src/features/data-export/archive.web.ts",
+      "sha256": "ebace1b793b93ebe775f2605a68ee1b94018dfad93b50d61e7c7be8caaa40e2d"
+    },
+    {
+      "path": "apps/mobile/src/features/data-export/model.test.ts",
+      "sha256": "5e1ca7e159ec903db4d952b16ca86f3b419d61317e8e3f163bd64218ff02fc38"
+    },
+    {
+      "path": "apps/mobile/src/features/data-export/model.ts",
+      "sha256": "e9280984e9325d53bb1b80b13e92f9689430e397225d8acf8694ee23a6a63aab"
+    },
+    {
+      "path": "apps/mobile/src/features/data-export/repository.ts",
+      "sha256": "b1e324b284e671cf0719e1426577325ef6a49d84b95a09e634f1cb1b8e10db22"
+    },
+    {
+      "path": "apps/mobile/src/features/goals/calculator.test.ts",
+      "sha256": "aa947116b90e8e4495aecd631abf9ae750518a93295b8ede3e108f74d281e014"
+    },
+    {
+      "path": "apps/mobile/src/features/goals/calculator.ts",
+      "sha256": "88cdc76c70f91e41f9183b82d4c39ab95adb7a4486fad83a861b47bd20e5312e"
+    },
+    {
+      "path": "apps/mobile/src/features/goals/calorie-goal-form.tsx",
+      "sha256": "b1366069b70ebd57e0bb25a372c43606fc72fc7670620cbdfac5ab05b7fd77c5"
+    },
+    {
+      "path": "apps/mobile/src/features/goals/fluid-goal-form.tsx",
+      "sha256": "bd24713878d614b258c7314219ee90a42ef44345733f2f766a98641027525de3"
+    },
+    {
+      "path": "apps/mobile/src/features/goals/goal-helper.tsx",
+      "sha256": "5bb540dec7fac07b966ee420a534ee8146a1166685f87d1ea63260358becbf73"
+    },
+    {
+      "path": "apps/mobile/src/features/goals/helper-components.tsx",
+      "sha256": "dbb152bc6a6e7a62336ac25a964c37d3bcc2013e4ee1f0e4aa8cf81ed14ebc65"
+    },
+    {
+      "path": "apps/mobile/src/features/goals/helper-draft.test.ts",
+      "sha256": "94d5405006b012c07b9c7560d5c6f4b7944f50a0a165d64e88e481721e6900f9"
+    },
+    {
+      "path": "apps/mobile/src/features/goals/helper-draft.ts",
+      "sha256": "ad13158ca281c9179d9eef308976474332864289a42a5e75c274bb26968176a1"
+    },
+    {
+      "path": "apps/mobile/src/features/goals/helper-model.test.ts",
+      "sha256": "92c85d234ded838ba08b429f42ce94e7f1ec828179303e57b2eece5426c1d5c7"
+    },
+    {
+      "path": "apps/mobile/src/features/goals/helper-model.ts",
+      "sha256": "7322564bb8dfadea8b6124df515cad5a2e50c0203f0a757f0707c49b8426220a"
+    },
+    {
+      "path": "apps/mobile/src/features/goals/repository.ts",
+      "sha256": "9db3037cebeea7e87f0acfdccd011b9ee0d1d32f93713459c1a936ca6b9e6b99"
+    },
+    {
+      "path": "apps/mobile/src/features/goals/target-date-field.tsx",
+      "sha256": "1abb3a277ae229d762e754c780084536060d0e1935a558a6ff513bfbe5237c9d"
+    },
+    {
+      "path": "apps/mobile/src/features/goals/target-date-field.web.tsx",
+      "sha256": "4a3df1171860712a291daa3c10e4c40bc94bb1b459b8f6536f28eb5908918d7b"
+    },
+    {
+      "path": "apps/mobile/src/features/goals/use-helper-state.ts",
+      "sha256": "38f4f8a0f68397d25ec9a83f2f796d1076fc9efc9001f88f923a556f9cd55afb"
+    },
+    {
+      "path": "apps/mobile/src/features/healthkit/identity.test.ts",
+      "sha256": "e1c670c777dde0e975d674e40ba75b4fc4c18f30d0fb4f7eb8b6a8c1b9c828f2"
+    },
+    {
+      "path": "apps/mobile/src/features/healthkit/identity.ts",
+      "sha256": "5799d50995f00ddf08295805a0b955a007ddcb4e06a7a6e35de11bf1aba09e9e"
+    },
+    {
+      "path": "apps/mobile/src/features/healthkit/mapping.test.ts",
+      "sha256": "a4699f305a231a05fa1593faffda884357bd35973ce70b545a72978213a45fb0"
+    },
+    {
+      "path": "apps/mobile/src/features/healthkit/mapping.ts",
+      "sha256": "606131507614631cd1339a64166e475e3182de2c1f588ab938f38bf1d981ba2f"
+    },
+    {
+      "path": "apps/mobile/src/features/healthkit/permissions.test.ts",
+      "sha256": "679f9b42687fafb42b9d5f72bcdbbec79940974553dc711d349e16345c04ebac"
+    },
+    {
+      "path": "apps/mobile/src/features/healthkit/permissions.ts",
+      "sha256": "d5f2ebf8b136fe06d879f8c0266a9c9d732f8b1218a6fa97921a528da86275c0"
+    },
+    {
+      "path": "apps/mobile/src/features/healthkit/reader.ios.ts",
+      "sha256": "78aea4a9396dc8dd170ed2ec66d8869749d07cb304aca26a62b71b5c42709bfb"
+    },
+    {
+      "path": "apps/mobile/src/features/healthkit/reader.ts",
+      "sha256": "01a3e0dacd0bc30c431759eaf1e0c9fda3e64b1539827a8164a7b4a0f4ed9b1e"
+    },
+    {
+      "path": "apps/mobile/src/features/healthkit/state.ts",
+      "sha256": "2a9c31e770b11f78d6faf06f96e6776076167e47306d6233ec4968bff4c92968"
+    },
+    {
+      "path": "apps/mobile/src/features/healthkit/sync-settings.tsx",
+      "sha256": "9c22656646f0ac6a1c1cd61a283bdf163fbb33a8ebd79d737778095a10b69edf"
+    },
+    {
+      "path": "apps/mobile/src/features/healthkit/sync.ts",
+      "sha256": "5994d4eb78eb8fc95a9b576bddb35aedccc3d3714ea1e514551e0658e3a4f85a"
+    },
+    {
+      "path": "apps/mobile/src/features/healthkit/types.ts",
+      "sha256": "5100b3403755ead57580958ac19dbaa78b6af3f77162deb54ee0194ffc3e566f"
+    },
+    {
+      "path": "apps/mobile/src/features/healthkit/unified-sync.ts",
+      "sha256": "d78f61b5fdf50da66f3bc1da40e29be3a3b64896e9c45dc1a5a0bf5d27e2fbb9"
+    },
+    {
+      "path": "apps/mobile/src/features/hydration/categories.ts",
+      "sha256": "3684fefa443970d66d5ecb85bcb8aa2771e28433952b187acf5feab9d7c1b9bf"
+    },
+    {
+      "path": "apps/mobile/src/features/hydration/classify-drink.tsx",
+      "sha256": "ba2c4dad8d3bc948d4ca927c5ceaccf0e2ac07a315bce3801ed98cab9943e6a1"
+    },
+    {
+      "path": "apps/mobile/src/features/hydration/drink-selector.tsx",
+      "sha256": "033201991516e4d02460e091a80dc37ad375dd7f6334f2761e0900723deb0029"
+    },
+    {
+      "path": "apps/mobile/src/features/hydration/model.test.ts",
+      "sha256": "8b3047b7ce6383fe8d48075ebe48d1e0ddba5f8c724c89dafb06e7a5946f9ef9"
+    },
+    {
+      "path": "apps/mobile/src/features/hydration/model.ts",
+      "sha256": "24fd9b93c6fffd92c0cc6c2ff4a5e6f61f3c509324b66b781c125d9427447bf6"
+    },
+    {
+      "path": "apps/mobile/src/features/hydration/repository.ts",
+      "sha256": "a7c31f3cabfd6ea13368e6dc53ed3a00bed4964185fe30165a83e96dc85c4f54"
+    },
+    {
+      "path": "apps/mobile/src/features/hydration/water-glass.tsx",
+      "sha256": "4999ae259b396b642c42915a66332c338aaa01ee4b8c6ad8417dce16b4107127"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/ai-meal-client.ts",
+      "sha256": "06f8833f4befabf39d79f9e8b9db068a089d83b3e8f603f8fa807b6cf6b752c2"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/ai-meal-editor.tsx",
+      "sha256": "c724bdc1ffabaaac0781d8becdf38599c22d309c8699f6f03544d7141c8ee856"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/ai-meal-image.ts",
+      "sha256": "4a44058cf10e7614286b9004034332df36e59863d854d60fc2c281a2fd9bcc43"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/ai-meal.test.ts",
+      "sha256": "5760c1b312e23f907e59e7d0f2efccb65f899a994d107c98e9d9deecc0ddfb59"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/ai-meal.ts",
+      "sha256": "ad620baa728ccdba994b838bf80b90ba5696c52368f3f08ae8c1b0d3abc55c93"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/calendar.test.ts",
+      "sha256": "cc55ce83bdbfde541b174b443a46b70f017c2e3dc2df6fd708da3fa2914c3616"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/calendar.ts",
+      "sha256": "197cbab8072c85229062b55211e70703534738a936f92253f8680dc1dba76a0a"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/calorie-calendar.tsx",
+      "sha256": "244cec4f49816356137fde554c48c357daea3a128cbc1ef4001b1c40bcb9df95"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/draft.test.ts",
+      "sha256": "068941dd96b8247b5dadabf52438778b6401df7e5c03ea75802ede4b598a5e56"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/draft.ts",
+      "sha256": "79d75272a6703d57086f79174e4c0afbeb69a63a5e1d10528b81f210d212b407"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/food-editor.tsx",
+      "sha256": "bc894ca66f97ec64c360634395533e04d53e8052128fd3cff6e4d432681df8d6"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/history-totals.test.ts",
+      "sha256": "2e38c34939ab3c7efd1270193f74d53b2616e7a2a80a31fcf42c83f98a4db0d1"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/history-totals.ts",
+      "sha256": "1a0b88918b3c83a15e5a5ad139042cbe617fe177eebf1f13d7504016ea4a2325"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/model.test.ts",
+      "sha256": "80af593a94150af5226300c31ea3f4e356aa2115effed22a047eefc877bbea3e"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/model.ts",
+      "sha256": "ce3210909ace5004250ee479a3d659723171851e00b90ecb36a73bb504a9ab3e"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/recipe-manager.tsx",
+      "sha256": "f418c32772acca755bec23f321e61a854adcfaf33a11852dea3b666dccc26e68"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/recipe.test.ts",
+      "sha256": "e1a8723bd1c518e858d549d8f209864128f7d34aa517027d0fce497698b2c822"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/recipe.ts",
+      "sha256": "f02c3c151ef8fe94e0bac64958f4025e0a4d713fb0200595785b26b89b3e84e7"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/repository.ts",
+      "sha256": "98a4380785e5512322f9561e98bde83d094427e22dc4fcaab1980f92e5ede10a"
+    },
+    {
+      "path": "apps/mobile/src/features/onboarding/account-preferences.tsx",
+      "sha256": "4354b5ef050cb613a76039673dccc71f19f1f24960786e017c48b7efaae7389f"
+    },
+    {
+      "path": "apps/mobile/src/features/onboarding/artwork.tsx",
+      "sha256": "c7011720f93c322310f70f10b24ac2020f1e891d1d968f05bf9248abc1e8f0c3"
+    },
+    {
+      "path": "apps/mobile/src/features/onboarding/components.tsx",
+      "sha256": "0c7fe6458ff65866c529de804b04e1f0f8861b2e3aece63ea14bcaa370fe164a"
+    },
+    {
+      "path": "apps/mobile/src/features/onboarding/loading.tsx",
+      "sha256": "9bb165be02e7e8d758464fbb46800523cee084b3e440fabc7251e361c8d6ca68"
+    },
+    {
+      "path": "apps/mobile/src/features/onboarding/model.test.ts",
+      "sha256": "a4b2cbffa0c86bdf65e53cae1abf1d840b9cd34b7e086c4921592b981064a0a3"
+    },
+    {
+      "path": "apps/mobile/src/features/onboarding/model.ts",
+      "sha256": "77bd83a3d80d53655c9c3b6777e8eef3a0f53d481c2fc789d7feb68941c4dd36"
+    },
+    {
+      "path": "apps/mobile/src/features/onboarding/onboarding-screen.tsx",
+      "sha256": "622943adebfb1c24504a789bed80d73d64bcc40aec2824e5b3b0edd1e78412a4"
+    },
+    {
+      "path": "apps/mobile/src/features/onboarding/provider.test.ts",
+      "sha256": "d2ec1ff04c42059face7199437c850d087e49851831d8d77f3bf59a240eac067"
+    },
+    {
+      "path": "apps/mobile/src/features/onboarding/provider.tsx",
+      "sha256": "d82ba506562bead02376fb7e1f5f31c59f2f605bf0aa00d0e11016866c5dc679"
+    },
+    {
+      "path": "apps/mobile/src/features/onboarding/repository.ts",
+      "sha256": "d7011a7ac67d34005dce105cd51aaba555bd74251617a916c0280cc598e4bc4a"
+    },
+    {
+      "path": "apps/mobile/src/features/onboarding/setup-card.tsx",
+      "sha256": "640cbee5b4b70dac74786d26c903bdb84cf99a4c494786b9f0f633146cee1570"
+    },
+    {
+      "path": "apps/mobile/src/features/profile/account-screens.tsx",
+      "sha256": "f72bb23ada1a2fa221cfb78fcea3a15babd4e0e8c8dc61021f9197788c545919"
+    },
+    {
+      "path": "apps/mobile/src/features/profile/goal-display.test.ts",
+      "sha256": "b8fc74733ec31c4ad077fe6f306563e64232e47192a9b85f8ae61906fee44155"
+    },
+    {
+      "path": "apps/mobile/src/features/profile/goal-display.ts",
+      "sha256": "1a321e8e5778b10fb5b5fff5c1ea50d832571e70685b3c9a91db038e6e13756c"
+    },
+    {
+      "path": "apps/mobile/src/features/profile/goal-editor.tsx",
+      "sha256": "3e625add33852848d209c7a36f2b2b554f3af716d32c3ef2f7eb0c8c8afac2bf"
+    },
+    {
+      "path": "apps/mobile/src/features/profile/health-data-screens.tsx",
+      "sha256": "4d6ee9172da493d62db9e0badc6f6738b9b0410d0ebcfc211d65e4626070ef2e"
+    },
+    {
+      "path": "apps/mobile/src/features/profile/pending-changes.tsx",
+      "sha256": "b1ba31dd4a5ee64cb3bcfcd64f8c30eeebddb04ff1b8ce4b433b5d65f69ca130"
+    },
+    {
+      "path": "apps/mobile/src/features/profile/personal-details.tsx",
+      "sha256": "1cb31618cf87ffb3361cfaec87d9afae2b0fccfb285b91530e1ddce2d00dc1fe"
+    },
+    {
+      "path": "apps/mobile/src/features/profile/preference-sheets.tsx",
+      "sha256": "4bdcde1607d7f0215512719f8c00e0c4168cd547cbb8d4fb02d597daba93d31e"
+    },
+    {
+      "path": "apps/mobile/src/features/profile/profile-landing.tsx",
+      "sha256": "038a64574d899f0fb11ba594cd086b73d7cc5f5ef32665bdc6e220d01fab853a"
+    },
+    {
+      "path": "apps/mobile/src/features/profile/repository.ts",
+      "sha256": "b0f48871c306629d11105556e035ebe05edd0a47c90eb6749e9d1d2bc8c7979c"
+    },
+    {
+      "path": "apps/mobile/src/features/profile/settings-ui.tsx",
+      "sha256": "cf2725e31db4f501cd13e277d940351f7000335da20ef77e0b049c8de0be706c"
+    },
+    {
+      "path": "apps/mobile/src/features/profile/sync-status.ts",
+      "sha256": "2a25e75d8963971f630abab8b2dcb6c5f6e64d56e7dfac512a7035023da5bfb7"
+    },
+    {
+      "path": "apps/mobile/src/features/profile/use-unsaved-changes.tsx",
+      "sha256": "72b098e7216c33d1e0bccc5f0c6c1d59d1adaa78d11f4dc861fb89fde936f949"
+    },
+    {
+      "path": "apps/mobile/src/features/progress-photos/image.ts",
+      "sha256": "6ba2a865308cfea4b0abc4d347c58ae38539e9e80fedcaeda43da78523ea9abd"
+    },
+    {
+      "path": "apps/mobile/src/features/progress-photos/model.test.ts",
+      "sha256": "8e7be36981fc6483932be3211c40e315a42ed9f8fccaadc77d4755174c34b8b4"
+    },
+    {
+      "path": "apps/mobile/src/features/progress-photos/model.ts",
+      "sha256": "da1ac4ea2db7d2b373e84a738eb342c3c7284b0d42a4bea5a39d28a77a86265a"
+    },
+    {
+      "path": "apps/mobile/src/features/progress-photos/progress-photo-gallery.tsx",
+      "sha256": "5b9b0a9bc518f25049c3e022eb21e7e2073b44cde458f13039d739a4a55bead2"
+    },
+    {
+      "path": "apps/mobile/src/features/progress-photos/repository.ts",
+      "sha256": "ef1bf1f92c24dc1ecac45ebb140dece15a1ce0aa76c6ecd0f4cd54868f8e7c75"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/custom-editor.tsx",
+      "sha256": "e70714de1f51642b865946e804674226bb429e19a21e89f8e2c6a42ae7ff57ef"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/device.native.ts",
+      "sha256": "969c16b8c5d56003c69ebf4e2dc7892f517fa75637653a32c361994bcf45bac1"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/device.test.ts",
+      "sha256": "4917140491764423b0b059836c081ba5c4321c8719ed831767cb2ca2de3b808d"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/device.web.ts",
+      "sha256": "b8c71f0ea2184e8bb2b26f3d11a0b9c25465df2202883a20b8646bd810163e44"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/intent-storage.ts",
+      "sha256": "d8e3fb472cb4c949132899d0b8d8e66d670afdf824f06da3b26777d69517af2d"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/lifecycle.ts",
+      "sha256": "f78e830ab5c830447aea203a6efe236f6f192b355bd1c3354a759ec67ed43ebb"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/meal-intent.test.ts",
+      "sha256": "af67d138dad9a15fea5543244f4974ee916bdeb7c559c8313378f58ff2bd6625"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/meal-intent.ts",
+      "sha256": "53037e3b41d04f35f015aff01866e59b8bbfab6e4f2424357232d7d210e27bd4"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/model.test.ts",
+      "sha256": "8ce097414f00d813433e3e083afc16e4b672854524be4c064342da27ac7434cd"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/model.ts",
+      "sha256": "9fe7630bb01231eb28f55c7cd963ce9a8cc673e9f9b0044f8480375ca168f788"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/navigation-model.test.ts",
+      "sha256": "54a25c835e4c449ecccd1bdf579df150e67a4324d1b46368b1101aa2ca33c3fa"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/navigation-model.ts",
+      "sha256": "469521c6acd4a2aca37c96383b5c035bbd43afb5ac1a7fd3edc85a2edb6096e6"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/notification-observer.tsx",
+      "sha256": "06ab0355e7fd5749042bd974bd3332ef0fa8c9e32ee78069db251c16efc43f87"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/notifications.native.ts",
+      "sha256": "72249cc08406b3de508156434f9b1a9bb2d662d1930c8cea3b3202712c11caca"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/notifications.web.ts",
+      "sha256": "72249cc08406b3de508156434f9b1a9bb2d662d1930c8cea3b3202712c11caca"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/pending-prompt.tsx",
+      "sha256": "cacdc94e501534d95a2d8890578563065523ee2580e221c787114412ca5a1258"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/reminders-screen.tsx",
+      "sha256": "c7d777b2dde3bfbdd15faf4dacf706a971f2e3126507f1f08b01d523c0d1e356"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/repository.ts",
+      "sha256": "55c34e5c8a0bac186fc8b93d8421fa66c70b6e750ece82232b7566ef34ddaafb"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/rest-today.tsx",
+      "sha256": "07968a9019737a2f374ae6adfc3782f129deeaa6461c126ac895518633e68e11"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/routine-controls.tsx",
+      "sha256": "f0d819b9b18ccdafc47f48a8fad7288312e07f47f0c93c4eb73ad3049e5a06ef"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/routine-editor.tsx",
+      "sha256": "6609e782d0cf9885fafe347a65c2b000e4a8ddcb3d08f50481cbdafebdba4048"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/routine-model.test.ts",
+      "sha256": "a083845f96a319c91979e8fc2af9231f94b52003c385c8178310bc231db7b56b"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/routine-model.ts",
+      "sha256": "ab8255622d16108b4297131870ddca8149471dec5428d58b0d76b6d3a0c08db7"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/routine-storage.ts",
+      "sha256": "74ba33143a76bd446304c345940b90db7739fadd47304e1865d31ad766935daa"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/schedule-model.test.ts",
+      "sha256": "a17ce2ce385f74b29f124312c0ee525a311b2416da8152ac354f9af0c327676d"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/schedule-model.ts",
+      "sha256": "0e32ec6b8b31e7745902335ed804b643d7085c959d826062c841f9795d6ade66"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/service.test.ts",
+      "sha256": "92094fc3589fb26113fd9b92dd328280d6d2a5e60d98da2a4f039eb1de111644"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/service.ts",
+      "sha256": "4473680f0b809f15611290d0e5034c4e57e1085ee1527810729ad67aa432ca1d"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/time-field.native.tsx",
+      "sha256": "82aaed5851bbb80dccf617c9e035be566fc8e0f8241e10334066f74ddb25954a"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/time-field.web.tsx",
+      "sha256": "311edf921307240c0d8532eab9fa6d4ce03924b0ff557c49172ae8dbe7ddad4c"
+    },
+    {
+      "path": "apps/mobile/src/features/streaks/engine.test.ts",
+      "sha256": "cbbd483037d66d1d00bfbf875a173b1c783ecccdd9c07fa4c132023a49b8f78d"
+    },
+    {
+      "path": "apps/mobile/src/features/streaks/engine.ts",
+      "sha256": "eb638fefd8c4f47bb91ff97e0b7d3e3de52d0af77fdccfb8fb4e5a6d1598930b"
+    },
+    {
+      "path": "apps/mobile/src/features/streaks/initialize.ts",
+      "sha256": "dbd00728f37b9af94131de9b3590a7f2e63d4413984811d4226824e0bd291cc1"
+    },
+    {
+      "path": "apps/mobile/src/features/streaks/model.ts",
+      "sha256": "47b7268be795996d6cc9f80295a3472714e40d7dc33fe869ecde1cfcd3fe5336"
+    },
+    {
+      "path": "apps/mobile/src/features/streaks/repository.ts",
+      "sha256": "f7256a6ad209b1012b085dbb0b90ba5d015151133360c2bb28dd85998812ea27"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/calendar.ts",
+      "sha256": "34fabef3681157363fe8bd50aa31dd96e6925f8dfb93d8b86d6ddb98a052f49d"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/dashboard.test.ts",
+      "sha256": "2727825c74ce1f1413bb6b77d7858b10e2e35df67b6f707169de298ffe09fe8b"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/dashboard.tsx",
+      "sha256": "21a244bb108a0bcfa6b4e720415b9b08933d5d226481d3ff60ca15f81b6cf04b"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/data.ts",
+      "sha256": "86b82f293cebc027ccbc513a30a742fd49756a2740225eac3c8e131537fe72d1"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/drag.test.ts",
+      "sha256": "2011d17339331ead7e548ec533b7136ecd6139521cccdc80eb143258c52cc40d"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/drag.ts",
+      "sha256": "752e76068e6e6a77459b3aedee1c44d82ebb2f61d02710039a3d69bb53ce44e5"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/editor-grid.tsx",
+      "sha256": "9a31eec20d4ca513a718ca35feae916b85fe6922f623ee8a303a0eb8eaff7410"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/extra-widgets.test.ts",
+      "sha256": "de7bd62048e1ff4aad7843ff1dc3d8dbea6ab31336d175bdd5c8ccd9e42624f7"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/extra-widgets.tsx",
+      "sha256": "9aaba556ba242a4b9715af7c4bd504a5fc31f70045e0efb3eea33cc8e2efec7f"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/layout-store.ts",
+      "sha256": "d8a43450d0f55c1702559b1c79a23a725339024ef2972e0a1e88979ea6d0b00c"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/layout.ts",
+      "sha256": "439dd8e345bbc0c3051c6d6394c88528573540da4a6ad06fe8722efa110fa312"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/meals.ts",
+      "sha256": "7bda9d09f3b400efb9811f07100d1df410868d712c95a9ed5a0935213d17fc9e"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/storage.ts",
+      "sha256": "f47d26de05145b8ae8e1bc0ff3a0f8305a0795488d123701b1cbf9642feddb3c"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/streak-week.test.ts",
+      "sha256": "257acd13c29a59429c46dccb62c35dce82e818e3f282c86cead416ce0da51600"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/streak-week.ts",
+      "sha256": "3aca1e78cb20af1e89ca8fe1a173ef82e71e4f16f9a60eeee517e63d9914b8dd"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/summary.test.ts",
+      "sha256": "e4c4f36abc547dc47bfd2ac5e8f44a3b113f4e1929eb05d4c533be51361903fa"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/training.ts",
+      "sha256": "78aa9d38d6d5d048adc55fa359b5b916f5b9c2d72b0f73fc9e6a473cde7284a0"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/widget-design.tsx",
+      "sha256": "06b22599bde7f90aa26b6bc0f877f701f738284af80fb2e856c50851914e1c21"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/widget-frame.tsx",
+      "sha256": "24aaba85363995ae5c28c501e96f306a9f249437d2a761d22b3bf049c99ea572"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/widget-renderers.tsx",
+      "sha256": "c7bb461e39af011b32fade9a9ec9092dd33c725df01a398f835890873765cc9e"
+    },
+    {
+      "path": "apps/mobile/src/features/training/cardio-draft.ts",
+      "sha256": "fee4d0c0774a73673341c5b54b08edd6b7c6b464f13320cb9c6f33e656c742be"
+    },
+    {
+      "path": "apps/mobile/src/features/training/cardio-log.tsx",
+      "sha256": "a1e60d20fa2832956697448024c13b012f169ae7a3207db35c2a7146eb5d1cf9"
+    },
+    {
+      "path": "apps/mobile/src/features/training/catalog.test.ts",
+      "sha256": "dab364508182586412e5c050cc567ac7a002ebda5fffb2353ebf9cf1baae3c1c"
+    },
+    {
+      "path": "apps/mobile/src/features/training/catalog.ts",
+      "sha256": "0dee661d10f5e7072c7daa54258bfb14284af028e0e8de1fe2adfc917be11387"
+    },
+    {
+      "path": "apps/mobile/src/features/training/exercise-guides.test.ts",
+      "sha256": "d9479d59a1e32ff08ecd453048c3589505fdd4fb4715e484e94e9530727b395f"
+    },
+    {
+      "path": "apps/mobile/src/features/training/exercise-guides.ts",
+      "sha256": "b04555dec0fe6ba9885a42a94caa42ca8e39fd68528aa029d60d9f855e046854"
+    },
+    {
+      "path": "apps/mobile/src/features/training/exercise-help.tsx",
+      "sha256": "86b6a4241662f87d22999c652ad43cf0b1d8105ae0c824c4ca9d02a23f462dc9"
+    },
+    {
+      "path": "apps/mobile/src/features/training/exercise-reorder-controls.tsx",
+      "sha256": "525bf2f9dde76a17584547fbb0cfeae129476bf851db74c4124debeff9572a70"
+    },
+    {
+      "path": "apps/mobile/src/features/training/exercise-set-fields.tsx",
+      "sha256": "0ee5d19b282d90918c1840ee55a69edb727b46ea84e52e06c63dcce013069348"
+    },
+    {
+      "path": "apps/mobile/src/features/training/nutrition-progress-card.tsx",
+      "sha256": "c1b6cf782b91b1200f93ae3912df5a32cb1b739cf5d5691bc68734ace76725ea"
+    },
+    {
+      "path": "apps/mobile/src/features/training/progression.test.ts",
+      "sha256": "4fcf61d4754cf8a0fda5f3d5f2ce067d8ad3ed0de7e705e82837eed8069980a5"
+    },
+    {
+      "path": "apps/mobile/src/features/training/progression.ts",
+      "sha256": "242a6211d71075244fdd96179d6bce1c4b5c2a443a8be04037e640c561697bd5"
+    },
+    {
+      "path": "apps/mobile/src/features/training/repository.ts",
+      "sha256": "f68280b0d2f565d160aea54941a366ced98e46573073e8cc2a3c6bc290cefbae"
+    },
+    {
+      "path": "apps/mobile/src/features/training/workout-draft.test.ts",
+      "sha256": "86313f507001b037f3c880755bdab5aedd4e9048afba01afc2b408c500390f56"
+    },
+    {
+      "path": "apps/mobile/src/features/training/workout-draft.ts",
+      "sha256": "01a7a855b8cd950398efa7ade381133be74a83850a344356babf819ce4304a40"
+    },
+    {
+      "path": "apps/mobile/src/features/training/workout-history.test.ts",
+      "sha256": "8a003bbb3a508190f89d7eb998a7a316a4ee5098689a23b35443fa12e6da90eb"
+    },
+    {
+      "path": "apps/mobile/src/features/training/workout-history.ts",
+      "sha256": "f2612fffd5b7c287ea9ef40005d12277ec28423c28bbf186e1b2ecd8b9fdefbe"
+    },
+    {
+      "path": "apps/mobile/src/features/vitals/blood-pressure-pulse.test.ts",
+      "sha256": "ddb39d74d3853bb476d8f2644f65fd15538f5e9ef5cf7b150e593c90a8a1c581"
+    },
+    {
+      "path": "apps/mobile/src/features/vitals/blood-pressure-pulse.ts",
+      "sha256": "7a38acc4d7c4f5c545abab3e150d1462207c05706d8e3dd79954277dc704e628"
+    },
+    {
+      "path": "apps/mobile/src/features/vitals/blood-pressure.test.ts",
+      "sha256": "546ff3cab3f95c5bd822fecba19931de586ae4ba9c200d6924a7441d079be91d"
+    },
+    {
+      "path": "apps/mobile/src/features/vitals/blood-pressure.ts",
+      "sha256": "3ccccba50682e1ec5e560e41cccb858789ce177a0e4940950e03b4e2fdfc72d2"
+    },
+    {
+      "path": "apps/mobile/src/features/vitals/chart.test.ts",
+      "sha256": "b71ad184d22ad5ab1fc9c76eaf52743e279340e2d36bb1b63c120e181d45d930"
+    },
+    {
+      "path": "apps/mobile/src/features/vitals/chart.ts",
+      "sha256": "020b0759a9d51f9689b472d35543c105cd3ccf457ef854fce4d7ff8b18e64ddb"
+    },
+    {
+      "path": "apps/mobile/src/features/vitals/manual-vitals-log.tsx",
+      "sha256": "1a3316d4d1bfa8db26b9564a0041c7c0d921417c9e7b4a2a76bf6a98605203ae"
+    },
+    {
+      "path": "apps/mobile/src/features/vitals/sqlite-store.test.ts",
+      "sha256": "65164223cff13f5674d223745bcbf350b647c9045ccbd7b722931be901bd2afb"
+    },
+    {
+      "path": "apps/mobile/src/features/vitals/sqlite-store.ts",
+      "sha256": "55dd840462e175781713f02f0aff64346cbf739b2a269432f357c0f88b3204a7"
+    },
+    {
+      "path": "apps/mobile/src/features/vitals/storage.native.ts",
+      "sha256": "ab30ff4d2622b019332d04ead2797d1c37fff41052c88b5f556539ace43a491f"
+    },
+    {
+      "path": "apps/mobile/src/features/vitals/storage.web.ts",
+      "sha256": "f756444977672822dc682f8afbbe33af89e9b243c7d093de54cb3807cdfdde75"
+    },
+    {
+      "path": "apps/mobile/src/features/vitals/store-model.ts",
+      "sha256": "c48092171a1bd516e4ab4af8f76dbbe5a18f28479a7c5cf61bbdfc54d1ce0721"
+    },
+    {
+      "path": "apps/mobile/src/features/vitals/sync.ts",
+      "sha256": "9dc34c217a0be956a967c3e7dfd03eeb7bdbc3ba03f53a50e015ffaa2fe68b43"
+    },
+    {
+      "path": "apps/mobile/src/features/vitals/trend-card.tsx",
+      "sha256": "98eb1a4ad6ce73829c687a1c25d3ff0a8dc4162c4aa6c6ffef27d5827a799847"
+    },
+    {
+      "path": "apps/mobile/src/lib/app-links.test.ts",
+      "sha256": "6206448332f4d7589462a19bb320b051acdb1362c6d9fa99a67026b72b81c4c2"
+    },
+    {
+      "path": "apps/mobile/src/lib/app-links.ts",
+      "sha256": "8aa47c155372d79ea4a40143e9b6563f0904346aea833553190295136d528882"
+    },
+    {
+      "path": "apps/mobile/src/lib/config.ts",
+      "sha256": "ebe7c05ec0fc9542180cefe0b465caabb5a890a86d23f30adb2e3481a69b54a2"
+    },
+    {
+      "path": "apps/mobile/src/lib/entry-date.test.ts",
+      "sha256": "b67945410209941a37333a0b85de0eefc714e1a18db3c48e8117a0627a4019ed"
+    },
+    {
+      "path": "apps/mobile/src/lib/entry-date.ts",
+      "sha256": "31e9a93cfbb361d7de0bf19a10260a89868d5aa880b50a65328ecb63d10d3b7a"
+    },
+    {
+      "path": "apps/mobile/src/lib/id.test.ts",
+      "sha256": "95bdfcf19b0f4acc3731b521b160e707ec5ba8edabe65c9d3036f2afe6fcb632"
+    },
+    {
+      "path": "apps/mobile/src/lib/id.ts",
+      "sha256": "1f8568c7189bd7057d19a88080ff47596c020a5813ff46cf1fc8904fda7a5536"
+    },
+    {
+      "path": "apps/mobile/src/lib/mutation-model.test.ts",
+      "sha256": "119e507acac7dcc56dba360b636809a5860bbedd1f8705c20f55fde8c11e8cbb"
+    },
+    {
+      "path": "apps/mobile/src/lib/mutation-model.ts",
+      "sha256": "d987471112dd01a3e63a6e227e80d953ede18ad0281f39a5d27e3588c945ec22"
+    },
+    {
+      "path": "apps/mobile/src/lib/mutations.ts",
+      "sha256": "e47bdc97fa834558e3d10388b9e58a4f6444103a4bf7961a40f5be0b1e1bbbca"
+    },
+    {
+      "path": "apps/mobile/src/lib/pagination.ts",
+      "sha256": "255b36f846b7122fbb799d3a6ed7bb35e28205f54c33117d786e70324e0a4993"
+    },
+    {
+      "path": "apps/mobile/src/lib/secure-store.ts",
+      "sha256": "6062e472ec44cc9436ed3f2ec0464fe49118815d657fe5b262fb9b5bd30beb6c"
+    },
+    {
+      "path": "apps/mobile/src/lib/service-errors.test.ts",
+      "sha256": "cdb5229b5d131e1a649b1ae402c0f0e5199d1f02902ae89be69bf960e4409f07"
+    },
+    {
+      "path": "apps/mobile/src/lib/service-errors.ts",
+      "sha256": "e505f0093b21e25dda217a4c78773bd2f389b7608ccd1c4b1b987a2b55c43bcb"
+    },
+    {
+      "path": "apps/mobile/src/lib/supabase.ts",
+      "sha256": "a692b97d75fffea03b690ecc7c2e83c7bb97bd6da5814ea4b9083715065899df"
+    },
+    {
+      "path": "apps/mobile/src/ui/adaptive-color.ios.ts",
+      "sha256": "f0f02bcfefed77e7b324bdc509a4cc8d425ed776f01f7d2b449475da3c40aa57"
+    },
+    {
+      "path": "apps/mobile/src/ui/adaptive-color.ts",
+      "sha256": "9fbad27e726cbe6e8a69432f3d03ae65a4c1892199a1c2d733bf33d162c33259"
+    },
+    {
+      "path": "apps/mobile/src/ui/adaptive-color.web.ts",
+      "sha256": "41bec847aa3c1815293dd81f9aefcb8da0af813394415b1ffbc8faa82e39bab6"
+    },
+    {
+      "path": "apps/mobile/src/ui/ai-action-card.tsx",
+      "sha256": "79c709e9494ae2044fca8f61b79923c8e0ead3c3c03612d302b6fe2ab24ab6a7"
+    },
+    {
+      "path": "apps/mobile/src/ui/appearance-model.ts",
+      "sha256": "7c68367a1876fae69615aee102b44d1ddc238dd67acde84f97592e6eeb01bd9a"
+    },
+    {
+      "path": "apps/mobile/src/ui/appearance.test.ts",
+      "sha256": "df93ea0384667ac12bc8726d1eeebc4133560af2c2ab1f1b975e455fd3763f98"
+    },
+    {
+      "path": "apps/mobile/src/ui/appearance.tsx",
+      "sha256": "fa67ae8a94d7a6393dec1f9bbdca6042cfbf5d76fe319d5b8ce6b549940ba094"
+    },
+    {
+      "path": "apps/mobile/src/ui/confirmation-actions.tsx",
+      "sha256": "01c05a2e66ab8a0bb13af5f6f50689f893229dda810f6a2d6564598e6051d326"
+    },
+    {
+      "path": "apps/mobile/src/ui/entry-date-field.tsx",
+      "sha256": "05d043c045faa471a87b42a21bb13dc01d8bd246988716820620739fb454e3e3"
+    },
+    {
+      "path": "apps/mobile/src/ui/entry-date-field.web.tsx",
+      "sha256": "350013f3371514c01c71454b09721f4e43597b8c8f15cc7c749079262120dc08"
+    },
+    {
+      "path": "apps/mobile/src/ui/icon-button.tsx",
+      "sha256": "6807f3c679db8deba1dcbf628f945686aa74f8089ee53c047451ac7652f411fe"
+    },
+    {
+      "path": "apps/mobile/src/ui/icon.tsx",
+      "sha256": "0cab89670a40ad98cbabe6f863f5ee2c06f3436006896f57a1ad0ba9f6005c43"
+    },
+    {
+      "path": "apps/mobile/src/ui/integer-slider.tsx",
+      "sha256": "3146fb911be1a0cc23967acf415711acaa72c88427a1852d8cfe601785817eb0"
+    },
+    {
+      "path": "apps/mobile/src/ui/keyboard-input-scope.tsx",
+      "sha256": "2370de08c5021668098ffc44dd52b6de78cc86b8ba869322e82dfd62c988a3fe"
+    },
+    {
+      "path": "apps/mobile/src/ui/modal.tsx",
+      "sha256": "61201b836b403cd92582cb86618e21089231dd2c9943dee217a0e8949a3e1203"
+    },
+    {
+      "path": "apps/mobile/src/ui/motion.tsx",
+      "sha256": "9c052421915b8b534a72d229044ff0b383345ab9a4f4d85224e0eb88d600a861"
+    },
+    {
+      "path": "apps/mobile/src/ui/pressable.tsx",
+      "sha256": "0ccbb9b495b62c130c0670661b0b061161ad2fde40c9605f26b0d67e1345446a"
+    },
+    {
+      "path": "apps/mobile/src/ui/privacy-boundary.test.ts",
+      "sha256": "fcf5ce8b256e428c06c850370b93e5b64f0c71f22c8e45609ed6909ad2092d25"
+    },
+    {
+      "path": "apps/mobile/src/ui/privacy-boundary.tsx",
+      "sha256": "c414ad29a1d7aa2a87e1c90da64fdd18f78afa9fce804b3854f1a4f29bc2548c"
+    },
+    {
+      "path": "apps/mobile/src/ui/profile-theme.ts",
+      "sha256": "30b63b2a50d7caffc8d582b9b79dc700b50f4ff3df84aba3328320ffe7ce01e9"
+    },
+    {
+      "path": "apps/mobile/src/ui/screen-scroll-view.tsx",
+      "sha256": "1709fb3bfe368e6a3df3e905f01660e8075663f914d204b3b6fb717337f7af3a"
+    },
+    {
+      "path": "apps/mobile/src/ui/segmented-control.tsx",
+      "sha256": "3658ad100b7ceae714fc1e4dd9375383c6dc9324e721547da672f146466e9cbd"
+    },
+    {
+      "path": "apps/mobile/src/ui/settings-sheet.tsx",
+      "sha256": "961e3b47cd102d87bef5d4c8de244ba39f7c979d35125812eb24e1e0df62c05d"
+    },
+    {
+      "path": "apps/mobile/src/ui/swipe-content.tsx",
+      "sha256": "2eea19754966b1fc96cd7215c8f55c5a23d95fd8187f51eb7cfde1812ec740b5"
+    },
+    {
+      "path": "apps/mobile/src/ui/swipe.test.ts",
+      "sha256": "d4db94eb560136d1cf98181cc798238b5b79424f1cd7f9fccf631d84556fe984"
+    },
+    {
+      "path": "apps/mobile/src/ui/swipe.ts",
+      "sha256": "9c652bc6a3c4b2825cc0cb763d0f793145e95b2b9cedf15d9c9572342f04b7ac"
+    },
+    {
+      "path": "apps/mobile/src/ui/text-input.tsx",
+      "sha256": "7539a24dde615a704e460c9d61f890c2e518984da02d1c6f898811f59d869b9c"
+    },
+    {
+      "path": "apps/mobile/src/ui/theme.ts",
+      "sha256": "679834dae5c186bd2fe5399a1496263e75c72b38ef4a6f20c2418825e10fb305"
+    },
+    {
+      "path": "apps/mobile/src/ui/tracking-styles.ts",
+      "sha256": "f89d6f4f6a9482cfc97a76ccba9370154a009a7f80bb382233822f6e092a75b9"
+    },
+    {
+      "path": "docs/GOAL_HELPER_EVIDENCE.md",
+      "sha256": "d88894e16b7289e186cef2f692518e88109db8eb10e9badb6506a6fbf3c4ba80"
+    },
+    {
+      "path": "docs/HARDENING.md",
+      "sha256": "493a4dc66deacb3ef11e94cbe64661f6dadeda1f1e5322ef29240dc2e6aa69d9"
+    },
+    {
+      "path": "docs/STATUS.md",
+      "sha256": "ff40af3e606e34b4cabd55cb1d04db9d0f7f66cc111f5a13cf35d1931a99924c"
+    },
+    {
+      "path": "docs/SUMMARY_REFINEMENTS.md",
+      "sha256": "aaf077a642048b2d812a5c543a2c2ad2b15f842b4e1ba5b006a23e5cd443e40c"
+    },
+    {
+      "path": "docs/decisions/ADR-001-hosted-supabase-without-docker.md",
+      "sha256": "96b04d289efc943459a527873e5b5522d507c445d7fa110c31a66e256ca86c9e"
+    },
+    {
+      "path": "docs/decisions/ADR-002-read-only-healthkit-imports.md",
+      "sha256": "5199d2b3c7c9e1cde6d7c946faa1d584a23f9fabed6f4c2614050bfe9aeb4834"
+    },
+    {
+      "path": "docs/decisions/ADR-003-private-progress-photo-storage.md",
+      "sha256": "f9a5d9951653c90077312b8d9fe5d512af0ec284cbc60749bc79230bad569bae"
+    },
+    {
+      "path": "docs/decisions/ADR-004-ai-meal-label-estimates.md",
+      "sha256": "9558dcf03eb96af0e7672d30c299e930471beb6d7bad12dc978ece1bf152935a"
+    },
+    {
+      "path": "docs/decisions/ADR-005-private-ai-health-coach.md",
+      "sha256": "a744c6f7168c081e7bca2733114d7605ef07e41148820edad60cf42ba622cbb2"
+    },
+    {
+      "path": "docs/decisions/ADR-006-reusable-recipe-snapshots.md",
+      "sha256": "44ef780afa5c9980f80f79706785c0e4170f4afd105e6c8e2648094beea4a69d"
+    },
+    {
+      "path": "docs/decisions/ADR-007-beverage-volume-counting.md",
+      "sha256": "d3146d4cb063c2569903f8ce4bbb79dd752e52836863b9c8ff165160dc11cedc"
+    },
+    {
+      "path": "docs/decisions/ADR-008-summary-widgets-and-streaks.md",
+      "sha256": "397849bea34c0de649ca3f005a4b62180a4e4cb238c309b497ffcd3b49b6bb07"
+    },
+    {
+      "path": "docs/decisions/ADR-009-routine-reminders.md",
+      "sha256": "7da01684551a5797d77f58f5d12412f430801f6ad007f16193b2ee22511b653b"
+    },
+    {
+      "path": "package.json",
+      "sha256": "ff050b37b61734a13781f7b9cceb43073d2169593429d449c219deeb24d2811b"
+    },
+    {
+      "path": "scripts/check-account-deletion-hosted.mjs",
+      "sha256": "019a9176a4c3973d53960ac9101affb346437ee90d19b7ada168ace429582a7f"
+    },
+    {
+      "path": "scripts/check-biometric-hosted.mjs",
+      "sha256": "a576c7f852fbf69d9327db30ce925ac5a6c18a62f1da4fb461a66307af0492d3"
+    },
+    {
+      "path": "scripts/check-hardening-concurrency.mjs",
+      "sha256": "64d6011e633f43500937b0d18e932e8af39b7d4432a8b807faf27de437b0fc93"
+    },
+    {
+      "path": "scripts/check-hardening-sql.mjs",
+      "sha256": "9d4ea2dddf161497752fdd2fe4aa278bafffd2c7988a11c42eb8dd4eac99051b"
+    },
+    {
+      "path": "scripts/check-onboarding-hosted.mjs",
+      "sha256": "f3c1b3dce2cc89bbb922282c7a3aead82f2b34b567aeabd285ac447ff90b9df2"
+    },
+    {
+      "path": "scripts/check-onboarding-sql.mjs",
+      "sha256": "5d64b4f7431a41689bffdcfbc68deea7330355a2742d7b304814c208b70bd253"
+    },
+    {
+      "path": "scripts/check-streak-initialization-hosted.mjs",
+      "sha256": "95ae98defc844a71faf2240c3d70af7a7de59721d622361353c5b0a5cd74bdeb"
+    },
+    {
+      "path": "scripts/check-summary-sql.mjs",
+      "sha256": "13071c9c10f1112092443fca41905b5763a6080e424c1a64afaa79c74fe8c962"
+    },
+    {
+      "path": "scripts/check-workout-hosted.mjs",
+      "sha256": "a1dd4e4327320b2355d188a970fd2e03ab3b9311cac830c399c277d684a10c6e"
+    },
+    {
+      "path": "supabase/functions/_shared/barcode-normalization.test.ts",
+      "sha256": "95414f584e7bd9f666591131555fd18fafc06d00003461962fe4d3d0778a3e82"
+    },
+    {
+      "path": "supabase/functions/_shared/barcode-normalization.ts",
+      "sha256": "3a3e33874200ac66f71a7710ce67b88a9376f1b8b52ce2664d3509d2a6c0c703"
+    },
+    {
+      "path": "supabase/functions/_shared/biometric-device.test.ts",
+      "sha256": "86e3547c8e3665f00deff446e80e3c3e2e22df48e12efaaba033988011ac480d"
+    },
+    {
+      "path": "supabase/functions/_shared/biometric-device.ts",
+      "sha256": "beff33173b5c69dbf0819147f63d5911cb208feb93e4ebd4471154cb8d36141a"
+    },
+    {
+      "path": "supabase/functions/_shared/biometric-enrollment.test.ts",
+      "sha256": "37aa0e4c4c22e6c6b0d737cc4d036717716bea6998d2577337a1c3bc91631796"
+    },
+    {
+      "path": "supabase/functions/_shared/biometric-enrollment.ts",
+      "sha256": "5e6a17f3c9471fc9ec2b51a2df24c49c527edaa753c253308c534ecb91d4ed41"
+    },
+    {
+      "path": "supabase/functions/_shared/biometric-otp.test.ts",
+      "sha256": "67288c08fdfe870a99e2c314b40f74774a014611d1b0eca24afe266e8304978d"
+    },
+    {
+      "path": "supabase/functions/_shared/coach-action-validation.test.ts",
+      "sha256": "690287e81ae5e0ba17e9c6b705a5fdb39546b8a55e48026b33ae3acf780ea0b2"
+    },
+    {
+      "path": "supabase/functions/_shared/coach-action-validation.ts",
+      "sha256": "a01d9f25b5d962d396bd007404f1f397fe1729ba8ee52fb856c15f9ce56cf737"
+    },
+    {
+      "path": "supabase/functions/_shared/coach-context.test.ts",
+      "sha256": "619f34dec7123510e02a70de3e0b702f2fd7496c9c21a39d2edc7227ec7473ac"
+    },
+    {
+      "path": "supabase/functions/_shared/coach-context.ts",
+      "sha256": "b7b558326b7079678bd4690fdaeec61d2b94f96e6248f0dc86511cfcdacdae37"
+    },
+    {
+      "path": "supabase/functions/_shared/coach.ts",
+      "sha256": "f863428c44359928dbc5d868f498918dc0f2319f2f8c4088767eedf5525f5243"
+    },
+    {
+      "path": "supabase/functions/_shared/cors.ts",
+      "sha256": "0dab4747e2806f4cc95766af425572f96655c962b02abd84ab4d23983d186de8"
+    },
+    {
+      "path": "supabase/functions/_shared/food-normalization.test.ts",
+      "sha256": "cd028ca3508bab416b0a90c529deffc62a473cbf031eb415f5fc939d5e52b982"
+    },
+    {
+      "path": "supabase/functions/_shared/food-normalization.ts",
+      "sha256": "22452104e39175c60753e035f109a272762cc5cb0e525051bae081e164f7336c"
+    },
+    {
+      "path": "supabase/functions/_shared/hydration.ts",
+      "sha256": "5aae17a84d65ab77453f36f15c67cbbc32c8465a741ae4c00ac9cd5430c1896c"
+    },
+    {
+      "path": "supabase/functions/_shared/meal-estimate.ts",
+      "sha256": "5b8cfd8ed2dbad92fe88af59e1e12174a87eb2d4e4cae7cb7cf32758126024cc"
+    },
+    {
+      "path": "supabase/functions/_shared/workout-planning.test.ts",
+      "sha256": "c5ab78c4dd89263d71811b04cbf0b520b2139a88333e3d3fec7712cf5d18705c"
+    },
+    {
+      "path": "supabase/functions/_shared/workout-planning.ts",
+      "sha256": "83788d305b683816e9f8b06165558948d1ec0f94343eb97332782fae1844002b"
+    },
+    {
+      "path": "supabase/functions/biometric-auth/index.ts",
+      "sha256": "a55f590c3e1c80634f7156fac0d614a32a8ddeebeb26ed90fc6fd009da1722e8"
+    },
+    {
+      "path": "supabase/functions/coach-chat/deno.json",
+      "sha256": "2ee323fc5b13e605e4f364619bd0c1dcf7dbf9e20aefd586e1a6b701be973365"
+    },
+    {
+      "path": "supabase/functions/coach-chat/handler.test.ts",
+      "sha256": "ca674bf5a5247330890e2e6ac401c8f7f2d839487cd71003c5b8d288c4699ce8"
+    },
+    {
+      "path": "supabase/functions/coach-chat/handler.ts",
+      "sha256": "b1a308f6cc52b535bcca65d7532998c6b17b73ad565aad822ce7abd7733cfb0e"
+    },
+    {
+      "path": "supabase/functions/coach-chat/index.ts",
+      "sha256": "8309eb36d4b086c021937cd722b7d2addb8c41b3f7666c2984e13d3a05bfb586"
+    },
+    {
+      "path": "supabase/functions/delete-account/cleanup.test.ts",
+      "sha256": "0ed78deb92d3241207078ba06a73794a2cc765f930d37c9fb4fcafce091aa283"
+    },
+    {
+      "path": "supabase/functions/delete-account/cleanup.ts",
+      "sha256": "35463b2c258f09c908652f3f719aad83064afbe66ff3eb49c959863f4acae4cc"
+    },
+    {
+      "path": "supabase/functions/delete-account/index.ts",
+      "sha256": "52532e4f095f0c3583772c2eca072935169156f4ac67d74b5a31f1a3b4292072"
+    },
+    {
+      "path": "supabase/functions/estimate-meal/deno.json",
+      "sha256": "2ee323fc5b13e605e4f364619bd0c1dcf7dbf9e20aefd586e1a6b701be973365"
+    },
+    {
+      "path": "supabase/functions/estimate-meal/handler.test.ts",
+      "sha256": "8a6e284b45bef5b640c80a5e8e5738d65b51d6ea5f2906a623fdd3f1d8b7470f"
+    },
+    {
+      "path": "supabase/functions/estimate-meal/handler.ts",
+      "sha256": "cdfc492b2663d5da7b7084bb902e4ff94b09b353f14d5eb70ff20ea60491bc39"
+    },
+    {
+      "path": "supabase/functions/estimate-meal/index.ts",
+      "sha256": "08d39136736971f2dd03d49c640a9e953692ff92b51864445514143063a4d1b2"
+    },
+    {
+      "path": "supabase/functions/resolve-food-barcode/index.ts",
+      "sha256": "c7d56561b5185187cd09a345fed0eaf15b6ec620f0055a6bf029554fa000dcf4"
+    },
+    {
+      "path": "supabase/migrations/202608290001_release_1_vitals.sql",
+      "sha256": "51530e9f0258137d4f6af5ca26f5a9ba6c2a3bb35fb1d2c3bc3bdd653cf13803"
+    },
+    {
+      "path": "supabase/migrations/202608290002_training_nutrition.sql",
+      "sha256": "46dd91ac60ab549835debfb936f25c8d64368840a4a2ff153169a26abb2ab707"
+    },
+    {
+      "path": "supabase/migrations/202608290003_workout_muscle_groups.sql",
+      "sha256": "e211ec381486e712e078401c10bba329046a4683f9e50c79c2cd49bee63a0c17"
+    },
+    {
+      "path": "supabase/migrations/202608290004_replace_workout_session.sql",
+      "sha256": "35aa71b362098691319416126a82c0d79882341ff110fbba109890d3c585c5f5"
+    },
+    {
+      "path": "supabase/migrations/202608290005_daily_goals.sql",
+      "sha256": "be413ee35d491a4d64d4ef7d2e2d6964f145b2da4a6a9e853b77eb8699b98e41"
+    },
+    {
+      "path": "supabase/migrations/202608290006_bp_goal_defaults.sql",
+      "sha256": "4cfa7b0fe07660c31f9570bebc50f521123f0eb4c09f081f866e7a3e953c56e6"
+    },
+    {
+      "path": "supabase/migrations/202608290007_daily_protein_goal.sql",
+      "sha256": "06d73e334aeda3eacbf92eccc6a8b4ffc8873bb1d288667656ed22dd9d59a888"
+    },
+    {
+      "path": "supabase/migrations/202608300001_healthkit_imports.sql",
+      "sha256": "ceb52c764fd85c83579d00335fb8c8ca0f40edb62b9cb5d67e02771cfd8da9c5"
+    },
+    {
+      "path": "supabase/migrations/202608310001_food_catalog.sql",
+      "sha256": "c1714f49cf86c9232d908aa90dd2a884b5af6e3676d856b4f86e7cbe8203c925"
+    },
+    {
+      "path": "supabase/migrations/202608310002_food_household_servings.sql",
+      "sha256": "62a4fe397f5dbaeca03fbeaaad8f7f0735448c4a94c5a116889d940b81230169"
+    },
+    {
+      "path": "supabase/migrations/202609010001_food_provider_servings.sql",
+      "sha256": "2e48d12da890ddf844b8e1c7c6d8c30e00276ff59b4f2ca41d4323e58642c3ad"
+    },
+    {
+      "path": "supabase/migrations/202609010002_open_food_facts_v3.sql",
+      "sha256": "4d092a63b1ccf31e7b703de04b382afe335160c57214bb778d4502906c4da792"
+    },
+    {
+      "path": "supabase/migrations/202609010003_user_food_profile_barcode_dedup.sql",
+      "sha256": "add1ef55b2f34e434e93c70c549906dbcc5b71b2d7a15e254ea38100089b3ae3"
+    },
+    {
+      "path": "supabase/migrations/202609020001_tracking_expansion.sql",
+      "sha256": "92e3dac01325195ab330e842be664745097fc25f454328607911f1d87fc4d4fa"
+    },
+    {
+      "path": "supabase/migrations/202609020002_workout_muscle_group_sets.sql",
+      "sha256": "54f7ba88d345cfb88dfbba3ef37b1d83bfb4be3ce17150d9add7b3365a89686e"
+    },
+    {
+      "path": "supabase/migrations/202609020003_profile_names.sql",
+      "sha256": "6910b69f1728f01d1156946b8117768e56227cd3c4bff2ee0aaea87176a4858c"
+    },
+    {
+      "path": "supabase/migrations/202609040001_biometric_device_credentials.sql",
+      "sha256": "0b1270c9006c3c98a4a877af6a9dc6b7b2b19afbc260b7acc4ca8a87736910e5"
+    },
+    {
+      "path": "supabase/migrations/202609040002_progress_photos.sql",
+      "sha256": "76b16eeff0b1b458237862995302b89c344870aea895122782f483df80237c74"
+    },
+    {
+      "path": "supabase/migrations/202609110001_ai_meal_estimates.sql",
+      "sha256": "4e7ae593b8715cef2a87ebe4e034a6ede1d7099864b9c97eb5f19c2105088bc5"
+    },
+    {
+      "path": "supabase/migrations/202609110002_ai_coach.sql",
+      "sha256": "acc0a5269f9741d1b65dd19f6fb08bf3dad0eeff39bbf89b467e378b66af290d"
+    },
+    {
+      "path": "supabase/migrations/202609110003_ai_coach_multi_goals.sql",
+      "sha256": "cb2c1762c371a4c637d093918d9266bad60678c0fe8862d2165127b43edce804"
+    },
+    {
+      "path": "supabase/migrations/202609110004_save_coach_turn.sql",
+      "sha256": "2fe7ad0dee30e9b9f54f022c169d447a7c8f8b3fa49a34f6f5d6359d57dddb6c"
+    },
+    {
+      "path": "supabase/migrations/202609110005_coach_quota_refunds.sql",
+      "sha256": "0cc2aaa4d9cedede4379d7dd4524dd37e5215a8dc16dfc538d759077547a1d1e"
+    },
+    {
+      "path": "supabase/migrations/202609150001_unilateral_workout_sets.sql",
+      "sha256": "3227e10ca98e20fd9dc4fd3d700ad316c65b7a2c9ffe2d2336c20ce4e9703f86"
+    },
+    {
+      "path": "supabase/migrations/202609150002_food_servings_per_container.sql",
+      "sha256": "33a87eb1ff5162c2176b99b61a8afcf7deb574df503074aa65f50dbd475c5d93"
+    },
+    {
+      "path": "supabase/migrations/202609160001_progress_photos_per_entry.sql",
+      "sha256": "bf6f53c59b182fdce1267c49d23a7d79b249ef4506cb4fd9799a826cc65bd2e2"
+    },
+    {
+      "path": "supabase/migrations/202609170001_food_recipes.sql",
+      "sha256": "9581b37a8063ecc62aa40d0faa11518d431502a156cdf7f7f21173201193df93"
+    },
+    {
+      "path": "supabase/migrations/202609170002_drink_categories.sql",
+      "sha256": "a049cad714596386df92b5defae647d44a6b641107b47430e02793f3397efe80"
+    },
+    {
+      "path": "supabase/migrations/202609180001_summary_streaks.sql",
+      "sha256": "4107debb1865b1e474b0f99b00c2848ccdc331f336efc50b1197ed375b62aca7"
+    },
+    {
+      "path": "supabase/migrations/202609180002_summary_function_permissions.sql",
+      "sha256": "37dd4a5a626832b9cf41e9fac7d0985b9e278ad0fec0fb77e807b36396add89f"
+    },
+    {
+      "path": "supabase/migrations/202609180003_biometric_hardening.sql",
+      "sha256": "114a99a6c5d6acb561b7feede92ff012e2307a5ce0ecb51cfed0b141a653cf99"
+    },
+    {
+      "path": "supabase/migrations/202609180004_consistent_writes.sql",
+      "sha256": "85ded84ffab657c8e0cecc6778a8da79d8edf265a413bef7c5c6bee77a8f5ebc"
+    },
+    {
+      "path": "supabase/migrations/202609180005_remaining_ownership.sql",
+      "sha256": "f684e86180b47ba550d2aa50aa00610cac7396a6b764c78efca55ae7c132cf79"
+    },
+    {
+      "path": "supabase/migrations/202609210001_account_onboarding.sql",
+      "sha256": "bc7b055067e2d3f1df0c59256ed48c90092b5fbf9730daf7f762c4ff40b3e559"
+    },
+    {
+      "path": "supabase/migrations/202609220001_summary_refinements.sql",
+      "sha256": "ea8921ead1df70f0cda7172dd098ec1f787f09742ba29a34d8fe87d1ef443d8b"
+    },
+    {
+      "path": "supabase/migrations/202609220002_account_deletion.sql",
+      "sha256": "9b999b938ca41f83cd340f39265aaf99a01b77a9e09bcc53870be3285b7a7405"
+    },
+    {
+      "path": "supabase/tests/drink_categories.sql",
+      "sha256": "00b109028b6e2c75a0a6568a2a1faafb0f192aeb73f46bfef8358c70bf294447"
+    },
+    {
+      "path": "supabase/tests/hardening.sql",
+      "sha256": "ee21ca22b28c6f66156741afc5035ae40a77d15c0e17548674529742b1557c22"
+    },
+    {
+      "path": "supabase/tests/hardening_preflight.sql",
+      "sha256": "b168578815919d93def330a6b34377b10db09dff0e2900e2f43a5d578ecb94ae"
+    },
+    {
+      "path": "supabase/tests/onboarding.sql",
+      "sha256": "fa643d14bc279ebae36c7d9d23af2529784f3125805faaed439e1b1955447244"
+    },
+    {
+      "path": "supabase/tests/progress_photos_per_entry.sql",
+      "sha256": "240c029731ac65ef9f9dc1c9d54663eba5c4837d40ff08bc0f9323a2f57c4013"
+    },
+    {
+      "path": "supabase/tests/summary_refinements.sql",
+      "sha256": "426d039670fdc26df2c265ae4d60d81751b8f5d642a7759a9c4b8bcf6a9ef43f"
+    },
+    {
+      "path": "supabase/tests/summary_streaks.sql",
+      "sha256": "133b42a41b035be0a71713043f54dfaba0be204c3189b16a3d654f1d29293149"
+    }
+  ],
+  "checks": {
+    "automated": "231 app + 66 Edge tests; lint and TypeScript pass",
+    "sql": "All 36 migrations + hardening/onboarding/streak/Summary/deletion assertions pass in PGlite",
+    "browser": "55 selected synthetic Playwright tests pass"
+  },
+  "sourcePdf": {
+    "name": "HealthApp_Current_State_and_Deployment_Report.pdf",
+    "sha256": "5e896f7b83d2e9155589f9295894152bd8e636d0e5fccfdf1d0ec13c0ffefef6"
+  },
+  "snapshotNote": "Source hashes were captured before the report task updated STATUS/ROADMAP/IMPLEMENTATION_LOG. No application source was changed during the review.",
+  "artifacts": [
+    {
+      "name": "HealthApp_Reviewed_Implementation_and_Design_Report.pdf",
+      "sha256": "77351384198978271258b02ba3d4f1153afc35dd3480ac53ea508cb4b68acdc0",
+      "bytes": 596111
+    },
+    {
+      "name": "HealthApp_Reviewed_Implementation_and_Design_Report.md",
+      "sha256": "ba587939d4073cd4d551d3e9ecc246e5635709cdbb45d829b45410c7778e064a",
+      "bytes": 112168
+    },
+    {
+      "name": "HealthApp_Reviewed_Implementation_and_Design_Report.html",
+      "sha256": "11290c9cb25b9d086ceb8fd640a68a1d0a19e8ab4a0fa46b0c0fe41311a114df",
+      "bytes": 134042
+    }
+  ],
+  "artifactQa": {
+    "pages": 38,
+    "wordCount": 13488,
+    "overflowPages": [],
+    "allTitlesExtracted": true,
+    "visualReview": "All 38 pages reviewed as contact sheets; full-size spot checks include cover, alternatives, data model and references."
+  }
+}

@@ -64,7 +64,7 @@ async function performSync(userId: string): Promise<SyncResult> {
         await assertAccount(userId);
         if (reply.status === "conflict") {
           issue =
-            "Some readings changed on another device. Your local edits are retained. Review Pending readings in Settings.";
+            "Some readings changed on another device. Your local edits are retained. Review Sync & Pending Changes in Profile.";
           await failChange(userId, operation.id, issue, {
             id: reply.id,
             current: reply.current
@@ -125,7 +125,7 @@ async function performSync(userId: string): Promise<SyncResult> {
     const pending = (await queuedChanges(userId)).length;
     if (pending && !issue)
       issue =
-        "Readings are saved on this device and waiting to sync. Review Pending readings in Settings.";
+        "Readings are saved on this device and waiting to sync. Review Sync & Pending Changes in Profile.";
     const lastSyncedAt = new Date().toISOString();
     await saveVitalSyncAt(userId, lastSyncedAt);
     return { synced, pending, lastSyncedAt, error: issue };

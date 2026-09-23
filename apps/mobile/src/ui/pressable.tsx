@@ -18,10 +18,11 @@ export function Pressable({
   onHoverIn,
   onHoverOut,
   disabled,
+  disabledOpacity = 0.45,
   accessibilityRole = "button",
   accessibilityState,
   ...props
-}: PressableProps) {
+}: PressableProps & { disabledOpacity?: number }) {
   const [pressed, setPressed] = useState(false);
   const [hovered, setHovered] = useState(false);
   const scale = useRef(new Animated.Value(1)).current;
@@ -81,7 +82,7 @@ export function Pressable({
       style={[
         typeof style === "function" ? style({ pressed, hovered }) : style,
         pressed && !disabled && { opacity: 0.72 },
-        disabled && { opacity: 0.45 },
+        disabled && { opacity: disabledOpacity },
         { transform: [{ scale }] },
       ]}
     >
