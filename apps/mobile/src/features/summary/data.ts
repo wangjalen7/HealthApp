@@ -90,12 +90,15 @@ export async function loadSummaryData(
   const errors: string[] = [],
     coverage: Sources["coverage"] = {};
   const streaks = widgets.some((w) => w.type === "streaks");
+  const actions = widgets.some((w) => w.type === "actions");
   const meals = widgets.some((w) => w.type === "meals");
   const training = streaks || widgets.some((w) => w.type === "training");
   let rules: Rule[] = [],
     goals: GoalSnapshot[] = [];
   let remindersComplete = true;
-  const reminders = await listReminders(user, true).catch(() => {
+  const reminders = await (
+    streaks || actions ? listReminders(user, true) : Promise.resolve([])
+  ).catch(() => {
     remindersComplete = false;
     errors.push("Reminder schedules unavailable on this device.");
     return [];
@@ -114,7 +117,11 @@ export async function loadSummaryData(
       errors.push("Reminder history is unavailable on this device.");
     }
     if (maintainTracking) {
-      try { await ensureTracking(); } catch { errors.push("Streak targets could not refresh. Retry when connected."); }
+      try {
+        await ensureTracking();
+      } catch {
+        errors.push("Streak targets could not refresh. Retry when connected.");
+      }
     }
     const results = await Promise.allSettled([
       ownedRows<Rule>("streak_rules", user),
@@ -229,13 +236,15 @@ export async function loadSummaryData(
           true,
         )
       : [],
-    listReminderCompletions(user, true).catch(() => {
-      remindersComplete = false;
-      errors.push("Reminder completions unavailable on this device.");
-      return [];
-    }),
-    loadWorkoutDraft(user),
-    loadNutritionDraft(user),
+    (streaks ? listReminderCompletions(user, true) : Promise.resolve([])).catch(
+      () => {
+        remindersComplete = false;
+        errors.push("Reminder completions unavailable on this device.");
+        return [];
+      },
+    ),
+    actions ? loadWorkoutDraft(user) : undefined,
+    actions ? loadNutritionDraft(user) : undefined,
   ]);
   if (sets === null || cardio === null)
     coverage.training = { from, complete: false };

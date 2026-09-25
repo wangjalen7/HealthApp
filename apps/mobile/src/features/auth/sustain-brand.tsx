@@ -57,7 +57,7 @@ export function SustainBrand({
   const fill = useRef(new Animated.Value(0)).current;
   const [offset, setOffset] = useState(0);
   useEffect(() => {
-    if (motion !== "pending" || reduced) return;
+    if ((motion !== "pending" && motion !== "biometric") || reduced) return;
     const listener = flow.addListener(({ value }) => setOffset(value));
     flow.setValue(0);
     const animation = Animated.loop(
@@ -122,7 +122,7 @@ export function SustainBrand({
             ]}
           />
         ) : null}
-        {motion === "pending" && !reduced ? (
+        {(motion === "pending" || motion === "biometric") && !reduced ? (
           <Svg
             width={size}
             height={height}

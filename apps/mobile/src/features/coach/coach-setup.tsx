@@ -180,7 +180,7 @@ export function CoachSetup({
     <View style={styles.stack}>
       <View>
         <View style={styles.setupMark}>
-          <Icon name="sparkles" size={24} color="#FFFFFF" />
+          <Icon name="sparkles" size={24} color={colors.onAccent} />
         </View>
         <Text accessibilityRole="header" style={styles.heading}>
           {initial ? "Coach settings" : "Set up your Coach"}
@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   checkboxSelected: { backgroundColor: colors.blue, borderColor: colors.blue },
-  checkmark: { color: "#FFFFFF", fontSize: 15, fontWeight: "600" },
+  checkmark: { color: colors.onAccent, fontSize: 15, fontWeight: "600" },
   heading: {
     color: colors.text,
     fontSize: 27,

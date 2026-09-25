@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Pressable } from "../../ui/pressable";
 import { useReducedMotion } from "../../ui/motion";
 import { colors } from "../../ui/theme";
+import { Skeleton, SkeletonGroup } from "../../ui/skeleton";
 import {
   Animated,
   Easing,
@@ -147,6 +148,10 @@ export function CalorieCalendar({
   canGoNext = true,
   onNext,
   onPrevious,
+  loading = false,
+  error,
+  unavailable = false,
+  onRetry,
 }: {
   totals: Record<string, DailyCalorieTotal>;
   goal: number | undefined;
@@ -154,6 +159,10 @@ export function CalorieCalendar({
   canGoNext?: boolean;
   onNext?: () => void;
   onPrevious?: () => void;
+  loading?: boolean;
+  error?: string;
+  unavailable?: boolean;
+  onRetry?: () => void;
 }) {
   const cells = calorieCalendarCells(reference);
   const todayKey = localDateKey(new Date());
@@ -202,21 +211,50 @@ export function CalorieCalendar({
           </Text>
         ))}
       </View>
-      <View style={styles.grid}>
-        {cells.map((cell, index) =>
-          cell ? (
-            <DayRing
-              day={cell.day}
-              future={cell.dateKey > todayKey}
-              goal={goal}
-              key={cell.dateKey}
-              total={totals[cell.dateKey]}
-            />
-          ) : (
-            <View key={`empty-${index}`} style={styles.day} />
-          ),
-        )}
-      </View>
+      {error ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={onRetry}
+          style={{ minHeight: 44, justifyContent: "center" }}
+        >
+          <Text style={{ color: colors.danger }}>
+            Calendar could not update. Tap to retry.
+          </Text>
+        </Pressable>
+      ) : null}
+      {loading ? (
+        <SkeletonGroup
+          label={
+            unavailable ? "Calendar unavailable" : "Loading calorie calendar"
+          }
+          paused={unavailable}
+          testID="skeleton-calendar"
+        >
+          <View style={styles.grid}>
+            {cells.map((cell, index) => (
+              <View key={index} style={styles.day}>
+                {cell ? <Skeleton width={38} height={38} round={19} /> : null}
+              </View>
+            ))}
+          </View>
+        </SkeletonGroup>
+      ) : (
+        <View style={styles.grid}>
+          {cells.map((cell, index) =>
+            cell ? (
+              <DayRing
+                day={cell.day}
+                future={cell.dateKey > todayKey}
+                goal={goal}
+                key={cell.dateKey}
+                total={totals[cell.dateKey]}
+              />
+            ) : (
+              <View key={`empty-${index}`} style={styles.day} />
+            ),
+          )}
+        </View>
+      )}
     </View>
   );
 }

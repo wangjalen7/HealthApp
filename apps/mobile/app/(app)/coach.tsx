@@ -168,7 +168,7 @@ export default function WorkoutPlannerScreen() {
     }
   }
 
-  async function generate(value: WorkoutPreferences) {
+  async function generate(value: WorkoutPreferences, includeHistory: boolean) {
     if (!userId || busy) return;
     const controller = new AbortController();
     request.current = controller;
@@ -203,7 +203,7 @@ export default function WorkoutPlannerScreen() {
         dislikedFoods: profile?.dislikedFoods ?? [],
         responseStyle: "concise",
         useNutrition: false,
-        useTraining: true,
+        useTraining: includeHistory,
         useVitals: false,
         useHydration: false,
         usePhotoMetadata: false,
@@ -218,6 +218,8 @@ export default function WorkoutPlannerScreen() {
       const response = await sendCoachMessage(
         {
           workoutPreferences: value,
+          consentVersion: "2026-09-25.1",
+          includeTrainingHistory: includeHistory,
           message:
             "Generate one workout from my preferences and recent training as a structured next_workout action. Fill the appropriate lifting and cardio sections, sharing the total session time. I will edit the drafts in my log. Do not ask follow-up questions.",
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
@@ -377,6 +379,6 @@ const styles = StyleSheet.create({
     padding: 14,
     justifyContent: "center",
   },
-  primaryText: { color: "#fff", fontWeight: "600", fontSize: 16 },
+  primaryText: { color: colors.onAccent, fontWeight: "600", fontSize: 16 },
   error: { color: colors.danger, fontSize: 15 },
 });

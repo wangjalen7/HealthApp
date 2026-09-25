@@ -22,6 +22,7 @@ test("native Summary editor opens, cancels, saves and reopens without DOM APIs",
   try {
     await mkdir(resolve("dist"), { recursive: true });
     const hosts: Record<string, string> = {
+      "./widget-skeleton": 'export const WidgetSkeleton = "skeleton";',
       "../../ui/settings-sheet": `export const SettingsSheet = ({visible,children}) => visible ? children : null; export const ChoiceRow = "button";`,
       "../../ui/icon": `export const Icon = "icon";`,
       "../../ui/segmented-control": `export const SegmentedControl = "segmented";`,
@@ -62,6 +63,7 @@ test("native Summary editor opens, cancels, saves and reopens without DOM APIs",
       "../../lib/id": 'export const createUuid = () => "new-widget";',
       "./storage": `
         export let savedLayout = { version: 1, widgets: [{ id: "weight", type: "weight", size: "small", config: {} }] };
+        export const cachedLayout = () => undefined;
         export const loadLayout = async () => ({ layout: savedLayout });
         export const saveLayout = async (_user, layout) => { savedLayout = layout; };`,
     };

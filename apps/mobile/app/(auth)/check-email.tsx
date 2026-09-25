@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   copy: {
-    color: "#52606D",
+    color: colors.secondary,
     fontSize: 16,
     lineHeight: 24,
     marginBottom: 24,
@@ -66,5 +66,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     minHeight: 52,
   },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  buttonText: { color: colors.onAccent, fontSize: 16, fontWeight: "600" },
 });

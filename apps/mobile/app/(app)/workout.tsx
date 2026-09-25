@@ -1,3 +1,5 @@
+import { useDraftField } from "../../src/lib/use-draft-field";
+import { observeDraftReset } from "../../src/features/privacy/draft-reset";
 import { RestToday } from "../../src/features/reminders/rest-today";
 import { EntryDateField } from "../../src/ui/entry-date-field";
 import { completePendingDraftSave } from "../../src/lib/mutations";
@@ -87,8 +89,17 @@ function persistWorkoutDraft(
 }
 
 export default function WorkoutScreen() {
+  const { session } = useAuth();
+  return <WorkoutContent key={session?.user.id ?? "signed-out"} />;
+}
+function WorkoutContent() {
+  const draftRevision = useRef(0);
   const cardio = useCardioLog();
-  const { section: requestedSection, planned, routineWorkout } = useLocalSearchParams<{
+  const {
+    section: requestedSection,
+    planned,
+    routineWorkout,
+  } = useLocalSearchParams<{
     routineWorkout?: string;
     section?: string;
     planned?: string;
@@ -102,15 +113,24 @@ export default function WorkoutScreen() {
     if (requestedSection === "cardio" || requestedSection === "lifting")
       setSection(requestedSection);
   }, [requestedSection]);
-  const [entryDay, setEntryDay] = useState<string>();
-  const [selectedGroups, setSelectedGroups] = useState<MuscleGroup[]>([]);
-  const [entries, setEntries] = useState<ExerciseEntry[]>([]);
+  const [entryDay, setEntryDay] = useDraftField<string | undefined>(
+    draftRevision,
+    undefined,
+  );
+  const [selectedGroups, setSelectedGroups] = useDraftField<MuscleGroup[]>(
+    draftRevision,
+    [],
+  );
+  const [entries, setEntries] = useDraftField<ExerciseEntry[]>(
+    draftRevision,
+    [],
+  );
   const [activeEntry, setActiveEntry] = useState<string>();
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [locationSuggestions, setLocationSuggestions] = useState<string[]>([]);
   const [locationFocused, setLocationFocused] = useState(false);
-  const [location, setLocation] = useState("");
-  const [notes, setNotes] = useState("");
+  const [location, setLocation] = useDraftField(draftRevision, "");
+  const [notes, setNotes] = useDraftField(draftRevision, "");
   const [feedback, setFeedback] = useState("");
   const [saving, setSaving] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
@@ -123,6 +143,12 @@ export default function WorkoutScreen() {
     location: "",
     notes: "",
   });
+  useEffect(() => observeDraftReset(userId, () => {
+    draftRevision.current++;
+    draftRef.current = { muscleGroups: [], entries: [], location: "", notes: "" };
+    setSelectedGroups([]); setEntryDay(undefined); setEntries([]); setLocation(""); setNotes("");
+    setFeedback(""); entryNames.current.clear(); guidanceRequests.current.clear();
+  }), [userId, setSelectedGroups, setEntryDay, setEntries, setLocation, setNotes]);
   const draft = useMemo<WorkoutDraft>(
     () => ({
       entryDay,
@@ -174,9 +200,10 @@ export default function WorkoutScreen() {
         active = false;
       };
 
+    const version = draftRevision.current;
     void loadWorkoutDraft(userId).then((savedDraft) => {
       if (!active) return;
-      if (savedDraft) {
+      if (savedDraft && version === draftRevision.current) {
         const normalizedDraft = normalizeWorkoutDraftStructure(savedDraft);
         setSelectedGroups(normalizedDraft.muscleGroups);
         setEntryDay(normalizedDraft.entryDay);
@@ -209,8 +236,9 @@ export default function WorkoutScreen() {
     useCallback(() => {
       let active = true;
       if (!userId || !draftLoaded) return () => undefined;
+      const version = draftRevision.current;
       void loadWorkoutDraft(userId).then((savedDraft) => {
-        if (!active || !savedDraft) return;
+        if (!active || !savedDraft || version !== draftRevision.current) return;
         const normalizedDraft = normalizeWorkoutDraftStructure(savedDraft);
         setSelectedGroups(normalizedDraft.muscleGroups);
         setEntryDay(normalizedDraft.entryDay);
@@ -1018,7 +1046,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   exerciseGroupTextActive: {
-    color: "#fff",
+    color: colors.onAccent,
     fontSize: 12,
     fontWeight: "600",
   },

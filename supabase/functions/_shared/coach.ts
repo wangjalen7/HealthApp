@@ -68,6 +68,8 @@ export const coachRequestSchema = z
   .object({
     threadId: z.string().uuid().optional(),
     workoutPreferences: workoutPreferencesSchema.optional(),
+    consentVersion: z.string().optional(),
+    includeTrainingHistory: z.boolean().default(false),
     message: z.string().trim().min(1).max(4000),
     timezone: z.string().trim().min(1).max(100),
     localDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

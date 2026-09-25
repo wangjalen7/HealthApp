@@ -33,7 +33,7 @@ export const trackingStyles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  card: { ...surfaces.card, borderRadius: 22, padding: 16 },
+  card: { ...surfaces.card, padding: 18 },
   chip: {
     alignItems: "center",
     justifyContent: "center",
@@ -73,7 +73,7 @@ export const trackingStyles = StyleSheet.create({
     justifyContent: "center",
     flexDirection: "row",
     gap: 8,
-    backgroundColor: "#0064D6",
+    backgroundColor: colors.blue,
     borderRadius: 13,
     minHeight: 54,
     padding: 14,
@@ -90,5 +90,10 @@ export const trackingStyles = StyleSheet.create({
     fontWeight: "500",
     marginBottom: 12,
   },
-  error: { color: "#B42318", fontSize: 14, lineHeight: 20, marginBottom: 12 },
+  error: {
+    color: colors.danger,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 12,
+  },
 });

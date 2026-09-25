@@ -13,7 +13,7 @@ import {
 } from "./settings-ui";
 import { loadPendingData, syncLabel, type PendingData } from "./sync-status";
 import { PendingChanges } from "./pending-changes";
-import { synchronizeHealthData } from "../healthkit/unified-sync";
+import { synchronizeHealthData, disconnectHealthKit } from "../healthkit/unified-sync";
 import {
   connectHealthKit,
   healthKitAvailability,
@@ -64,9 +64,7 @@ export function AppleHealthScreen() {
               : "Checking Apple Health"}
         </Text>
         <Text style={styles.copy}>
-          Read-only imports of weight and blood pressure from this iPhone.
-          Account synchronization keeps your HealthApp records available across
-          devices.
+          Optional read-only imports of weight, blood pressure and paired pulse from this iPhone. Connecting copies these readings and their source identifiers into your private Sustain account in Supabase for synchronization across devices. Manual logging works without connecting.
         </Text>
         {state?.lastImportedAt ? (
           <Text style={styles.copy}>
@@ -96,7 +94,10 @@ export function AppleHealthScreen() {
           }}
         />
       ) : null}
-      {!state?.connected ? (
+      {state?.connected ? <SettingsButton label={busy ? "Disconnecting..." : "Disconnect Apple Health"} secondary disabled={busy} onPress={() => {
+        setBusy(true); setError("");
+        void disconnectHealthKit(user).then(load).catch(() => setError("Could not disconnect. Try again.")).finally(()=>setBusy(false));
+      }} /> : (
         <SettingsButton
           label={busy ? "Connecting..." : "Connect Apple Health"}
           disabled={busy || !availability?.available}
@@ -115,10 +116,9 @@ export function AppleHealthScreen() {
               .finally(() => setBusy(false));
           }}
         />
-      ) : null}
+      )}
       <Text style={styles.copy}>
-        Automatic imports continue when Summary synchronizes. Use Sync & Pending
-        Changes to run the same sync manually.
+        Disconnect stops future imports on this device after any current sync finishes. It does not delete imported records or revoke iOS permission. Manage read permissions in Apple Health; delete imported copies separately in History or delete the account.
       </Text>
       <SettingsButton
         label="Sync & Pending Changes"

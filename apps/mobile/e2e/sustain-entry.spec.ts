@@ -33,9 +33,25 @@ test("Sustain keeps pending sign-in stable, rejects duplicates and enters withou
     await route.fallback();
   });
   await button.click();
-  await expect(page.getByText("Signing in…", { exact: true })).toBeVisible();
-  await expect(button).toBeDisabled();
-  expect(await button.boundingBox()).toEqual(before);
+  await expect(
+    page
+      .getByTestId("sustain-entry-cover")
+      .getByText("Signing in…", { exact: true }),
+  ).toBeVisible();
+  const coveredButton = page.locator('[role="button"][aria-label="Sign in"]');
+  await expect(coveredButton).toBeDisabled();
+  expect(await coveredButton.boundingBox()).toEqual(before);
+  const cover = page.getByTestId("sustain-entry-cover");
+  await expect(cover).toBeVisible();
+  const brand = (await cover
+    .getByLabel("Sustain", { exact: true })
+    .boundingBox())!;
+  const viewport = page.viewportSize()!;
+  expect(Math.abs(brand.x + brand.width / 2 - viewport.width / 2)).toBeLessThan(
+    2,
+  );
+  expect(brand.height).toBeGreaterThan(200);
+  expect(brand.y).toBeGreaterThan(viewport.height * 0.25);
   const flowing = page.locator('path[stroke-dasharray="140 1100"]');
   await expect(flowing).toHaveCount(1);
   const first = await flowing.getAttribute("stroke-dashoffset");

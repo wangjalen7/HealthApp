@@ -40,7 +40,7 @@ function CreateTabButton() {
       style={styles.createTabButton}
     >
       <View style={styles.createCircle}>
-        <Icon name="plus" color="#FFFFFF" size={28} />
+        <Icon name="plus" color={colors.onAccent} size={28} />
       </View>
       <Text style={styles.createLabel}>Track</Text>
     </Pressable>
@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
     width: 54,
   },
   createPlus: {
-    color: "#fff",
+    color: colors.onAccent,
     fontSize: 34,
     fontWeight: "300",
     lineHeight: 37,

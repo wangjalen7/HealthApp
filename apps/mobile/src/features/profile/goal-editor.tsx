@@ -41,6 +41,7 @@ import {
   type GoalKind,
 } from "./goal-display";
 import { dayKey, shiftDay } from "../summary/calendar";
+import { CalorieOptions } from "./calorie-options";
 
 export function GoalEditor() {
   const { kind: raw } = useLocalSearchParams<{ kind: string }>();
@@ -154,6 +155,13 @@ export function GoalEditor() {
               </Text>
             ) : null}
           </View>
+          {kind === "calories" && calorie ? (
+            <CalorieOptions
+              result={calorie}
+              currentGoal={goals.calorieGoal}
+              units={units}
+            />
+          ) : null}
           {result ? (
             <View style={styles.card}>
               <Text style={styles.label}>Last calculated estimate</Text>

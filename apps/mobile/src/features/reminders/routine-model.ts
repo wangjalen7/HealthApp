@@ -49,6 +49,7 @@ export const routineSchema = z
   .object({
     version: z.literal(2),
     medicationEnabled: z.boolean().default(true),
+    detailedPreviews: z.boolean().default(false),
     userId: z.string().min(1),
     categories: z.object({
       meals: category,
@@ -107,6 +108,7 @@ export function defaultRoutines(userId: string): RoutinePreferences {
   return {
     version: 2,
     medicationEnabled: true,
+    detailedPreviews: false,
     userId,
     replacements: [],
     keepBoth: [],

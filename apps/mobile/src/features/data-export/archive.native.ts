@@ -3,6 +3,8 @@ import * as Sharing from "expo-sharing";
 import { strToU8, Zip, ZipDeflate, ZipPassThrough } from "fflate";
 
 import { supabase } from "../../lib/supabase";
+import { assertAccount } from "../../lib/mutations";
+import { createUuid } from "../../lib/id";
 import type { HealthDataExport } from "./model";
 import { exportTextFiles } from "./model";
 
@@ -54,6 +56,8 @@ export async function shareHealthDataExport(
   includePhotos: boolean,
   onProgress?: (progress: ExportProgress) => void,
 ): Promise<void> {
+  const user = String(data.datasets.account?.[0]?.id ?? "");
+  await assertAccount(user);
   if (!(await Sharing.isAvailableAsync())) {
     throw new Error("Sharing is not available on this device.");
   }
@@ -62,7 +66,7 @@ export async function shareHealthDataExport(
   // the shared TypeScript pass; these members are provided by the native File.
   const file = new File(
     Paths.cache,
-    `HealthApp-data-${stamp}.zip`,
+    `Sustain-data-${stamp}-${createUuid()}.zip`,
   ) as NativeWritableFile;
   if (file.exists) file.delete();
   file.create();
@@ -86,6 +90,7 @@ export async function shareHealthDataExport(
     const photos = includePhotos ? progressPhotoRows(data) : [];
     onProgress?.({ completedPhotos: 0, totalPhotos: photos.length });
     for (const [index, photo] of photos.entries()) {
+      await assertAccount(user);
       const { data: blob, error } = await supabase.storage
         .from("progress-photos")
         .download(photo.object_path);
@@ -102,6 +107,7 @@ export async function shareHealthDataExport(
     zip.end();
     if (archiveError) throw archiveError;
     handle.close();
+    await assertAccount(user);
     await Sharing.shareAsync(file.uri, {
       dialogTitle: "Export HealthApp data",
       mimeType: "application/zip",

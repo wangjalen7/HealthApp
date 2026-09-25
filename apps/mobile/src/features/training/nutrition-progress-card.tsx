@@ -5,6 +5,7 @@ import { Icon } from "../../ui/icon";
 import { useReducedMotion } from "../../ui/motion";
 import { Pressable } from "../../ui/pressable";
 import { colors, surfaces } from "../../ui/theme";
+import { Skeleton, SkeletonGroup } from "../../ui/skeleton";
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const radius = 43;
@@ -18,6 +19,8 @@ export function NutritionProgressCard({
   onPress,
   accessibilityHint,
   size,
+  goalLoading = false,
+  goalUnavailable = false,
 }: {
   label: string;
   value: number;
@@ -26,6 +29,8 @@ export function NutritionProgressCard({
   onPress: () => void;
   accessibilityHint?: string;
   size?: "small" | "wide";
+  goalLoading?: boolean;
+  goalUnavailable?: boolean;
 }) {
   const hasGoal = goal !== undefined && goal > 0;
   const fraction = hasGoal ? Math.max(0, Math.min(1, value / goal)) : 0;
@@ -127,9 +132,13 @@ export function NutritionProgressCard({
         accessibilityRole="button"
         accessibilityHint={accessibilityHint ?? "Opens the matching tracker."}
         accessibilityLabel={
-          hasGoal
-            ? `${label}: ${rounded} of ${roundedGoal} ${unit}`
-            : `${label}: ${rounded} ${unit}, no goal set`
+          goalUnavailable
+            ? `${label}: ${rounded} ${unit}, goal unavailable`
+            : goalLoading
+              ? `${label}: ${rounded} ${unit}, goal loading`
+              : hasGoal
+                ? `${label}: ${rounded} of ${roundedGoal} ${unit}`
+                : `${label}: ${rounded} ${unit}, no goal set`
         }
         onPress={onPress}
         style={{
@@ -197,12 +206,24 @@ export function NutritionProgressCard({
             }}
           />
         </View>
-        <Text style={{ color: colors.secondary, fontSize: 13, lineHeight: 19 }}>
-          {hasGoal ? `Goal: ${roundedGoal} ${unit}` : "Set goal in Profile"}
-          {size === "wide" && hasGoal
-            ? ` · ${Math.round((value / goal) * 100)}% of goal`
-            : ""}
-        </Text>
+        {goalLoading ? (
+          <SkeletonGroup label="Loading goal">
+            <Skeleton width="75%" height={19} />
+          </SkeletonGroup>
+        ) : (
+          <Text
+            style={{ color: colors.secondary, fontSize: 13, lineHeight: 19 }}
+          >
+            {goalUnavailable
+              ? "Goal unavailable"
+              : hasGoal
+                ? `Goal: ${roundedGoal} ${unit}`
+                : "Set goal in Profile"}
+            {size === "wide" && hasGoal
+              ? ` · ${Math.round((value / goal) * 100)}% of goal`
+              : ""}
+          </Text>
+        )}
       </Pressable>
     );
   return (
@@ -231,14 +252,22 @@ export function NutritionProgressCard({
         {water && <Text style={styles.waterTitle}>Water & fluids</Text>}
         {water && (
           <Text style={styles.detail}>
-            {hasGoal ? `Goal: ${roundedGoal} ${unit}` : "Set goal in Profile"}
+            {goalUnavailable
+              ? "Goal unavailable"
+              : hasGoal
+                ? `Goal: ${roundedGoal} ${unit}`
+                : "Set goal in Profile"}
           </Text>
         )}
       </View>
       {ring}
       {!water && (
         <Text style={styles.detail}>
-          {hasGoal ? `Goal: ${roundedGoal} ${unit}` : "Set goal in Profile"}
+          {goalUnavailable
+            ? "Goal unavailable"
+            : hasGoal
+              ? `Goal: ${roundedGoal} ${unit}`
+              : "Set goal in Profile"}
         </Text>
       )}
     </Pressable>

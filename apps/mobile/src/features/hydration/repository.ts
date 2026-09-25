@@ -37,8 +37,11 @@ export async function saveHydration(
   );
 }
 
-export async function getTodayHydrationTotals(userId: string) {
-  const start = new Date();
+export async function getTodayHydrationTotals(
+  userId: string,
+  reference = new Date(),
+) {
+  const start = new Date(reference);
   start.setHours(0, 0, 0, 0);
   const end = new Date(start);
   end.setDate(end.getDate() + 1);

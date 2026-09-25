@@ -13,7 +13,9 @@ function csvValue(value: unknown): string {
   const plain =
     typeof value === "object" ? JSON.stringify(value) : String(value);
   const safe =
-    typeof value === "string" && /^[=+\-@]/.test(plain) ? `'${plain}` : plain;
+    // Guard spreadsheet formulas even when prefixed with invisible controls.
+    // eslint-disable-next-line no-control-regex
+    typeof value === "string" && /^[\s\u0000-\u001f]*[=+\-@]/.test(plain) ? `'${plain}` : plain;
   return /[",\r\n]/.test(safe) ? `"${safe.replaceAll('"', '""')}"` : safe;
 }
 

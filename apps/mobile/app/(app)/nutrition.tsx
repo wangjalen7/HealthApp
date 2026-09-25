@@ -1,3 +1,5 @@
+import { useDraftField } from "../../src/lib/use-draft-field";
+import { observeDraftReset } from "../../src/features/privacy/draft-reset";
 import { mealDraftForReminder } from "../../src/features/reminders/meal-intent";
 import { EntryDateField } from "../../src/ui/entry-date-field";
 import { completePendingDraftSave } from "../../src/lib/mutations";
@@ -52,12 +54,29 @@ function persistDraft(userId: string, draft: NutritionDraft) {
 }
 
 export default function NutritionScreen() {
-  const { estimate, routineMeal } = useLocalSearchParams<{ estimate?: string; routineMeal?: string }>();
+  const { session } = useAuth();
+  return <NutritionContent key={session?.user.id ?? "signed-out"} />;
+}
+function NutritionContent() {
+  const draftRevision = useRef(0);
+  const { estimate, routineMeal } = useLocalSearchParams<{
+    estimate?: string;
+    routineMeal?: string;
+  }>();
   const { session } = useAuth();
   const userId = session?.user.id;
-  const [entryDay, setEntryDay] = useState<string>();
-  const [mealType, setMealType] = useState<MealType>();
-  const [entries, setEntries] = useState<MealDraftEntry[]>([]);
+  const [entryDay, setEntryDay] = useDraftField<string | undefined>(
+    draftRevision,
+    undefined,
+  );
+  const [mealType, setMealType] = useDraftField<MealType | undefined>(
+    draftRevision,
+    undefined,
+  );
+  const [entries, setEntries] = useDraftField<MealDraftEntry[]>(
+    draftRevision,
+    [],
+  );
   const [editorOpen, setEditorOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [recipesOpen, setRecipesOpen] = useState(false);
@@ -75,6 +94,12 @@ export default function NutritionScreen() {
   const draftRef = useRef(draft);
   const savingDraftRef = useRef(false);
   if (!savingDraftRef.current) draftRef.current = draft;
+  useEffect(() => observeDraftReset(userId, () => {
+    draftRevision.current++;
+    draftRef.current = { entries: [] };
+    setEntryDay(undefined); setMealType(undefined); setEntries([]);
+    setAiOpen(false); setFeedback("");
+  }), [userId, setEntryDay, setMealType, setEntries]);
 
   useEffect(() => {
     if (estimate === "true" && draftLoaded) {
@@ -117,9 +142,10 @@ export default function NutritionScreen() {
       return () => {
         active = false;
       };
+    const version = draftRevision.current;
     void loadNutritionDraft(userId).then((saved) => {
       if (!active) return;
-      if (saved) {
+      if (saved && version === draftRevision.current) {
         setMealType(saved.mealType);
         setEntryDay(saved.entryDay);
         setEntries(deduplicateAiDraftEntries(saved.entries));
@@ -135,14 +161,20 @@ export default function NutritionScreen() {
     useCallback(() => {
       let active = true;
       if (!userId || !draftLoaded) return () => undefined;
+      const version = draftRevision.current;
       void loadNutritionDraft(userId).then(async (saved) => {
-        if (!active) return;
-        if (routineMeal && ["breakfast", "lunch", "dinner"].includes(routineMeal)) {
-          const existing = nutritionDraftHasContent(draftRef.current) ? draftRef.current : saved;
+        if (!active || version !== draftRevision.current) return;
+        if (
+          routineMeal &&
+          ["breakfast", "lunch", "dinner"].includes(routineMeal)
+        ) {
+          const existing = nutritionDraftHasContent(draftRef.current)
+            ? draftRef.current
+            : saved;
           if (!existing || !nutritionDraftHasContent(existing)) {
             saved = mealDraftForReminder(existing, routineMeal)!;
             await saveNutritionDraft(userId, saved);
-            if (!active) return;
+            if (!active || version !== draftRevision.current) return;
           } else saved = existing;
           router.setParams({ routineMeal: "" });
         }

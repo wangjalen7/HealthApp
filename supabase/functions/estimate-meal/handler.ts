@@ -1,3 +1,4 @@
+import { aiConsentVersion } from "../_shared/ai-privacy.ts";
 import {
   mealDailyEstimateLimit,
   mealEstimateRequestSchema,
@@ -11,6 +12,7 @@ type Dependencies = {
   model: string;
   headers?: Record<string, string>;
   authenticate: (token: string) => Promise<string | undefined>;
+  recordConsent: (userId: string, version: string) => Promise<void>;
   consumeQuota: (userId: string) => Promise<boolean>;
   reportProviderFailure?: (failure: {
     status: number;
@@ -189,6 +191,9 @@ export function createMealHandler(deps: Dependencies) {
       );
     }
     try {
+      if (input.consentVersion !== aiConsentVersion)
+        return error("consent_required", "Review and allow sharing this meal with OpenAI in the updated app.", 403);
+      await deps.recordConsent(userId, aiConsentVersion);
       if (!(await deps.consumeQuota(userId)))
         return error(
           "rate_limited",

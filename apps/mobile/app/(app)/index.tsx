@@ -1,51 +1,24 @@
+import { useState } from "react";
+import {
+  StyleSheet,
+  Text,
+  View,
+  RefreshControl,
+  useWindowDimensions,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "../../src/features/auth/auth-provider";
 import { useAccountSetup } from "../../src/features/onboarding/provider";
 import { SetupCard } from "../../src/features/onboarding/setup-card";
 import { ScreenScrollView } from "../../src/ui/screen-scroll-view";
 import { Pressable } from "../../src/ui/pressable";
 import { colors } from "../../src/ui/theme";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Icon } from "../../src/ui/icon";
 import { Dashboard } from "../../src/features/summary/dashboard";
 import { widgetRegistry } from "../../src/features/summary/widget-renderers";
-import {
-  loadSummaryData,
-  type SummaryData,
-} from "../../src/features/summary/data";
 import { type Widget } from "../../src/features/summary/layout";
-import { dayKey, deviceZone } from "../../src/features/summary/calendar";
-import { useFocusEffect } from "expo-router";
-import {
-  AppState,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Icon } from "../../src/ui/icon";
 import { initializeWidgetHabits } from "../../src/features/streaks/initialize";
-
-import type { VitalSample } from "../../src/domain/vitals";
-import { useAuth } from "../../src/features/auth/auth-provider";
-import {
-  getDailyGoals,
-  type DailyGoals,
-} from "../../src/features/goals/repository";
-import { getTodayHydrationTotals } from "../../src/features/hydration/repository";
-import { synchronizeHealthData } from "../../src/features/healthkit/unified-sync";
-import {
-  shiftCalendarMonth,
-  startOfCalendarMonth,
-  type DailyCalorieTotal,
-} from "../../src/features/nutrition/calendar";
-import { getCurrentMonthCalorieTotals } from "../../src/features/nutrition/repository";
-import {
-  getTodaySummary,
-  type TodaySummary,
-} from "../../src/features/training/repository";
-import {
-  loadCachedVitals,
-} from "../../src/features/vitals/sync";
+import { useSummary } from "../../src/features/summary/use-summary";
 
 export default function SummaryScreen() {
   const { session } = useAuth();
@@ -53,177 +26,14 @@ export default function SummaryScreen() {
 }
 function SummaryContent() {
   const { width } = useWindowDimensions();
-  const { session, configured } = useAuth();
+  const { session } = useAuth();
   const insets = useSafeAreaInsets();
-  const [samples, setSamples] = useState<VitalSample[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [status, setStatus] = useState("");
-  const [baseError, setBaseError] = useState(false);
   const [widgets, setWidgets] = useState<Widget[]>([]);
-  const [extraData, setExtraData] = useState<SummaryData>();
-  const [extraLoading, setExtraLoading] = useState(false);
-  const [revision, setRevision] = useState(0);
-  const [now, setNow] = useState(() => new Date());
   const [editing, setEditing] = useState(false);
-  const calendarClock = dayKey(now) + deviceZone();
-  const live = useRef(true);
-  useEffect(() => {
-    live.current = true;
-    return () => {
-      live.current = false;
-    };
-  }, []);
   const [chartSwipeActive, setChartSwipeActive] = useState(false);
-  const [summary, setSummary] = useState<TodaySummary>({
-    calories: 0,
-    protein: 0,
-  });
-  const [pendingFluidMl, setPendingFluidMl] = useState(0);
-  const [waterMl, setWaterMl] = useState(0);
-  const [monthCalories, setMonthCalories] = useState<
-    Record<string, DailyCalorieTotal>
-  >({});
-  const [calendarMonth, setCalendarMonth] = useState(() =>
-    startOfCalendarMonth(new Date()),
-  );
-  const [goals, setGoals] = useState<DailyGoals>({
-    systolicGoal: 120,
-    diastolicGoal: 80,
-  });
-  const loadedUserId = useRef<string | undefined>(undefined);
-  const calendarMonthRef = useRef(calendarMonth);
-  const monthRequestId = useRef(0);
-  const monthLoads = useRef(
-    new Map<string, Promise<Record<string, DailyCalorieTotal>>>(),
-  );
-  calendarMonthRef.current = calendarMonth;
-  const loadMonthCalories = useCallback(
-    async (userId: string, reference: Date) => {
-      const requestId = monthRequestId.current + 1;
-      monthRequestId.current = requestId;
-      const key = userId + ":" + reference.getTime();
-      let operation = monthLoads.current.get(key);
-      if (!operation) {
-        operation = getCurrentMonthCalorieTotals(userId, reference);
-        monthLoads.current.set(key, operation);
-      }
-      try {
-        const totals = await operation;
-        if (live.current && monthRequestId.current === requestId)
-          setMonthCalories(totals);
-      } finally {
-        if (monthLoads.current.get(key) === operation)
-          monthLoads.current.delete(key);
-      }
-    },
-    [],
-  );
-  const moveCalendarMonth = useCallback((offset: -1 | 1) => {
-    const next = shiftCalendarMonth(calendarMonthRef.current, offset);
-    if (next > startOfCalendarMonth(new Date())) return;
-    calendarMonthRef.current = next;
-    monthRequestId.current += 1;
-    setMonthCalories({});
-    setCalendarMonth(next);
-  }, []);
-  const load = useCallback(
-    async (sync = false, isPullRefresh = false) => {
-      if (!session) return;
-      const isInitialLoad = loadedUserId.current !== session.user.id;
-      if (isInitialLoad) setLoading(true);
-      if (isPullRefresh) setRefreshing(true);
-      try {
-        const cached = await loadCachedVitals(session.user.id);
-        setSamples(cached);
-        if (sync) {
-          await synchronizeHealthData(session.user.id, configured);
-          setSamples(await loadCachedVitals(session.user.id));
-        }
-        const [today, savedGoals, todayWater] = await Promise.all([
-          getTodaySummary(session.user.id),
-          getDailyGoals(session.user.id),
-          getTodayHydrationTotals(session.user.id),
-          loadMonthCalories(session.user.id, calendarMonthRef.current),
-        ]);
-        setBaseError(false);
-        setSummary(today);
-        setGoals(savedGoals);
-        setWaterMl(todayWater.countedMl);
-        setPendingFluidMl(todayWater.pendingMl);
-      } catch (error) {
-        setBaseError(true);
-        setStatus(
-          error instanceof Error ? error.message : "Could not load summary.",
-        );
-      } finally {
-        if (live.current) setRevision((value) => value + 1);
-        loadedUserId.current = session.user.id;
-        if (isInitialLoad) setLoading(false);
-        if (isPullRefresh) setRefreshing(false);
-      }
-    },
-    [loadMonthCalories, session, configured],
-  );
-  useEffect(() => {
-    if (!session) return;
-    void loadMonthCalories(session.user.id, calendarMonth).catch((error) =>
-      setStatus(
-        error instanceof Error
-          ? error.message
-          : "Could not load calorie calendar.",
-      ),
-    );
-  }, [calendarMonth, loadMonthCalories, session]);
-  useFocusEffect(
-    useCallback(() => {
-      void load(true);
-    }, [load]),
-  );
-  const previousClock = useRef(calendarClock);
-  useEffect(() => {
-    if (previousClock.current !== calendarClock) {
-      previousClock.current = calendarClock;
-      void load(false);
-    }
-  }, [calendarClock, load]);
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 30000);
-    const listener = AppState.addEventListener("change", (state) => {
-      if (state === "active") {
-        setNow(new Date());
-        void load(true);
-      }
-    });
-    return () => {
-      clearInterval(timer);
-      listener.remove();
-    };
-  }, [load]);
-  useEffect(() => {
-    if (!session || !widgets.length) return;
-    let current = true;
-    setExtraLoading(true);
-    void loadSummaryData(session.user.id, widgets, new Date(), samples, !editing)
-      .then((data) => {
-        if (current) setExtraData(data);
-      })
-      .catch((error) => {
-        if (current)
-          setStatus(
-            error instanceof Error
-              ? error.message
-              : "Could not refresh dashboard.",
-          );
-      })
-      .finally(() => {
-        if (current) setExtraLoading(false);
-      });
-    return () => {
-      current = false;
-    };
-    // Samples are refreshed as part of revision; do not reload once per setter.
-  }, [session?.user.id, widgets, revision, calendarClock, editing]);
+  const data = useSummary(widgets, editing);
+  const { now, refreshing } = data;
+  const goals = data.goals.data;
   const { setup: accountSetup } = useAccountSetup();
   const rawFirstName = session?.user.user_metadata?.first_name;
   const rawDisplayName = session?.user.user_metadata?.display_name;
@@ -247,7 +57,10 @@ function SummaryContent() {
           progressViewOffset={insets.top + 12}
           title={refreshing ? "Refreshing..." : "Pull to refresh"}
           titleColor={colors.secondary}
-          onRefresh={() => void load(false, true)}
+          onRefresh={() => {
+            void data.refresh(true, true);
+            void data.sync();
+          }}
         />
       }
       scrollEnabled={!chartSwipeActive && !editing}
@@ -261,30 +74,52 @@ function SummaryContent() {
       </Text>
       <SetupCard
         needed={
-          !accountSetup?.preferred_name ||
-          goals.calorieGoal === undefined ||
-          goals.waterGoalMl === undefined
+          !!goals &&
+          (!accountSetup?.preferred_name ||
+            goals.calorieGoal === undefined ||
+            goals.waterGoalMl === undefined)
         }
       />
-      {status ? <Text style={styles.copy}>{status}</Text> : null}
+      {data.syncIssue ? (
+        <Text style={styles.copy}>{data.syncIssue}</Text>
+      ) : null}
       {session ? (
         <Dashboard
-          header={(begin, ready) => (<>
-      <View style={styles.summaryHeader}>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text
-            accessibilityRole="header"
-            style={[styles.title, width < 360 && { fontSize: 28 }]}
-          >
-            Hi {firstName},
-          </Text>
-          <Text style={styles.snapshot}>Your daily snapshot</Text>
-        </View>
-        <Pressable accessibilityRole="button" accessibilityLabel="Edit Summary" disabled={!ready} onPress={begin} style={{ width: 48, height: 48, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface, borderRadius: 24 }}><Icon name="edit" color={colors.blue} size={23} /></Pressable>
-      </View>
-          </>)}
-          reminders={extraData?.reminders.filter((r) => r.enabled && r.repeat !== "once").map((r) => ({ id: r.id, label: r.name || r.kind.replaceAll("_", " ") }))}
-          onCommit={async (layout) => { await initializeWidgetHabits(session.user.id, layout.widgets); setRevision((v) => v + 1); }}
+          header={(begin, ready) => (
+            <>
+              <View style={styles.summaryHeader}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text
+                    accessibilityRole="header"
+                    style={[styles.title, width < 360 && { fontSize: 28 }]}
+                  >
+                    Hi {firstName},
+                  </Text>
+                  <Text style={styles.snapshot}>Your daily snapshot</Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit Summary"
+                  disabled={!ready}
+                  onPress={begin}
+                  style={{
+                    width: 48,
+                    height: 48,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: colors.surface,
+                    borderRadius: 24,
+                  }}
+                >
+                  <Icon name="edit" color={colors.blue} size={23} />
+                </Pressable>
+              </View>
+            </>
+          )}
+          onCommit={async (layout) => {
+            await initializeWidgetHabits(session.user.id, layout.widgets);
+            void data.refresh(false, true);
+          }}
           user={session.user.id}
           onLayoutChange={setWidgets}
           onEditingChange={(value) => {
@@ -293,23 +128,18 @@ function SummaryContent() {
           }}
           render={(widget) =>
             widgetRegistry[widget.type].render(widget, {
-              samples,
-              goals,
-              summary,
-              waterMl,
-              pendingFluidMl,
-              calendarMonth,
-              monthCalories,
-              moveCalendarMonth,
-              loading,
+              resources: data,
+              samples: data.vitals.data ?? [],
+              goals: goals ?? {},
+              summary: data.nutrition.data ?? { calories: 0, protein: 0 },
+              waterMl: data.fluids.data?.countedMl ?? 0,
+              pendingFluidMl: data.fluids.data?.pendingMl ?? 0,
+              calendarMonth: data.calendarMonth,
+              monthCalories: data.calendar.data ?? {},
+              moveCalendarMonth: data.moveCalendarMonth,
               setChartSwipeActive,
-              baseError,
-              retry: () => void load(false),
-              extraData,
-              extraLoading,
               now,
               user: session.user.id,
-              reloadExtras: () => setRevision((v) => v + 1),
             })
           }
         />

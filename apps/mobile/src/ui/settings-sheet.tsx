@@ -12,6 +12,7 @@ import { Modal } from "./modal";
 import { Pressable } from "./pressable";
 import { Icon, type IconName } from "./icon";
 import { colors } from "./theme";
+import { useSheetFocus } from "./accessibility-focus";
 
 /** Intrinsic content height up to the safe viewport; no growing scroll content or fake handle. */
 export function SettingsSheet({
@@ -37,6 +38,7 @@ export function SettingsSheet({
   embedded?: boolean;
 }) {
   const insets = useSafeAreaInsets();
+  const { heading, focus } = useSheetFocus(visible && !overlay, title);
   const content = (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -49,6 +51,9 @@ export function SettingsSheet({
     >
       {!fullScreen ? (
         <Pressable
+          accessible={false}
+          importantForAccessibility="no"
+          {...(Platform.OS === "web" ? { tabIndex: -1 } : {})}
           accessibilityRole="button"
           accessibilityLabel={`Close ${title}`}
           onPress={onClose}
@@ -78,7 +83,7 @@ export function SettingsSheet({
           importantForAccessibility={overlay ? "no-hide-descendants" : "auto"}
         >
           {icon ? <Icon name={icon} color={colors.orange} /> : null}
-          <Text accessibilityRole="header" style={styles.title}>
+          <Text ref={heading} {...(Platform.OS === "web" ? { tabIndex: -1 } : {})} accessibilityRole="header" style={styles.title}>
             {title}
           </Text>
           <Pressable
@@ -114,6 +119,7 @@ export function SettingsSheet({
       transparent={!fullScreen}
       presentationStyle={fullScreen ? "fullScreen" : "overFullScreen"}
       animationType="fade"
+      onShow={focus}
       onRequestClose={onClose}
     >
       {content}

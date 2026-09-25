@@ -4,8 +4,10 @@ export function createLayoutStore(storage: {
   setItem: (key: string, value: string) => Promise<void>;
 }) {
   const writes = new Map<string, Promise<void>>();
+  const cached = new Map<string, Layout>();
   const key = (user: string) => `healthapp:summary-layout:${user}`;
   return {
+    peek: (user: string) => cached.get(user),
     async load(user: string) {
       const operation = (writes.get(key(user)) ?? Promise.resolve())
         .catch(() => undefined)
@@ -13,6 +15,7 @@ export function createLayoutStore(storage: {
           const result = readLayout(await storage.getItem(key(user)));
           if (result.migrated)
             await storage.setItem(key(user), JSON.stringify(result.layout));
+          cached.set(user, result.layout);
           return result;
         });
       const tail = operation.then(() => undefined);
@@ -31,7 +34,10 @@ export function createLayoutStore(storage: {
       const json = JSON.stringify(layoutSchema.parse(layout));
       const next = (writes.get(key(user)) ?? Promise.resolve())
         .catch(() => undefined)
-        .then(() => storage.setItem(key(user), json));
+        .then(async () => {
+          await storage.setItem(key(user), json);
+          cached.set(user, JSON.parse(json) as Layout);
+        });
       writes.set(key(user), next);
       void next.then(
         () => {

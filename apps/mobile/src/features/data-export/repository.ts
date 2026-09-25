@@ -1,4 +1,8 @@
 import type { User } from "@supabase/supabase-js";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { assertAccount } from "../../lib/mutations";
+import { queuedChanges } from "../vitals/storage";
+import { exportableDeviceKey } from "./local-inventory";
 
 import { supabase } from "../../lib/supabase";
 import { loadHealthKitSyncState } from "../healthkit/state";
@@ -28,9 +32,23 @@ const userTables = [
   "coach_threads",
   "coach_messages",
   "coach_actions",
+  "account_setup",
+  "streak_rules",
+  "streak_goal_snapshots",
+  "streak_activation",
+  "food_day_completions",
+  "ai_processing_choices",
+  "coach_daily_usage",
+  "meal_estimate_usage",
 ] as const;
 
 type UserTable = (typeof userTables)[number];
+const orderColumns: Partial<Record<UserTable, string[]>> = {
+  account_setup: ["user_id"], streak_rules: ["habit", "effective_day"],
+  streak_goal_snapshots: ["effective_day"], streak_activation: ["user_id"],
+  food_day_completions: ["local_day"], ai_processing_choices: ["purpose"],
+  coach_daily_usage: ["usage_day"], meal_estimate_usage: ["user_id"],
+};
 
 function asRows(value: unknown): ExportRow[] {
   if (!Array.isArray(value)) return [];
@@ -46,13 +64,14 @@ async function loadRows(
 ): Promise<ExportRow[]> {
   const rows: ExportRow[] = [];
   for (let start = 0; ; start += pageSize) {
-    const { data, error } = await supabase
+    await assertAccount(userId);
+    let query = supabase
       .from(table)
       .select("*")
-      .eq("user_id", userId)
-      .order("id", { ascending: true })
-      .range(start, start + pageSize - 1);
-    if (error) throw new Error(`${table}: ${error.message}`);
+      .eq("user_id", userId);
+    for (const column of orderColumns[table] ?? ["id"]) query = query.order(column, { ascending: true });
+    const { data, error } = await query.range(start, start + pageSize - 1);
+    if (error) throw new Error(`Could not export ${table}. The service may need updating. No complete export was created; try again later.`);
     const page = asRows(data);
     rows.push(...page);
     if (page.length < pageSize) return rows;
@@ -96,6 +115,10 @@ export async function getProgressPhotoExportSummary(userId: string): Promise<{
 export async function collectHealthDataExport(
   user: User,
 ): Promise<HealthDataExport> {
+  await assertAccount(user.id);
+  const deviceEntries = await AsyncStorage.multiGet((await AsyncStorage.getAllKeys()).filter(key => exportableDeviceKey(key,user.id)));
+  const deviceSettings = deviceEntries.map(([key,value]) => ({ key, value: value ? JSON.parse(value) as unknown : null }));
+  const pendingVitals = await queuedChanges(user.id);
   const remoteRequests = userTables.map(
     async (table) => [table, await loadRows(table, user.id)] as const,
   );
@@ -123,10 +146,13 @@ export async function collectHealthDataExport(
     loadCachedVitals(user.id),
   ]);
 
+  await assertAccount(user.id);
   return {
     exportVersion: 1,
     exportedAt: new Date().toISOString(),
     datasets: {
+      device_settings_and_pending_changes: deviceSettings,
+      pending_vital_changes: pendingVitals as unknown as ExportRow[],
       account: [
         {
           id: user.id,

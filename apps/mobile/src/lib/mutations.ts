@@ -2,6 +2,7 @@ import { decode } from "base64-arraybuffer";
 import type { Session } from "@supabase/supabase-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createUuid } from "./id";
+import { notifyDataChanged } from "./data-changes";
 import { supabase } from "./supabase";
 import {
   createMutationRunner,
@@ -52,7 +53,7 @@ export async function sendMutation(
     const { error: uploadError } = await supabase.storage
       .from("progress-photos")
       .upload(photo.path, decode(photo.base64), {
-        cacheControl: "31536000",
+        cacheControl: "60",
         contentType: "image/jpeg",
         upsert: false,
       });
@@ -103,6 +104,11 @@ export async function sendMutation(
       }
     }
   }
+  if (data.status === "accepted")
+    notifyDataChanged(
+      userId,
+      request.action === "goals" ? "profiles" : String(request.table),
+    );
   return data as MutationReply;
 }
 

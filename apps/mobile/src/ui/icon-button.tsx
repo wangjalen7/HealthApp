@@ -1,4 +1,9 @@
-import { ActivityIndicator, StyleSheet } from "react-native";
+import {
+  ActivityIndicator,
+  StyleSheet,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 import { Icon, type IconName } from "./icon";
 import { Pressable } from "./pressable";
 import { colors } from "./theme";
@@ -10,6 +15,8 @@ export function IconButton({
   disabled,
   busy,
   destructive = false,
+  variant = "tinted",
+  style,
 }: {
   name: IconName;
   label: string;
@@ -17,8 +24,14 @@ export function IconButton({
   disabled?: boolean;
   busy?: boolean;
   destructive?: boolean;
+  variant?: "plain" | "tinted";
+  style?: StyleProp<ViewStyle>;
 }) {
-  const color = destructive ? "#B42318" : colors.blue;
+  const color = destructive
+    ? variant === "plain"
+      ? "#B42318"
+      : colors.danger
+    : colors.blue;
   return (
     <Pressable
       accessibilityRole="button"
@@ -26,7 +39,14 @@ export function IconButton({
       accessibilityState={{ disabled: disabled || busy, busy }}
       disabled={disabled || busy}
       onPress={onPress}
-      style={[styles.button, (disabled || busy) && styles.disabled]}
+      style={[
+        styles.button,
+        variant === "tinted" && {
+          backgroundColor: destructive ? colors.dangerSoft : colors.blueSoft,
+        },
+        style,
+        (disabled || busy) && styles.disabled,
+      ]}
     >
       {busy ? (
         <ActivityIndicator color={color} size="small" />

@@ -13,15 +13,13 @@ test("compact forms retain focus, text, validation and reachable sheet actions",
   ).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("sign-in-320.png") });
   await page.getByText("New here? Create an account").click();
-  const firstName = page.getByLabel("First name", { exact: true });
-  await firstName.fill("Alexandra");
-  await expect(firstName).toBeFocused();
-  await page.getByLabel("Last name", { exact: true }).fill("Review");
-  await expect(firstName).toHaveValue("Alexandra");
-  for (const field of [
-    firstName,
-    page.getByLabel("Last name", { exact: true }),
-  ]) {
+  const email = page.getByRole("textbox", { name: "Email", exact: true });
+  await email.fill("review@example.com");
+  await expect(email).toBeFocused();
+  const password = page.getByRole("textbox", { name: "Password", exact: true });
+  await password.fill("synthetic-password");
+  await expect(email).toHaveValue("review@example.com");
+  for (const field of [email, password]) {
     const bounds = (await field.boundingBox())!;
     expect(bounds.x).toBeGreaterThanOrEqual(0);
     expect(bounds.x + bounds.width).toBeLessThanOrEqual(320);

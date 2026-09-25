@@ -95,6 +95,13 @@ Deno.serve(
     standardModel: Deno.env.get("OPENAI_COACH_CHAT_MODEL") || "gpt-5.6-luna",
     deepModel: Deno.env.get("OPENAI_COACH_DEEP_MODEL") || "gpt-5.6-terra",
     headers: corsHeaders,
+    recordConsent: async (userId, version, history) => {
+      const { error } = await admin.from("ai_processing_choices").upsert({
+        user_id: userId, purpose: "workout", notice_version: version,
+        history_allowed: history, chosen_at: new Date().toISOString(),
+      });
+      if (error) throw new Error("AI choice unavailable");
+    },
     authenticate: async (token) => {
       const { data, error } = await userClient(token).auth.getUser(token);
       return error ? undefined : data.user?.id;
@@ -129,6 +136,7 @@ Deno.serve(
       if (!coachResult.data) return undefined;
       const coachProfile = profileFromRow(coachResult.data);
       if (input.workoutPreferences) {
+        coachProfile.useTraining = coachProfile.useTraining && input.includeTrainingHistory;
         coachProfile.useNutrition = false;
         coachProfile.useHydration = false;
         coachProfile.useVitals = false;
@@ -156,7 +164,7 @@ Deno.serve(
       if (messageResult.error) throw messageResult.error;
       const [profile, nutrition, hydration, vitals, workouts, cardio, photos] =
         await Promise.all([
-          client
+          input.workoutPreferences ? Promise.resolve({ data: null, error: null }) : client
             .from("profiles")
             .select(
               "daily_calorie_goal, daily_protein_goal, daily_water_goal_ml, weight_goal_lb",

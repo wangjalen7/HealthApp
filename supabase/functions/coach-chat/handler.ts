@@ -1,3 +1,4 @@
+import { aiConsentVersion, minimizeAiContext } from "../_shared/ai-privacy.ts";
 import {
   workoutPlanningInstructions,
   workoutPlanIssue,
@@ -44,11 +45,14 @@ type Usage = {
 
 export type CoachHandlerDependencies = {
   enabled: boolean;
+  /** Only for regression coverage of the retired protocol; production leaves false. */
+  allowLegacyChat?: boolean;
   apiKey?: string;
   standardModel: string;
   deepModel: string;
   headers?: Record<string, string>;
   authenticate: (token: string) => Promise<string | undefined>;
+  recordConsent: (userId: string, version: string, history: boolean) => Promise<void>;
   consumeQuota: (userId: string, tier: CoachTier) => Promise<Quota>;
   refundQuota: (userId: string, tier: CoachTier) => Promise<void>;
   loadContext: (
@@ -381,6 +385,16 @@ export function createCoachHandler(deps: CoachHandlerDependencies) {
         400,
       );
     }
+    if (input.consentVersion !== aiConsentVersion)
+      return fail("consent_required", "Review and allow sharing with OpenAI for this request in the updated app.", 403);
+    // The supported public feature is workout planning. Older general-chat clients
+    // must not silently continue sharing broader health context under old choices.
+    if (!input.workoutPreferences && !deps.allowLegacyChat)
+      return fail("planner_required", "Use the current workout planner to make a new request.", 400);
+    if (input.workoutPreferences && input.threadId)
+      return fail("new_plan_required", "Create a new workout plan. Previous conversations are not shared with this request.", 400);
+    try { await deps.recordConsent(userId, aiConsentVersion, input.includeTrainingHistory); }
+    catch { return fail("consent_unavailable", "Could not record your AI choice. Nothing was sent to OpenAI. Try again later.", 503); }
     const context = await deps
       .loadContext(token, userId, input)
       .catch(() => undefined);
@@ -414,7 +428,7 @@ export function createCoachHandler(deps: CoachHandlerDependencies) {
     const threadId = context.thread?.id ?? crypto.randomUUID();
     const dynamicBudget = tier === "deep" ? 28_000 : 10_000;
     const snapshot = boundedJson(
-      context.snapshot,
+      minimizeAiContext(input.workoutPreferences && !input.includeTrainingHistory ? { preferences: input.workoutPreferences, historyEnabled: false } : context.snapshot),
       tier === "deep" ? 20_000 : 7_000,
     );
     const threadSummary = context.thread?.summary?.slice(0, 4_000);
@@ -572,7 +586,7 @@ export function createCoachHandler(deps: CoachHandlerDependencies) {
             /* Send bounded invalid output. */
           }
           const result =
-            input.workoutPreferences && call.name !== "get_training_summary"
+            input.workoutPreferences && (call.name !== "get_training_summary" || !input.includeTrainingHistory)
               ? {
                   error:
                     "Only training tools are available in workout planning.",
@@ -586,7 +600,7 @@ export function createCoachHandler(deps: CoachHandlerDependencies) {
           outputs.push({
             type: "function_call_output",
             call_id: call.callId,
-            output: boundedJson(result, tier === "deep" ? 8_000 : 4_000),
+            output: boundedJson(minimizeAiContext(result), tier === "deep" ? 8_000 : 4_000),
           });
         }
         providerInput = [

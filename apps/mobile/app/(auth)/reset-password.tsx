@@ -1,5 +1,5 @@
 import { Pressable } from "../../src/ui/pressable";
-import { colors } from "../../src/ui/theme";
+import { colors } from "../../src/ui/profile-theme";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
@@ -102,10 +102,19 @@ export default function ResetPasswordScreen() {
             accessibilityRole="button"
             disabled={busy}
             onPress={() => void savePassword()}
-            style={styles.button}
+            style={({ pressed }) => [
+              styles.button,
+              {
+                backgroundColor: busy
+                  ? colors.authActionDisabled
+                  : pressed
+                    ? colors.authActionPressed
+                    : colors.authAction,
+              },
+            ]}
           >
             {busy ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.onAuthAction} />
             ) : (
               <Text style={styles.buttonText}>Save new password</Text>
             )}
@@ -128,12 +137,12 @@ export default function ResetPasswordScreen() {
 const styles = StyleSheet.create({
   button: {
     alignItems: "center",
-    backgroundColor: colors.blue,
+    backgroundColor: colors.authAction,
     borderRadius: 12,
     justifyContent: "center",
     minHeight: 52,
   },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  buttonText: { color: colors.onAuthAction, fontSize: 16, fontWeight: "600" },
   error: {
     backgroundColor: colors.dangerSoft,
     borderRadius: 10,

@@ -1,5 +1,7 @@
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
+import { stripJpegMetadata } from "../privacy/jpeg";
+import { removeTemporaryPhoto } from "../privacy/photo-cache";
 
 import {
   approximateBase64Bytes,
@@ -68,12 +70,14 @@ async function renderJpeg(
     ],
     { base64: true, compress, format: SaveFormat.JPEG },
   );
+  removeTemporaryPhoto(saved.uri);
   if (!saved.base64) throw new Error("Could not prepare that photo.");
+  const cleanBase64 = stripJpegMetadata(saved.base64);
   return {
-    base64: saved.base64,
-    byteSize: approximateBase64Bytes(saved.base64),
+    base64: cleanBase64,
+    byteSize: approximateBase64Bytes(cleanBase64),
     height: saved.height,
-    uri: saved.uri,
+    uri: `data:image/jpeg;base64,${cleanBase64}`,
     width: saved.width,
   };
 }
@@ -88,16 +92,24 @@ export async function prepareProgressPhoto(
     { maxDimension: 800, compress: 0.48 },
     { maxDimension: 640, compress: 0.42 },
   ];
-  let latest: PreparedProgressPhoto | undefined;
-  for (const attempt of attempts) {
-    latest = await renderJpeg(selected, attempt.maxDimension, attempt.compress);
-    if (latest.byteSize <= progressPhotoTargetBytes) return latest;
+  try {
+    let latest: PreparedProgressPhoto | undefined;
+    for (const attempt of attempts) {
+      latest = await renderJpeg(
+        selected,
+        attempt.maxDimension,
+        attempt.compress,
+      );
+      if (latest.byteSize <= progressPhotoTargetBytes) return latest;
+    }
+    if (!latest || latest.byteSize > progressPhotoMaxBytes) {
+      throw new Error("This photo could not be reduced below 2 MB.");
+    }
+    if (latest.byteSize > progressPhotoTargetBytes) {
+      throw new Error("This photo could not be reduced enough for storage.");
+    }
+    return latest;
+  } finally {
+    removeTemporaryPhoto(selected.uri);
   }
-  if (!latest || latest.byteSize > progressPhotoMaxBytes) {
-    throw new Error("This photo could not be reduced below 2 MB.");
-  }
-  if (latest.byteSize > progressPhotoTargetBytes) {
-    throw new Error("This photo could not be reduced enough for storage.");
-  }
-  return latest;
 }

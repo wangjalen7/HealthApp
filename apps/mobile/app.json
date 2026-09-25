@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "HealthApp",
+    "name": "Sustain",
     "slug": "healthapp",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -25,6 +25,7 @@
     "scheme": "healthapp",
     "plugins": [
       "expo-router",
+      "./plugins/with-private-backups.js",
       [
         "expo-splash-screen",
         {
@@ -41,29 +42,30 @@
       [
         "expo-secure-store",
         {
-          "faceIDPermission": "Allow HealthApp to use Face ID to protect access to your health information."
+          "faceIDPermission": "Allow Sustain to use Face ID to protect access to your health information."
         }
       ],
       "expo-sqlite",
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "Allow HealthApp to use Face ID to protect access to your health information."
+          "faceIDPermission": "Allow Sustain to use Face ID to protect access to your health information."
         }
       ],
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow HealthApp to use the camera for barcode scans and progress photos.",
+          "cameraPermission": "Allow Sustain to scan food barcodes and take meal or progress photos when you choose.",
           "recordAudioAndroid": false,
+          "microphonePermission": false,
           "barcodeScannerEnabled": true
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow HealthApp to choose progress photos from your library.",
-          "cameraPermission": "Allow HealthApp to use the camera for progress photos.",
+          "photosPermission": "Allow Sustain to use meal or progress photos you select.",
+          "cameraPermission": "Allow Sustain to take meal or progress photos when you choose.",
           "microphonePermission": false
         }
       ],
@@ -71,7 +73,7 @@
       [
         "@kingstinct/react-native-healthkit",
         {
-          "NSHealthShareUsageDescription": "HealthApp reads your weight, blood pressure, and workout data to keep your private health dashboard in sync.",
+          "NSHealthShareUsageDescription": "Sustain reads weight, blood pressure, and pulse paired with blood pressure to display your trends and sync these readings to your private Sustain account.",
           "NSHealthUpdateUsageDescription": false,
           "background": false
         }

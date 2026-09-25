@@ -17,6 +17,14 @@ Deno.serve(
     apiKey: Deno.env.get("OPENAI_API_KEY"),
     model: Deno.env.get("OPENAI_MEAL_MODEL") || "gpt-5.4-mini",
     headers: corsHeaders,
+    recordConsent: async (userId, version) => {
+      const admin = createClient(Deno.env.get("SUPABASE_URL")!, key("SUPABASE_SECRET_KEYS", "SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
+      const { error } = await admin.from("ai_processing_choices").upsert({
+        user_id: userId, purpose: "meal", notice_version: version,
+        history_allowed: false, chosen_at: new Date().toISOString(),
+      });
+      if (error) throw new Error("AI choice unavailable");
+    },
     authenticate: async (token) => {
       const url = Deno.env.get("SUPABASE_URL");
       const publicKey = key("SUPABASE_PUBLISHABLE_KEYS", "SUPABASE_ANON_KEY");

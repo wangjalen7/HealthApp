@@ -39,6 +39,7 @@ export function cardioDraftHasContent(draft: CardioDraft) {
 
 export async function loadCardioDraft(userId: string) {
   try {
+    await queues.get(keyFor(userId));
     const raw = await AsyncStorage.getItem(keyFor(userId));
     return raw ? cardioDraftSchema.parse(JSON.parse(raw)) : undefined;
   } catch {

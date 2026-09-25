@@ -178,7 +178,7 @@ export default function WaterScreen() {
               size={15}
               color={
                 unit === "fl_oz" && Number(amount) === ounces
-                  ? "#fff"
+                  ? colors.onAccent
                   : colors.blue
               }
             />

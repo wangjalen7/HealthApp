@@ -1,15 +1,10 @@
+import { HistorySkeleton } from "../../../src/ui/skeleton";
 import { ScreenScrollView } from "../../../src/ui/screen-scroll-view";
 import { Pressable } from "../../../src/ui/pressable";
 import { colors } from "../../../src/ui/theme";
 import { useCallback, useState } from "react";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { VitalSample } from "../../../src/domain/vitals";
@@ -384,9 +379,7 @@ export default function EditHistoryScreen() {
       <Text accessibilityRole="header" style={styles.title}>
         {title}
       </Text>
-      {loading ? (
-        <ActivityIndicator color={colors.blue} style={styles.loading} />
-      ) : null}
+      {loading ? <HistorySkeleton label="entry" /> : null}
       {!loading && kind === "cardio" && cardio ? (
         <>
           <Text style={styles.label}>Activity</Text>
@@ -629,7 +622,7 @@ const styles = StyleSheet.create({
     textTransform: "capitalize",
   },
   choiceTextActive: {
-    color: "#fff",
+    color: colors.onAccent,
     fontWeight: "600",
     textTransform: "capitalize",
   },
@@ -642,5 +635,5 @@ const styles = StyleSheet.create({
     minHeight: 54,
   },
   disabled: { opacity: 0.65 },
-  saveText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  saveText: { color: colors.onAccent, fontSize: 16, fontWeight: "600" },
 });

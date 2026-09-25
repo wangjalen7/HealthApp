@@ -1,6 +1,7 @@
 import { strToU8, zipSync } from "fflate";
 
 import { supabase } from "../../lib/supabase";
+import { assertAccount } from "../../lib/mutations";
 import type { HealthDataExport } from "./model";
 import { exportTextFiles } from "./model";
 import type { ExportProgress } from "./archive.native";
@@ -12,6 +13,8 @@ export async function shareHealthDataExport(
   includePhotos: boolean,
   onProgress?: (progress: ExportProgress) => void,
 ): Promise<void> {
+  const user = String(data.datasets.account?.[0]?.id ?? "");
+  await assertAccount(user);
   const files: Record<string, Uint8Array> = Object.fromEntries(
     Object.entries(exportTextFiles(data)).map(([name, contents]) => [
       name,
@@ -21,6 +24,7 @@ export async function shareHealthDataExport(
   const photos = includePhotos ? (data.datasets.progress_photos ?? []) : [];
   onProgress?.({ completedPhotos: 0, totalPhotos: photos.length });
   for (const [index, row] of photos.entries()) {
+    await assertAccount(user);
     if (typeof row.object_path !== "string" || typeof row.id !== "string")
       continue;
     const { data: blob, error } = await supabase.storage
@@ -34,6 +38,7 @@ export async function shareHealthDataExport(
     );
     onProgress?.({ completedPhotos: index + 1, totalPhotos: photos.length });
   }
+  await assertAccount(user);
   const bytes = zipSync(files, { level: 6 });
   const url = URL.createObjectURL(
     new Blob([bytes], { type: "application/zip" }),

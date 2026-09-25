@@ -11,7 +11,7 @@ export const colors = {
   tertiary: adaptive("#697386", "#8E8E93"),
   separator: adaptive("#DFE3EA", "#38383A"),
   fill: adaptive("#E9ECF1", "#2C2C2E"),
-  blue: adaptive("#1765CC", "#0A84FF"),
+  blue: adaptive("#1765CC", "#69B1FF"),
   blueSoft: adaptive("#EAF1FC", "#102A43"),
   bluePressed: adaptive("#D8E6FA", "#17395C"),
   green: adaptive("#24734D", "#30D158"),
@@ -26,7 +26,11 @@ export const colors = {
   tealSoft: adaptive("#E8F4F4", "#153437"),
   danger: adaptive("#B52B35", "#FF453A"),
   dangerSoft: adaptive("#FBECEF", "#3A1715"),
-  onAccent: "#FFFFFF",
+  onAccent: adaptive("#FFFFFF", "#071B30"),
+  authAction: adaptive("#72D6A0", "#72D6A0"),
+  authActionPressed: adaptive("#59C28C", "#91E5B6"),
+  authActionDisabled: adaptive("#C5DED0", "#91BAA3"),
+  onAuthAction: adaptive("#103C2A", "#103C2A"),
   scrim: adaptive("rgba(18, 25, 38, 0.42)", "rgba(0, 0, 0, 0.68)"),
 } as const;
 

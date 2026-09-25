@@ -5,13 +5,7 @@ import { WidgetHeading, widgetStyles } from "./widget-design";
 import { todaysMeals } from "./meals";
 import { streakWeek } from "./streak-week";
 import { useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Switch,
-  Text,
-  View,
-} from "react-native";
+import { StyleSheet, Switch, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Pressable } from "../../ui/pressable";
 import { colors } from "../../ui/theme";
@@ -31,13 +25,14 @@ import {
 import { effectiveRuleDay, saveRule } from "../streaks/repository";
 import { weekdayLabels, reminderTitle } from "../reminders/model";
 import { Action } from "./dashboard";
+import { WidgetSkeleton } from "./widget-skeleton";
 export function ExtraWidget({
   widget,
   data,
   now,
   user,
   reload,
-  loading,
+  error,
 }: {
   widget: Widget;
   data?: SummaryData;
@@ -45,27 +40,27 @@ export function ExtraWidget({
   user: string;
   reload: () => void;
   loading: boolean;
+  error?: string;
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState<Habit>();
   const verified = useRef(new Map<Habit, { current: number; best: number }>());
-  if (!data)
+  if (!data && widget.type !== "actions")
     return (
-      <View style={styles.card}>
-        <ActivityIndicator color={colors.blue} />
-        <Text style={styles.copy}>Loading summary…</Text>
-      </View>
+      <WidgetSkeleton
+        widget={widget}
+        error={error}
+        retry={<Action label="Retry widget" onPress={reload} />}
+      />
     );
-  const stale = loading ? (
-    <Text style={styles.copy}>Refreshing saved results…</Text>
-  ) : null;
+  const stale = null;
   if (widget.type === "meals") {
-    const meals = todaysMeals(data.sources.food, now);
+    const meals = todaysMeals(data!.sources.food, now);
     return (
       <View style={styles.card}>
         <WidgetHeading type="meals" title="Today's Meals" />
         {stale}
-        {!data.sources.coverage.food?.complete ? (
+        {!data!.sources.coverage.food?.complete ? (
           <>
             <Text style={styles.copy}>Meals could not be loaded.</Text>
             <Action label="Retry meals" onPress={reload} />
@@ -200,9 +195,9 @@ export function ExtraWidget({
                 size={22}
               />
               <Text style={[styles.title, { flex: 1, fontSize: 15 }]}>
-                {action === "Workout" && data.workoutDraft
+                {action === "Workout" && data?.workoutDraft
                   ? "Resume workout"
-                  : action === "Food" && data.mealDraft
+                  : action === "Food" && data?.mealDraft
                     ? "Resume meal"
                     : action}
               </Text>
@@ -211,6 +206,7 @@ export function ExtraWidget({
         </View>
       </View>
     );
+  if (!data) return null;
   if (widget.type === "training") {
     const value = trainingSummary(
       data.sources.sessions,

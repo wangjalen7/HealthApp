@@ -265,6 +265,9 @@ export function ProfileLanding() {
           last
         />
       </SettingsGroup>
+      <SettingsGroup title="Privacy">
+        <SettingsRow icon="shield" label="Privacy & Legal" onPress={() => router.push("/profile/privacy")} last />
+      </SettingsGroup>
       <SettingsGroup title="Account & Security">
         <SettingsRow
           icon="mail"

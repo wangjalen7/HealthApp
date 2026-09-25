@@ -214,7 +214,7 @@ export const ui = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     fontWeight: "600",
-    color: "#FFFFFF",
+    color: colors.onAccent,
     textAlign: "center",
   },
   secondary: { backgroundColor: "transparent" },

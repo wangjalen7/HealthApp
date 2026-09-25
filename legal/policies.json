@@ -1,0 +1,231 @@
+[
+  {
+    "slug": "privacy",
+    "title": "Privacy Policy",
+    "sections": [
+      {
+        "heading": "About this draft",
+        "paragraphs": [
+          "Sustain helps you record and review personal health, food, fluids, and training information. This draft describes the repository implementation, not a certification of the live service. Operator identity, contact details, launch countries, audience, effective date, provider contracts, and backup retention must be confirmed before public release."
+        ]
+      },
+      {
+        "heading": "Your account and information",
+        "paragraphs": [
+          "An email address and password are used to create an account. Supabase processes authentication and stores your account identifier and verification information. Your password is sent to the authentication service; Sustain does not store a readable password. An optional name personalizes the app. Face ID is optional: iOS performs the biometric check, and Sustain stores a revocable device credential, not your face or biometric template.",
+          "You choose which records to enter: weight, blood pressure and pulse, meals and nutrition, fluids, exercises and cardio, goals, and progress photos. Optional goal helpers use details such as age, height, weight, activity level, and the equation's sex input. You can use manual goals without completing a calculator. Records, goals, food labels, recipes, and profile settings are associated with your account in Supabase."
+        ]
+      },
+      {
+        "heading": "Apple Health and photos",
+        "paragraphs": [
+          "Connecting Apple Health is optional. On this iPhone, Sustain requests read access to weight, systolic and diastolic blood pressure, and heart rate used to pair pulse with blood-pressure readings. Imported readings and source identifiers are copied into your Sustain account and synchronized through Supabase. Sustain does not write to Apple Health or import workouts in the current implementation. Disconnect in Profile to stop future imports on this device; change permissions in Apple Health. Previously imported copies remain until deleted separately.",
+          "Camera access is requested when you choose a camera feature. Library selection uses the system picker. Selected meal and progress photos are resized and re-encoded; unnecessary JPEG metadata is removed before transmission. Visible details in the image remain. Progress photos are stored in a private Supabase bucket with expiring display links. Meal photos are optional AI inputs and are not saved as progress photos."
+        ]
+      },
+      {
+        "heading": "Optional AI and barcode services",
+        "paragraphs": [
+          "With your permission for that request, meal estimation sends your chosen description and optional photo through Supabase to OpenAI. Workout planning sends your selected preferences, including any limitations you type, and optionally relevant workout history. Manual logging works without AI. The app does not intentionally add your email, account ID, vital history, or progress photos to these AI requests. Avoid typing identifying details that the feature does not need.",
+          "AI requests use the provider's store:false setting. This does not establish zero retention or remove provider abuse-monitoring obligations. Provider retention, processing locations, and contractual controls must be verified for the production account. Workout preferences, generated plans, and legacy conversations are retained in Supabase; reviewed nutrition may become a saved meal or food label. Privacy controls can delete saved planner data. Permission for each new AI request starts off; declining stops that request, not processing already completed.",
+          "Barcode lookup sends a product barcode through Supabase to Open Food Facts. It does not intentionally include your account identity or health history in the provider request. Shared product data is cached; private corrections and logged foods stay associated with your own account."
+        ]
+      },
+      {
+        "heading": "Device storage and reminders",
+        "paragraphs": [
+          "This device keeps account-scoped vital caches and pending changes, unfinished drafts, Apple Health sync anchors, Summary layout, reminder schedules and completion history, and selected preferences. Native credentials use iOS secure storage. Other local records are not end-to-end encrypted by Sustain. Protect your device and review device backup settings. Sign-out does not erase all local drafts; account deletion clears this device's associated records.",
+          "Reminders are scheduled locally with iOS; the app does not register a remote push token. Notification previews use generic text by default. You can choose detailed previews, which may reveal reminder or medication names on a locked or shared device. Turning notifications off in iOS stops delivery; turning off a reminder cancels its schedule."
+        ]
+      },
+      {
+        "heading": "Providers, security, and tracking",
+        "paragraphs": [
+          "Supabase processes account data, health records, private files, and server requests. OpenAI processes only the optional inputs described above. Open Food Facts processes barcode queries. Apple supplies device HealthKit, biometric, photo-picker, and local notification services. Expo/EAS is used to build the app; over-the-air updates are disabled in the current configuration. Infrastructure providers may process IP addresses, timestamps, and technical request metadata for operations and security.",
+          "The reviewed application contains no advertising, cross-app tracking, behavioral analytics, or third-party crash-reporting integration. No health-data sale or advertising disclosure is implemented. Access controls and encrypted network connections help protect information but do not guarantee security or constitute end-to-end encryption. Provider configuration and compiled SDK privacy declarations still require release verification."
+        ]
+      },
+      {
+        "heading": "Retention and deletion",
+        "paragraphs": [
+          "Saved records remain until you delete them or the account, subject to documented operational and backup retention. Individual vital deletions retain a synchronization tombstone so stale devices do not restore the record. Other retry and deletion receipts can remain for consistency and recovery; the operational retention schedule must be finalized before release. Unsaved drafts remain until saved, explicitly cleared, or removed with this device's account data.",
+          "Account deletion is available in Profile > Manage Account. It verifies your password, blocks new account writes, removes private uploaded objects and the authentication account with dependent records, and then clears this device's data. Interrupted cleanup can be resumed. It does not remove original Apple Health readings, photos in your library, exports you shared, or offline copies on another device. Provider logs and backups may persist under their verified retention schedules. A backup restore must reapply deletions before returning to service; immediate erasure from every backup is not promised."
+        ]
+      },
+      {
+        "heading": "Your choices and requests",
+        "paragraphs": [
+          "Use Profile to correct personal information and goals; use History to review, edit eligible manual records, and delete records. Apple-origin records are read-only for correction: correct the source in Apple Health. Export Data downloads structured records and can include progress-photo files. Privacy controls explain permissions and allow removal of saved planner data and unfinished drafts. Exports contain sensitive information; choose recipients carefully.",
+          "Access, correction, deletion, consent withdrawal, and other rights depend on where you live. Before release the operator must provide a working privacy contact and request process, including any applicable appeal route. Do not send a password, government ID, or a full health export in an initial support request. The service should verify requests using your existing account where possible."
+        ]
+      },
+      {
+        "heading": "Audience, international processing, and changes",
+        "paragraphs": [
+          "The intended audience and minimum age have not been approved. Current goal helpers are designed for adults and are not pediatric tools. A child-directed release or known use by children requires separate assessment and safeguards; a draft notice does not replace them.",
+          "Providers may process data outside your country. Launch countries, provider regions and transfer safeguards must be confirmed before availability outside the approved scope. Material changes to practices require an updated notice and, when needed, a new specific choice before the changed processing begins."
+        ]
+      }
+    ]
+  },
+  {
+    "slug": "health-data",
+    "title": "Consumer Health Data Privacy Policy",
+    "sections": [
+      {
+        "heading": "Separate health-data notice — draft",
+        "paragraphs": [
+          "This notice accompanies the Privacy Policy and is prepared for consumer-health-data requirements, including Washington and Nevada where applicable. Applicability, operator details, rights timelines, appeals and processor contracts must be reviewed for the actual release territory. It is not a completed public notice."
+        ]
+      },
+      {
+        "heading": "Categories, sources and purposes",
+        "paragraphs": [
+          "Health data includes your readings, diet and nutrition, fluids, exercise, body measurements, goals, selected photos, preferences and limitations, and estimates inferred from these inputs. Sources are your entries, optional Apple Health imports, and outputs calculated or generated from information you choose. This information supports the tracking, synchronization, goal, photo and optional AI features you request. Local medication and supplement reminder names and schedules are also sensitive, although current reminders stay on the device."
+        ]
+      },
+      {
+        "heading": "Collection and sharing choices",
+        "paragraphs": [
+          "Account records and photos are processed by Supabase to provide the requested cloud service. OpenAI receives only optional meal or workout inputs after the specific AI choice. Apple provides on-device integration services. A barcode is sent to Open Food Facts for product lookup. No sale of consumer health data, health-based advertising, public sharing or healthcare-location geofencing is implemented. A provider's legal role and whether a disclosure is necessary or requires separate consent must be confirmed by the operator.",
+          "A HealthKit permission is different from permission to copy readings to a cloud account. The Apple Health connection screen explains that copy before you connect. You can refuse Apple Health and AI and continue manual tracking. Disconnect stops future imports on this device; each AI request requires a fresh choice. Withdrawal does not erase information previously processed; use deletion controls or a privacy request for that."
+        ]
+      },
+      {
+        "heading": "Access, deletion, withdrawal and appeal",
+        "paragraphs": [
+          "Profile provides export, correction, permission instructions and account deletion. A public privacy contact and request/appeal channel must be configured before release. Depending on the law, you may request confirmation, access, a recipient list, deletion and withdrawal, and appeal a denied request. Deletion requests must be propagated to relevant processors and backups as required by the applicable law. The operator must validate that its provider contracts and procedures support these rights before offering the app in those markets."
+        ]
+      }
+    ]
+  },
+  {
+    "slug": "terms",
+    "title": "Terms of Use",
+    "sections": [
+      {
+        "heading": "Draft terms; not yet effective",
+        "paragraphs": [
+          "Operator identity, eligible audience, launch scope, contact details and effective date are unresolved. These draft terms are available for review; using this development build is not presented as acceptance of an unfinished agreement. Apple’s standard licensed-application agreement is the proposed App Store license unless the operator approves a reviewed custom EULA. No governing law, arbitration requirement or liability cap has been chosen."
+        ]
+      },
+      {
+        "heading": "Using Sustain",
+        "paragraphs": [
+          "Sustain is a personal wellness tracking tool. Keep your account credentials secure, use your own account, and provide information you are entitled to use. Review your entries, estimates and generated drafts before saving them. Do not upload someone else’s private information without appropriate authority.",
+          "Do not abuse the service, evade usage limits, attempt unauthorized access, distribute harmful content through support channels, or interfere with other accounts. There is no public social feed or user-to-user sharing feature in the current release."
+        ]
+      },
+      {
+        "heading": "Health and AI",
+        "paragraphs": [
+          "Sustain does not provide diagnosis, treatment, emergency monitoring or a substitute for professional care. Nutrition, hydration and energy calculations depend on incomplete inputs and population-based assumptions. AI can omit ingredients, misjudge portions or suggest inappropriate exercise. You remain able to review and change drafts before logging. Do not change medication, disregard symptoms or undertake unsafe activity because of the app."
+        ]
+      },
+      {
+        "heading": "Your content and service operation",
+        "paragraphs": [
+          "You retain your rights in the information you supply. Providing a requested feature requires processing that information as described in the Privacy Policy, including specific optional AI choices. This draft does not authorize advertising use or unrelated model training.",
+          "Features may change or be unavailable. The operator should provide notice when practical for material changes and a reasonable way to export data before discontinuation. You may stop using the app or request account deletion in Settings. Restrictions or termination for abuse must be handled consistently with applicable law. No paid subscription, cancellation fee or purchase entitlement is implemented; monetization would require revised terms and product work."
+        ]
+      },
+      {
+        "heading": "Licenses and support",
+        "paragraphs": [
+          "Third-party software and food data remain subject to their respective licenses. See Acknowledgments. The owner must approve and publish a working support contact before release. Mandatory consumer rights are not waived by these draft terms."
+        ]
+      }
+    ]
+  },
+  {
+    "slug": "storage",
+    "title": "Cookies & Device Storage",
+    "sections": [
+      {
+        "heading": "Native app",
+        "paragraphs": [
+          "Native Sustain uses secure credential storage, a local vital database, and application storage for offline records, drafts, sync state, reminders and preferences. These serve requested account and tracking functions; they are not advertising identifiers. Face ID credentials and Remember me are optional. No App Tracking Transparency prompt is introduced because cross-company advertising tracking is not implemented."
+        ]
+      },
+      {
+        "heading": "Browser preview and policy site",
+        "paragraphs": [
+          "The browser preview uses localStorage for app state and has weaker credential protection than native Keychain. It is not an approved production web app. No embedded WebView, tracking pixel or application-set advertising cookie was found. The prepared standalone policy site contains no JavaScript, remote fonts, cookies or local storage. Its eventual hosting provider may create access logs or add services; audit the deployed host before publishing."
+        ]
+      },
+      {
+        "heading": "Consent assessment",
+        "paragraphs": [
+          "A blanket cookie banner is not added for the current functional storage. UK and European device-storage rules can apply to native apps as well as websites; exemptions depend on purpose and necessity, not the file format. Reassess optional persistence, duration and any added analytics or embedded content before launching there. Nonessential tracking must stay blocked until a valid choice when required."
+        ]
+      }
+    ]
+  },
+  {
+    "slug": "health-ai",
+    "title": "Health & AI Limitations",
+    "sections": [
+      {
+        "heading": "Tracking, not diagnosis",
+        "paragraphs": [
+          "Sustain organizes records and estimates. It does not measure blood pressure, diagnose a condition, monitor emergencies, or prescribe treatment. A chart category is an informational reference, not a diagnosis from averaged readings. Seek qualified care for symptoms or health decisions; in an emergency contact local emergency services."
+        ]
+      },
+      {
+        "heading": "Goals and estimates",
+        "paragraphs": [
+          "Calorie and fluid helpers are adult planning estimates, not individual prescriptions. Pregnancy, breastfeeding, medical conditions, medication, intensive activity and disordered-eating risk can make standard estimates unsuitable. Manual goals remain available. Do not use a displayed weight-loss rate as a guaranteed outcome."
+        ]
+      },
+      {
+        "heading": "AI review and control",
+        "paragraphs": [
+          "Meal photos cannot reliably reveal portions, cooking fats, allergens or hidden ingredients. Check package labels and actual quantities. AI workouts may be unsuitable for your health, experience or equipment. Review exercise selection, weights, duration and technique; stop painful activity. Generated results populate editable drafts and do not mark a workout or meal completed by themselves.",
+          "AI is optional. Each new request explains what will be shared with OpenAI and requires your choice. History sharing is separate. You can cancel before sending or decline the next request. Cancelling an already transmitted request cannot recall provider processing. Deleting a saved plan is separate from stopping future requests."
+        ]
+      }
+    ]
+  },
+  {
+    "slug": "support",
+    "title": "Support & Privacy Requests",
+    "sections": [
+      {
+        "heading": "Contact not configured",
+        "paragraphs": [
+          "This development draft has no approved public support or privacy contact. The operator must supply monitored addresses and a request/appeal process before App Store release. Do not treat an unmonitored placeholder as a support channel."
+        ]
+      },
+      {
+        "heading": "What to include",
+        "paragraphs": [
+          "Describe the issue or right you want to exercise and the app version. Initially omit passwords, verification codes, Face ID credentials, photographs and detailed health records. Use existing account verification when needed; do not send a government ID by default. A privacy request should not require a full health export."
+        ]
+      },
+      {
+        "heading": "Self-service controls",
+        "paragraphs": [
+          "Profile provides Export Data, Apple Health connection controls, Face ID and enrolled-device controls, and Manage Account > Delete Account. History supports record deletion. Reminders are managed from Track. If cleanup is interrupted, use Resume account deletion at sign-in. These controls remain available independently of optional AI use."
+        ]
+      }
+    ]
+  },
+  {
+    "slug": "acknowledgments",
+    "title": "Acknowledgments",
+    "sections": [
+      {
+        "heading": "Software",
+        "paragraphs": [
+          "Sustain uses React, React Native, Expo, Supabase libraries and other open-source packages. Bundled third-party license notices are available below. The release audit must also check the native build and bundled font/image licenses; a package inventory alone is not proof of complete license compliance."
+        ]
+      },
+      {
+        "heading": "Food data",
+        "paragraphs": [
+          "Barcode product data is provided by Open Food Facts contributors. Database licensing is ODbL; database contents and images have separate license terms. Sustain currently resolves product information without distributing a bulk catalog or provider images. Attribution and any share-alike duties must be reviewed before redistributing a derived database."
+        ]
+      }
+    ]
+  }
+]

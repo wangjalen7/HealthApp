@@ -1,5 +1,7 @@
 import { importHealthKitData, loadHealthKitSyncState } from "./sync";
 import { syncVitals } from "../vitals/sync";
+import { saveHealthKitSyncState } from "./state";
+const disconnecting = new Set<string>();
 const running = new Map<
   string,
   Promise<{ message: string; lastSyncedAt?: string }>
@@ -15,7 +17,7 @@ export function synchronizeHealthData(user: string, configured = true) {
       return { message: "Saved on this device. Supabase is not configured." };
     const state = await loadHealthKitSyncState(user);
     let importError = "";
-    if (state.connected) {
+    if (state.connected && !disconnecting.has(user)) {
       try {
         const imported = await importHealthKitData(user);
         return {
@@ -55,4 +57,14 @@ export function synchronizeHealthData(user: string, configured = true) {
 export async function drainHealthSync(user: string) {
   await running.get(user);
   status.delete(user);
+}
+
+/** Drain an in-flight import before persisting off so it cannot turn itself back on. */
+export async function disconnectHealthKit(user: string) {
+  disconnecting.add(user);
+  try {
+    await drainHealthSync(user);
+    const state = await loadHealthKitSyncState(user);
+    await saveHealthKitSyncState(user, { ...state, connected: false });
+  } finally { disconnecting.delete(user); }
 }

@@ -12,6 +12,8 @@ import {
   Animated,
   AppState,
   Platform,
+  Keyboard,
+  useWindowDimensions,
   StyleSheet,
   Text,
   View,
@@ -45,6 +47,7 @@ const Context = createContext<EntryContextValue | undefined>(undefined);
 
 export function EntryProvider({ children }: { children: ReactNode }) {
   const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
   const auth = useAuth();
   const setup = useAccountSetup();
   const reduced = useReducedMotion();
@@ -70,6 +73,7 @@ export function EntryProvider({ children }: { children: ReactNode }) {
   const begin = useCallback(
     (kind: EntryKind, fallback = "/(app)") => {
       const id = ++sequence.current;
+      Keyboard.dismiss();
       alpha.stopAnimation();
       alpha.setValue(1);
       target.current = undefined;
@@ -125,7 +129,12 @@ export function EntryProvider({ children }: { children: ReactNode }) {
     );
     return () => sub.remove();
   }, []);
-  const covered = Boolean(attempt && attempt.phase !== "authenticating");
+  const covered = Boolean(
+    attempt &&
+    (attempt.phase !== "authenticating" ||
+      attempt.kind === "manual" ||
+      attempt.kind === "biometric"),
+  );
   useEffect(() => {
     if (!attempt || attempt.phase === "authenticating") return;
     if (
@@ -149,7 +158,13 @@ export function EntryProvider({ children }: { children: ReactNode }) {
     auth.session?.user.id === attempt.userId;
   useEffect(() => {
     setSlow(false);
-    if (!covered || ready || attempt?.phase === "error") return;
+    if (
+      !covered ||
+      ready ||
+      attempt?.phase === "error" ||
+      attempt?.phase === "authenticating"
+    )
+      return;
     const timer = setTimeout(() => {
       setSlow(true);
       if (attempt) routingError(attempt.id);
@@ -163,7 +178,7 @@ export function EntryProvider({ children }: { children: ReactNode }) {
     }
     const id = attempt.id;
     setSuccessId(id);
-    const returning = attempt.kind !== "manual";
+    const returning = attempt.kind === "unlock" || attempt.kind === "restore";
     if (
       attempt.kind !== "restore" &&
       !reduced &&
@@ -188,7 +203,17 @@ export function EntryProvider({ children }: { children: ReactNode }) {
     animation.start(({ finished }) => {
       if (finished && current.current?.id === id) publish(undefined);
     });
-    return () => animation.stop();
+    // Never strand a ready route if an animation callback is interrupted or the clock is frozen.
+    const fallback = setTimeout(
+      () => {
+        if (current.current?.id === id) publish(undefined);
+      },
+      reduced ? 0 : attempt.kind === "restore" ? 220 : returning ? 400 : 600,
+    );
+    return () => {
+      clearTimeout(fallback);
+      animation.stop();
+    };
   }, [
     alpha,
     attempt?.id,
@@ -203,10 +228,10 @@ export function EntryProvider({ children }: { children: ReactNode }) {
     [attempt, begin, complete, cancel, resolve, routingError],
   );
   const failed =
-    attempt?.phase === "error" ||
-    Boolean(setup.error || auth.sessionSecurityError) ||
-    slow;
-  const formEntry = attempt?.kind === "manual" || attempt?.kind === "biometric";
+    attempt?.phase !== "authenticating" &&
+    (attempt?.phase === "error" ||
+      Boolean(setup.error || auth.sessionSecurityError) ||
+      slow);
   return (
     <Context.Provider value={value}>
       <View style={{ flex: 1 }}>
@@ -231,14 +256,18 @@ export function EntryProvider({ children }: { children: ReactNode }) {
                 backgroundColor: sustainPalette[resolvedScheme],
                 opacity: alpha,
               },
-              formEntry && {
-                justifyContent: "flex-start",
-                paddingTop: insets.top + 36,
+              {
+                paddingTop: insets.top + 24,
+                paddingBottom: insets.bottom + 24,
               },
             ]}
           >
             <SustainBrand
-              size={formEntry ? 96 : 112}
+              size={
+                attempt?.kind === "unlock"
+                  ? 112
+                  : Math.min(144, width * 0.36, height * 0.2)
+              }
               motion={
                 successId === attempt?.id && attempt?.kind !== "restore"
                   ? "success"
@@ -246,19 +275,20 @@ export function EntryProvider({ children }: { children: ReactNode }) {
                     ? "idle"
                     : "pending"
               }
-              compactSuccess={attempt?.kind !== "manual"}
+              compactSuccess={attempt?.kind === "unlock"}
             />
-            <Text
-              accessibilityLiveRegion="polite"
-              style={[styles.message, formEntry && { marginTop: 17 }]}
-            >
+            <Text accessibilityLiveRegion="polite" style={styles.message}>
               {failed
                 ? auth.sessionSecurityError ||
                   setup.error ||
                   "We couldn't finish opening your account. Try again."
-                : ready
-                  ? "Ready for your day."
-                  : "Opening your account…"}
+                : attempt?.phase === "authenticating"
+                  ? attempt.kind === "biometric"
+                    ? "Signing in…"
+                    : "Signing in…"
+                  : ready
+                    ? "Ready for your day."
+                    : "Opening your account…"}
             </Text>
             {failed ? (
               <View style={{ gap: 12 }}>

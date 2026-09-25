@@ -423,6 +423,9 @@ test("AI errors retain input, retry works, and cancel/close never adds foods", a
   await expect(
     page.getByLabel("Meal description", { exact: true }),
   ).toHaveValue("pasta with sauce and chicken");
+  await expect(page.getByRole("checkbox", { name: "Allow AI meal processing" })).not.toBeChecked();
+  await expect(page.getByRole("button", { name: "Estimate foods", exact: true })).toBeDisabled();
+  await page.getByRole("checkbox", { name: "Allow AI meal processing" }).click();
   await page
     .getByRole("button", { name: "Estimate foods", exact: true })
     .click();
@@ -571,6 +574,8 @@ test("cancelled AI response is ignored and existing meal portions survive anothe
   await expect(page.getByText(/Estimation stopped/)).toBeVisible();
   await expect(page.getByText(/Review 1 estimated foods/)).toHaveCount(0);
   expect(backend.tables.user_food_profiles ?? []).toHaveLength(0);
+  await expect(page.getByRole("checkbox", { name: "Allow AI meal processing" })).not.toBeChecked();
+  await page.getByRole("checkbox", { name: "Allow AI meal processing" }).click();
   await page
     .getByRole("button", { name: "Estimate foods", exact: true })
     .click();

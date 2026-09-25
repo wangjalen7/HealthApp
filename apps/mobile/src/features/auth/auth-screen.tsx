@@ -352,14 +352,17 @@ export function AuthScreen({ mode }: { mode: Mode }) {
         >
           <SustainBrand
             motion={
-              faceIdBusy
-                ? "biometric"
-                : busy && mode !== "reset"
-                  ? "pending"
-                  : "idle"
+              entry.attempt
+                ? "idle"
+                : faceIdBusy
+                  ? "biometric"
+                  : busy && mode !== "reset"
+                    ? "pending"
+                    : "idle"
             }
           />
           <Text style={styles.brandCopy}>A little care. Every day.</Text>
+          <Link href="/legal" style={[styles.link, { paddingVertical: 14 }]}>Privacy & Legal</Link>
         </Animated.View>
         <Animated.View style={{ opacity: reveal }}>
           {mode !== "signIn" ? (
@@ -508,9 +511,21 @@ export function AuthScreen({ mode }: { mode: Mode }) {
             disabledOpacity={1}
             disabled={busy || faceIdBusy}
             onPress={submit}
-            style={styles.button}
+            style={({ pressed }) => [
+              styles.button,
+              {
+                backgroundColor:
+                  busy || faceIdBusy
+                    ? colors.authActionDisabled
+                    : pressed
+                      ? colors.authActionPressed
+                      : colors.authAction,
+              },
+            ]}
           >
-            {busy ? <ActivityIndicator color="#fff" size="small" /> : null}
+            {busy ? (
+              <ActivityIndicator color={colors.onAuthAction} size="small" />
+            ) : null}
             <Text style={styles.buttonText}>
               {busy
                 ? mode === "signIn"
@@ -679,7 +694,7 @@ const styles = StyleSheet.create({
   rememberSwitch: { alignSelf: "center" },
   button: {
     alignItems: "center",
-    backgroundColor: sustainPalette.green,
+    backgroundColor: colors.authAction,
     flexDirection: "row",
     gap: 10,
     borderRadius: 12,
@@ -687,7 +702,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: 4,
   },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  buttonText: { color: colors.onAuthAction, fontSize: 16, fontWeight: "700" },
   faceIdButton: {
     alignItems: "center",
     borderRadius: 10,

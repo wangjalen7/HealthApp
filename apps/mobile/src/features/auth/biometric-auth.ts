@@ -1,6 +1,6 @@
 import * as LocalAuthentication from "expo-local-authentication";
 import * as SecureStore from "expo-secure-store";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 import {
   biometricFunctionError,
   faceIdLoginFailure,
@@ -224,6 +224,27 @@ export async function getFaceIdLoginCredential(): Promise<
   return parseFaceIdLoginCredential(raw, account);
 }
 
+async function waitForBiometricForeground(): Promise<boolean> {
+  if (AppState.currentState === "active") return true;
+  if (AppState.currentState === "background") return false;
+  return new Promise((resolve) => {
+    const finish = (active: boolean) => {
+      clearTimeout(timeout);
+      subscription.remove();
+      resolve(active);
+    };
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") finish(true);
+      else if (state === "background") finish(false);
+    });
+    // A missing native foreground event must not leave the login cover stuck.
+    const timeout = setTimeout(() => finish(false), 10_000);
+    // Recheck after subscribing so an intervening foreground event is not lost.
+    if (AppState.currentState === "active") finish(true);
+    else if (AppState.currentState === "background") finish(false);
+  });
+}
+
 export async function signInWithFaceIdCredential(): Promise<FaceIdAuthenticationResult> {
   const marker = await getFaceIdLoginAccount();
   if (marker && !marker.email)
@@ -258,6 +279,16 @@ export async function signInWithFaceIdCredential(): Promise<FaceIdAuthentication
     ...credential,
     secret: response.nextSecret,
   });
+  // iOS can resolve the protected Keychain read before reporting active again.
+  // Publishing SIGNED_IN during that interval locks the new session and cancels
+  // entry, leaving an authenticated user stranded on the sign-in screen.
+  if (!(await waitForBiometricForeground())) {
+    return {
+      success: false,
+      message:
+        "Face ID sign-in was interrupted. Try again or use your password.",
+    };
+  }
   const { error: sessionError } = await supabase.auth.setSession({
     access_token: response.accessToken,
     refresh_token: response.refreshToken,

@@ -18,7 +18,10 @@ type Props = {
   initial?: WorkoutPreferences;
   profile?: CoachProfile;
   busy: boolean;
-  onGenerate: (preferences: WorkoutPreferences) => Promise<void>;
+  onGenerate: (
+    preferences: WorkoutPreferences,
+    includeHistory: boolean,
+  ) => Promise<void>;
   onCancel?: () => void;
   onStepChange?: () => void;
 };
@@ -40,9 +43,8 @@ export function WorkoutQuestionnaire({
         limitations: profile?.limitations?.slice(0, 500) ?? "",
       },
   );
-  const [consent, setConsent] = useState(
-    Boolean(profile?.consentedAt && profile.useTraining),
-  );
+  const [consent, setConsent] = useState(false);
+  const [includeHistory, setIncludeHistory] = useState(false);
   const [error, setError] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   useEffect(() => {
@@ -376,10 +378,10 @@ export function WorkoutQuestionnaire({
           {fieldError("limitations")}
           <View style={styles.consentRow}>
             <Text style={[styles.label, styles.consentLabel]}>
-              Use my workout history for AI planning
+              Send my preferences to OpenAI for this plan
             </Text>
             <Switch
-              accessibilityLabel="Use my workout history for AI planning"
+              accessibilityLabel="Send my preferences to OpenAI for this plan"
               accessibilityState={{ checked: consent }}
               disabled={busy}
               value={consent}
@@ -392,11 +394,25 @@ export function WorkoutQuestionnaire({
             />
           </View>
           {fieldError("consent")}
+          <View style={styles.consentRow}>
+            <Text style={[styles.label, styles.consentLabel]}>
+              Include my workout history (optional)
+            </Text>
+            <Switch
+              accessibilityLabel="Include my workout history"
+              value={includeHistory}
+              disabled={busy}
+              onValueChange={setIncludeHistory}
+            />
+          </View>
           <Text style={styles.copy}>
-            Your preferences and relevant workout history are sent to OpenAI to
-            create one session. Generate fills editable Lifting and/or Cardio
-            drafts. Nothing is logged as completed until you save it in the
-            tracker.
+            Your preferences, including limitations you type, go through
+            Supabase to OpenAI to create one session. History is shared only if
+            you choose it. Avoid names or contact details. OpenAI may retain
+            inputs under its provider policies; cancelling cannot recall a sent
+            request. This choice starts off each time. Manual workouts remain
+            available. Review the editable draft before saving; AI can make
+            mistakes.
           </Text>
         </>
       )}
@@ -442,7 +458,7 @@ export function WorkoutQuestionnaire({
                 field: "consent",
                 step: 2,
                 message:
-                  "Enable Use my workout history for AI planning before generating.",
+                  "Allow sharing your preferences with OpenAI for this plan, or cancel and log manually.",
               });
             if (visibleProblems.length) {
               setErrors(
@@ -467,7 +483,11 @@ export function WorkoutQuestionnaire({
             }
             if (!parsed.success) return;
             try {
-              await onGenerate(parsed.data);
+              try {
+                await onGenerate(parsed.data, includeHistory);
+              } finally {
+                setConsent(false);
+              }
             } catch (e) {
               setError(
                 e instanceof Error ? e.message : "Could not prepare your plan.",
@@ -511,7 +531,7 @@ const styles = StyleSheet.create({
   },
   text: { fontSize: 14, color: colors.text },
   selected: { backgroundColor: colors.blue, borderColor: colors.blue },
-  selectedText: { fontSize: 14, fontWeight: "600", color: "#fff" },
+  selectedText: { fontSize: 14, fontWeight: "600", color: colors.onAccent },
   primary: {
     backgroundColor: colors.blue,
     minHeight: 48,

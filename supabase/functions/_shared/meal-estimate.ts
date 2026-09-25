@@ -12,6 +12,7 @@ export const mealEstimateRequestSchema = z
       .regex(/^\/9j\/[A-Za-z0-9+/]*={0,2}$/, "Use a JPEG photo.")
       .optional(),
     consent: z.literal(true),
+    consentVersion: z.string().optional(),
   })
   .strict()
   .refine((value) => value.description.length > 0 || !!value.imageBase64, {

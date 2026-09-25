@@ -22,3 +22,4 @@ export function serializedWrite(
 const store = createLayoutStore(AsyncStorage);
 export const loadLayout = store.load;
 export const saveLayout = store.save;
+export const cachedLayout = store.peek;

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { aiConsentVersion } from "../_shared/ai-privacy.ts";
 import { classifyOpenAiFailure, createMealHandler } from "./handler.ts";
 import {
   deduplicateEstimatedFoods,
@@ -54,14 +55,24 @@ const request = (
   new Request("https://example.test", {
     method: "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: JSON.stringify(body),
+    body: JSON.stringify(typeof body === "object" && body ? { consentVersion: aiConsentVersion, ...body } : body),
   });
 const deps = {
   apiKey: "test-key",
   model: "test-model",
   authenticate: async () => "test-user",
+  recordConsent: async () => undefined,
   consumeQuota: async () => true,
 };
+
+test("meal sharing requires the current notice and a saved minimal consent receipt",async()=>{
+  let paid=0;
+  const handler=createMealHandler({...deps,fetch:async()=>{paid++;throw Error("not allowed");}});
+  assert.equal((await handler(request({description:"pasta",consent:true,consentVersion:"old"}))).status,403);
+  const unavailable=createMealHandler({...deps,recordConsent:async()=>{throw Error("unavailable");},fetch:async()=>{paid++;throw Error("not allowed");}});
+  assert.equal((await unavailable(request())).status,503);
+  assert.equal(paid,0);
+});
 
 test("auth, consent, request limits and missing configuration stop before paid provider calls", async () => {
   const handler = createMealHandler({

@@ -14,7 +14,7 @@ const actions = [
     href: "/(app)/nutrition",
     icon: "food",
     color: colors.orange,
-    tint: "#FFF3E5",
+    tint: colors.orangeSoft,
   },
   {
     title: "Water",
@@ -22,7 +22,7 @@ const actions = [
     href: "/(app)/water",
     icon: "water",
     color: colors.blue,
-    tint: "#EAF3FF",
+    tint: colors.blueSoft,
   },
   {
     title: "Blood pressure",
@@ -30,7 +30,7 @@ const actions = [
     href: "/(app)/track",
     icon: "heart",
     color: colors.pink,
-    tint: "#FDECF1",
+    tint: colors.pinkSoft,
   },
   {
     title: "Weight",
@@ -38,7 +38,7 @@ const actions = [
     href: "/(app)/weight",
     icon: "weight",
     color: colors.purple,
-    tint: "#F3EDFC",
+    tint: colors.purpleSoft,
   },
   {
     title: "Workout",
@@ -46,7 +46,7 @@ const actions = [
     href: "/(app)/workout",
     icon: "workout",
     color: colors.green,
-    tint: "#EDF8EE",
+    tint: colors.greenSoft,
   },
   {
     title: "Reminders",
@@ -54,7 +54,7 @@ const actions = [
     href: "/(app)/reminders",
     icon: "bell",
     color: colors.teal,
-    tint: "#E7F5F5",
+    tint: colors.tealSoft,
   },
 ] as const;
 
@@ -149,11 +149,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    padding: 12,
-    minHeight: 68,
-    borderRadius: 18,
+    padding: 16,
+    minHeight: 76,
+    borderRadius: 20,
   },
-  actionContent: { flex: 1 },
+  actionContent: { flex: 1, minWidth: 0 },
   icon: {
     width: 44,
     height: 44,

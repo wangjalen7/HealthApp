@@ -186,7 +186,16 @@ Status key: `[ ]` planned, `[-]` in progress, `[x]` complete.
 - [x] Deploy account-deletion database migration 202609220002 after linked preview and isolated SQL validation.
 - [x] Obtain explicit approval, deploy delete-account with --no-verify-jwt, and verify disposable hosted deletion, recovery, authorization and account isolation.
 - [x] Polish calorie/fluid helpers with per-account drafts, saved-result overviews, explicit recalculation/application, calendar loss plans, consistent Gender controls and retry-safe profile metadata.
-- [-] **In progress** - Complete physical-iPhone validation of Sustain entry/standalone splash, reminders (delivery, taps, permissions, recurrence, capacity, DST/time zones), goal-helper calendars, keyboard, dark mode, Dynamic Type, VoiceOver, privacy lock, onboarding and device cleanup.
+- [x] Fix the Face ID foreground handoff race that can return to login after the native prompt; verify synthetic native lifecycle, retry and privacy-lock regressions.
+- [x] Restore the original History tab styling while retaining its loading, retry and navigation improvements.
+- [x] Tighten the visual gap between fluid-history category and delete controls while preserving touch targets.
+- [x] Show saved maintenance and standard weight-loss calorie comparisons alongside the current calorie goal.
+- [x] Prepare and visually verify a branded Sustain signup verification email with intact confirmation links.
+- [ ] Publish the signup email after custom SMTP or a Supabase plan upgrade is configured; the current Free/default-provider restriction blocks template changes.
+- [x] Implement privacy/legal drafts and controls, specific AI permission/minimization, export coverage, native storage/backup preparation, permission cleanup and shared accessibility improvements; document applicability, providers, operations and release blockers.
+- [ ] Resolve operator/contact/countries/age/monetization, consumer-health legal review, provider terms/retention, backup restoration, licenses and App Store declarations before public release.
+- [ ] After separate authorization, deploy privacy migration 202609250001 and updated AI functions, release a compatible rebuilt client, and verify hosted privacy/export/deletion with disposable accounts.
+- [-] **In progress** - Complete physical-iPhone validation of native privacy/backup protection, permission denial, Sustain entry/standalone splash, reminders (delivery, taps, permissions, recurrence, capacity, DST/time zones), goal-helper calendars, keyboard, dark mode, Dynamic Type, VoiceOver/Voice Control/Switch Control, privacy lock, onboarding and device cleanup.
 
 - [x] Reorganize Profile into grouped settings with focused goal, preference, health-data and account/security destinations.
 
@@ -209,3 +218,9 @@ Status key: `[ ]` planned, `[-]` in progress, `[x]` complete.
 - [x] Animate calorie calendar rings from empty to loaded progress.
 
 - [x] Implement Sustain branded authentication, secure entry transitions and direct reminder destinations; verify and commit/push the accumulated work.
+
+- [x] Independently review Sustain and produce a beginner-friendly system design, implementation, deployment, scaling and interview PDF.
+
+- [x] Apply Sustain Home Screen branding to the app name, icon and permission prompts; verify native configuration.
+
+- [x] Coordinate independent Summary/History loading, centered secure entry, cohesive Quick Log/History presentation and cardio history navigation.

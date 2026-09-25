@@ -146,11 +146,13 @@ export function DetailScreen({
   children,
   onBack,
   headerAction,
+  backLabel = "Back to Profile",
 }: {
   title: string;
   children: ReactNode;
   onBack?: () => void;
   headerAction?: ReactNode;
+  backLabel?: string;
 }) {
   return (
     <SafeAreaView
@@ -160,7 +162,7 @@ export function DetailScreen({
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Back to Profile"
+          accessibilityLabel={backLabel}
           onPress={
             onBack ??
             (() =>

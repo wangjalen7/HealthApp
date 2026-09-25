@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import {
+  ScrollView,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 import { Modal } from "../../ui/modal";
 import { Pressable } from "../../ui/pressable";
 import { trackingStyles } from "../../ui/tracking-styles";
@@ -16,9 +22,11 @@ import { classifyHydration, type HydrationHistoryEntry } from "./repository";
 export function ClassifyDrink({
   entry,
   onChanged,
+  buttonStyle,
 }: {
   entry: HydrationHistoryEntry;
   onChanged: () => Promise<void>;
+  buttonStyle?: StyleProp<ViewStyle>;
 }) {
   const { session } = useAuth();
   const [visible, setVisible] = useState(false);
@@ -39,7 +47,7 @@ export function ClassifyDrink({
           setError("");
           setVisible(true);
         }}
-        style={{ minHeight: 44, justifyContent: "center" }}
+        style={[{ minHeight: 44, justifyContent: "center" }, buttonStyle]}
       >
         <Text style={{ color: colors.blue }}>Change drink category</Text>
       </Pressable>

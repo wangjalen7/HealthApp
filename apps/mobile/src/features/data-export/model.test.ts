@@ -37,3 +37,8 @@ test("byte sizes use readable units", () => {
   assert.equal(formatBytes(1536), "1.5 KB");
   assert.equal(formatBytes(5 * 1024 * 1024), "5.0 MB");
 });
+
+test("spreadsheet formula prefixes remain escaped after leading whitespace or controls", () => {
+  for (const value of [" =2+2", "\t@SUM(A1)", "\r-1+2", "\n+1+2"])
+    assert.ok(rowsToCsv([{ value }]).includes("'" + value));
+});

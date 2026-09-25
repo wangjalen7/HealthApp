@@ -1,4 +1,3 @@
-import { AppState } from "react-native";
 import { serviceErrorMessage } from "../../src/lib/service-errors";
 import { ConfirmationActions } from "../../src/ui/confirmation-actions";
 import { IconButton } from "../../src/ui/icon-button";
@@ -10,16 +9,12 @@ import { Icon } from "../../src/ui/icon";
 import { ScreenScrollView } from "../../src/ui/screen-scroll-view";
 import { Pressable } from "../../src/ui/pressable";
 import { colors } from "../../src/ui/theme";
+import { HistorySkeleton } from "../../src/ui/skeleton";
+import { useHistoryData } from "../../src/features/training/use-history-data";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { SymbolView } from "expo-symbols";
-import {
-  ActivityIndicator,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { RefreshControl, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { type VitalSample } from "../../src/domain/vitals";
@@ -27,7 +22,6 @@ import { useAuth } from "../../src/features/auth/auth-provider";
 import { ClassifyDrink } from "../../src/features/hydration/classify-drink";
 import { mlToFluidOunces } from "../../src/features/hydration/model";
 import {
-  getHydrationHistory,
   deleteHydration,
   type HydrationHistoryEntry,
 } from "../../src/features/hydration/repository";
@@ -39,14 +33,11 @@ import {
 } from "../../src/features/nutrition/history-totals";
 import {
   deleteFood,
-  getFoodHistory,
   type FoodHistoryEntry,
 } from "../../src/features/nutrition/repository";
 import {
   deleteCardio,
   deleteWorkout,
-  getCardioHistory,
-  getWorkoutHistory,
   type CardioHistoryEntry,
   type WorkoutHistorySession,
   type WorkoutHistorySet,
@@ -55,11 +46,7 @@ import { ProgressPhotoGallery } from "../../src/features/progress-photos/progres
 import { getWeightSampleIdsWithProgressPhotos } from "../../src/features/progress-photos/repository";
 import { workoutSetBreakdown } from "../../src/features/training/workout-history";
 import { muscleGroupLabel } from "../../src/features/training/workout-draft";
-import {
-  loadCachedVitals,
-  markVitalsDeleted,
-  syncVitals,
-} from "../../src/features/vitals/sync";
+import { markVitalsDeleted, syncVitals } from "../../src/features/vitals/sync";
 import { classifyBloodPressure } from "../../src/features/vitals/blood-pressure";
 import { pulseForBloodPressure } from "../../src/features/vitals/blood-pressure-pulse";
 
@@ -176,32 +163,69 @@ function samplesForBloodPressureReading(
 }
 
 export default function HistoryScreen() {
-  const { view: requestedView } = useLocalSearchParams<{ view?: string }>();
+  const { session } = useAuth();
+  return <HistoryContent key={session?.user.id ?? "signed-out"} />;
+}
+function HistoryContent() {
+  const { view: requestedView, from } = useLocalSearchParams<{
+    view?: string;
+    from?: string;
+  }>();
   const { session, configured } = useAuth();
   const insets = useSafeAreaInsets();
   const [swiping, setSwiping] = useState(false);
-  const [view, setView] = useState<HistoryView>("exercise");
+  const [view, setView] = useState<HistoryView>(
+    () => historyView(requestedView) ?? "exercise",
+  );
   const historyScroll = useRef<ScrollView>(null);
   const changeView = (next: HistoryView) => {
     setView(next);
     historyScroll.current?.scrollTo({ y: 0, animated: false });
   };
-  const [history, setHistory] = useState<WorkoutHistorySession[]>([]);
-  const [cardio, setCardio] = useState<CardioHistoryEntry[]>([]);
-  const [food, setFood] = useState<FoodHistoryEntry[]>([]);
-  const [hydration, setHydration] = useState<HydrationHistoryEntry[]>([]);
-  const [vitals, setVitals] = useState<VitalSample[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState("");
+  const data = useHistoryData(session?.user.id ?? "", configured);
+  const { items: history, set: setHistory } = data.workouts;
+  const { items: cardio, set: setCardio } = data.cardio;
+  const { items: food, set: setFood } = data.food;
+  const { items: hydration, set: setHydration } = data.fluids;
+  const { items: vitals, set: setVitals } = data.vitals;
+  const { refreshing, load } = data;
+  const [actionError, setError] = useState("");
+  const selected =
+    view === "exercise"
+      ? [data.workouts, data.cardio]
+      : view === "food"
+        ? [data.food]
+        : view === "fluids"
+          ? [data.fluids]
+          : [data.vitals];
+  const loading = selected.some((r) => r.data === undefined && r.loading);
+  const error =
+    actionError ||
+    selected
+      .filter((r) => r.error)
+      .map((r) =>
+        r.data !== undefined
+          ? "Could not update. Saved history is shown."
+          : `${r === data.workouts ? "Workouts" : r === data.cardio ? "Cardio" : r === data.food ? "Food" : r === data.fluids ? "Fluids" : "Readings"}: ${serviceErrorMessage({ message: r.error })}`,
+      )
+      .join(" ") ||
+    (["weight", "blood_pressure"].includes(view) ? data.syncError : "");
+  const unavailable = selected.some((r) => r.data === undefined && !!r.error);
   const [pendingDeletion, setPendingDeletion] = useState<DeletionRequest>();
   const [photoGalleryWeightId, setPhotoGalleryWeightId] = useState<string>();
   const [weightSampleIdsWithPhotos, setWeightSampleIdsWithPhotos] = useState<
     Set<string>
   >(new Set());
-  const loadedUserId = useRef<string | undefined>(undefined);
+  const photoRequest = useRef(0);
+  useEffect(
+    () => () => {
+      photoRequest.current++;
+    },
+    [],
+  );
   const refreshProgressPhotoIndicators = useCallback(
     async (readings: VitalSample[]) => {
+      const request = ++photoRequest.current;
       const userId = session?.user.id;
       if (!configured || !userId) {
         setWeightSampleIdsWithPhotos(new Set());
@@ -211,84 +235,20 @@ export default function HistoryScreen() {
         const ids = readings
           .filter((sample) => sample.kind === "weight" && !sample.deletedAt)
           .map((sample) => sample.id);
-        setWeightSampleIdsWithPhotos(
-          await getWeightSampleIdsWithProgressPhotos(userId, ids),
-        );
+        const found = await getWeightSampleIdsWithProgressPhotos(userId, ids);
+        if (request === photoRequest.current)
+          setWeightSampleIdsWithPhotos(found);
       } catch {
         // History stays usable when the optional indicator metadata is offline.
-        setWeightSampleIdsWithPhotos(new Set());
+        // Retain existing indicators after a failed background refresh.
       }
     },
     [configured, session?.user.id],
   );
-  const load = useCallback(
-    async (isPullRefresh = false) => {
-      if (!session) return;
-      const isInitialLoad = loadedUserId.current !== session.user.id;
-      if (isInitialLoad) setLoading(true);
-      if (isPullRefresh) setRefreshing(true);
-      try {
-        const problems: string[] = [];
-        if (configured) {
-          const synced = await syncVitals(session.user.id);
-          if (synced.error) problems.push(synced.error);
-        }
-        const [
-          workouts,
-          cardioEntries,
-          foodEntries,
-          hydrationEntries,
-          readings,
-        ] = await Promise.allSettled([
-          getWorkoutHistory(session.user.id),
-          getCardioHistory(session.user.id),
-          getFoodHistory(session.user.id),
-          getHydrationHistory(session.user.id),
-          loadCachedVitals(session.user.id),
-        ]);
-        if (workouts.status === "fulfilled") setHistory(workouts.value);
-        if (cardioEntries.status === "fulfilled")
-          setCardio(cardioEntries.value);
-        if (foodEntries.status === "fulfilled") setFood(foodEntries.value);
-        if (hydrationEntries.status === "fulfilled")
-          setHydration(hydrationEntries.value);
-        if (readings.status === "fulfilled") {
-          setVitals(readings.value);
-          void refreshProgressPhotoIndicators(readings.value);
-        }
-        const labels = ["Workouts", "Cardio", "Food", "Fluids", "Readings"];
-        [
-          workouts,
-          cardioEntries,
-          foodEntries,
-          hydrationEntries,
-          readings,
-        ].forEach((result, index) => {
-          if (result.status === "rejected")
-            problems.push(
-              `${labels[index]}: ${serviceErrorMessage(result.reason)}`,
-            );
-        });
-        setError(problems.join("\n"));
-      } catch (caught) {
-        setError(serviceErrorMessage(caught, "Could not load history."));
-      } finally {
-        loadedUserId.current = session.user.id;
-        if (isInitialLoad) setLoading(false);
-        if (isPullRefresh) setRefreshing(false);
-      }
-    },
-    [configured, refreshProgressPhotoIndicators, session],
-  );
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-      const foreground = AppState.addEventListener("change", (state) => {
-        if (state === "active") void load();
-      });
-      return () => foreground.remove();
-    }, [load]),
-  );
+  useEffect(() => {
+    void refreshProgressPhotoIndicators(vitals);
+  }, [vitals, refreshProgressPhotoIndicators]);
+
   useEffect(() => {
     const nextView = historyView(requestedView);
     if (nextView) setView(nextView);
@@ -430,6 +390,27 @@ export default function HistoryScreen() {
         />
       }
     >
+      {from === "cardio" ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            router.setParams({ from: undefined });
+            router.navigate({
+              pathname: "/(app)/workout",
+              params: { section: "cardio" },
+            });
+          }}
+          style={{
+            minHeight: 44,
+            justifyContent: "center",
+            alignSelf: "flex-start",
+          }}
+        >
+          <Text style={{ color: colors.blue, fontSize: 15, fontWeight: "600" }}>
+            Back to cardio
+          </Text>
+        </Pressable>
+      ) : null}
       <Text accessibilityRole="header" style={styles.title}>
         History
       </Text>
@@ -440,15 +421,28 @@ export default function HistoryScreen() {
         value={view}
         onChange={changeView}
       />
-      {loading &&
-      !history.length &&
-      !cardio.length &&
-      !food.length &&
-      !hydration.length &&
-      !vitals.length ? (
-        <ActivityIndicator color={colors.blue} />
+      {loading ? (
+        <HistorySkeleton
+          label={historyOptions.find((item) => item.value === view)!.label}
+        />
       ) : null}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? (
+        <View style={{ marginBottom: 12 }}>
+          <Text accessibilityRole="alert" style={styles.error}>
+            {error}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              setError("");
+              void load(true);
+            }}
+            style={{ minHeight: 44, justifyContent: "center" }}
+          >
+            <Text style={{ color: colors.blue }}>Retry history</Text>
+          </Pressable>
+        </View>
+      ) : null}
       <SwipeContent
         index={historyOptions.findIndex((option) => option.value === view)}
         count={historyOptions.length}
@@ -459,7 +453,7 @@ export default function HistoryScreen() {
           <ExerciseHistory
             cardio={cardio}
             history={history}
-            loading={loading}
+            loading={loading || unavailable}
             onDeleteCardio={confirmRemoveCardio}
             onDeleteWorkout={confirmRemoveWorkout}
           />
@@ -467,7 +461,7 @@ export default function HistoryScreen() {
         {view === "blood_pressure" ? (
           <BloodPressureHistory
             readings={bloodPressure}
-            loading={loading}
+            loading={loading || unavailable}
             onDelete={(reading) =>
               confirmRemoveVitals(
                 "Delete blood-pressure reading?",
@@ -480,7 +474,7 @@ export default function HistoryScreen() {
           <WeightHistory
             photoWeightSampleIds={weightSampleIdsWithPhotos}
             readings={weights}
-            loading={loading}
+            loading={loading || unavailable}
             onOpenPhotos={setPhotoGalleryWeightId}
             onDelete={(reading) =>
               confirmRemoveVitals("Delete weight reading?", [reading])
@@ -490,19 +484,16 @@ export default function HistoryScreen() {
         {view === "food" ? (
           <FoodHistory
             entries={food}
-            loading={loading}
+            loading={loading || unavailable}
             onDelete={confirmRemoveFood}
           />
         ) : null}
         {view === "fluids" ? (
           <FluidHistory
             hydration={hydration}
-            loading={loading}
+            loading={loading || unavailable}
             onDeleteHydration={confirmRemoveHydration}
-            onHydrationChanged={async () => {
-              if (session)
-                setHydration(await getHydrationHistory(session.user.id));
-            }}
+            onHydrationChanged={() => data.fluids.refresh(true)}
           />
         ) : null}
       </SwipeContent>
@@ -720,6 +711,7 @@ function WorkoutHistoryCard({
       ) : null}
       <View style={styles.cardActions}>
         <IconButton
+          variant="plain"
           name="edit"
           label="Edit workout"
           onPress={() =>
@@ -730,6 +722,7 @@ function WorkoutHistoryCard({
           }
         />
         <IconButton
+          variant="plain"
           name="delete"
           label="Delete workout"
           onPress={() => onDelete(session.id)}
@@ -762,16 +755,19 @@ function CardioHistoryCard({
       {entry.distanceMiles !== undefined ? (
         <Text style={styles.detail}>{entry.distanceMiles} miles</Text>
       ) : null}
-      <Text style={styles.readingSource}>
-        {entry.source === "healthkit" ? "Apple Health" : entry.source}
-        {cleanSourceName(entry.sourceName)
-          ? ` \u00b7 ${cleanSourceName(entry.sourceName)}`
-          : ""}
-      </Text>
+      {entry.source !== "manual" ? (
+        <Text style={styles.readingSource}>
+          {entry.source === "healthkit" ? "Apple Health" : entry.source}
+          {cleanSourceName(entry.sourceName)
+            ? ` \u00b7 ${cleanSourceName(entry.sourceName)}`
+            : ""}
+        </Text>
+      ) : null}
       {entry.notes ? <HistoryNotes notes={entry.notes} kind="cardio" /> : null}
       <View style={styles.cardActions}>
         {entry.source === "manual" ? (
           <IconButton
+            variant="plain"
             name="edit"
             label="Edit cardio"
             onPress={() =>
@@ -783,6 +779,7 @@ function CardioHistoryCard({
           />
         ) : null}
         <IconButton
+          variant="plain"
           name="delete"
           label={
             entry.source === "healthkit"
@@ -853,6 +850,7 @@ function BloodPressureHistory({
               {systolic.source === "manual" &&
               diastolic?.source === "manual" ? (
                 <IconButton
+                  variant="plain"
                   name="edit"
                   label="Edit reading"
                   onPress={() =>
@@ -864,6 +862,7 @@ function BloodPressureHistory({
                 />
               ) : null}
               <IconButton
+                variant="plain"
                 name="delete"
                 label="Delete reading"
                 onPress={() => onDelete({ systolic, diastolic })}
@@ -942,6 +941,7 @@ function WeightHistory({
           <View style={styles.cardActions}>
             {reading.source === "manual" ? (
               <IconButton
+                variant="plain"
                 name="edit"
                 label="Edit reading"
                 onPress={() =>
@@ -953,6 +953,7 @@ function WeightHistory({
               />
             ) : null}
             <IconButton
+              variant="plain"
               name="delete"
               label="Delete reading"
               onPress={() => onDelete(reading)}
@@ -1097,6 +1098,7 @@ function FoodHistory({
                         <View style={styles.cardActions}>
                           {food.source !== "import" ? (
                             <IconButton
+                              variant="plain"
                               name="edit"
                               label={`Edit ${food.foodName}`}
                               onPress={() =>
@@ -1108,6 +1110,7 @@ function FoodHistory({
                             />
                           ) : null}
                           <IconButton
+                            variant="plain"
                             name="delete"
                             label={`Delete ${food.foodName}`}
                             onPress={() => onDelete(food.id)}
@@ -1237,11 +1240,20 @@ function FluidHistory({
                       <ClassifyDrink
                         entry={entry}
                         onChanged={onHydrationChanged}
+                        buttonStyle={{
+                          justifyContent: "flex-end",
+                          paddingBottom: 4,
+                        }}
                       />
                       <View style={[styles.cardActions, { marginTop: 0 }]}>
                         <IconButton
+                          variant="plain"
                           name="delete"
                           label={`Delete ${entry.fluidName} entry`}
+                          style={{
+                            justifyContent: "flex-start",
+                            paddingTop: 4,
+                          }}
                           onPress={() => onDeleteHydration(entry)}
                           destructive
                         />
@@ -1712,7 +1724,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     minHeight: 44,
   },
-  dailyTotalsCloseText: { color: "#fff", fontWeight: "600" },
+  dailyTotalsCloseText: { color: colors.onAccent, fontWeight: "600" },
   modalActions: {
     flexDirection: "row",
     gap: 10,

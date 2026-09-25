@@ -11,6 +11,8 @@ import Svg, {
   Rect,
   Text as SvgText,
 } from "react-native-svg";
+import { SettingsSheet } from "../../ui/settings-sheet";
+import { Pressable } from "../../ui/pressable";
 
 import {
   bloodPressurePointsForRange,
@@ -450,6 +452,7 @@ function Chart({
   onMoveWindow: (direction: -1 | 1, fraction: number) => boolean;
 }) {
   const [selectedAt, setSelectedAt] = useState<string>();
+  const [dataOpen, setDataOpen] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(0);
   const widthRef = useRef(340);
   const lastGestureDx = useRef(0);
@@ -587,7 +590,7 @@ function Chart({
     });
   };
   return (
-    <View
+    <><View
       {...panResponder.panHandlers}
       testID="vital-chart-gesture"
       style={Platform.OS === "web" ? { touchAction: "none" } : undefined}
@@ -614,6 +617,21 @@ function Chart({
         <Text style={styles.empty}>No readings in this period.</Text>
       ) : null}
     </View>
+    <Pressable accessibilityLabel="View chart data and dates" onPress={() => setDataOpen(true)} style={{minHeight:44,justifyContent:"center"}}>
+      <Text style={{color:colors.blue,fontSize:14}}>View chart data and dates</Text>
+    </Pressable>
+    <SettingsSheet visible={dataOpen} title="Chart data" onClose={()=>setDataOpen(false)} fullScreen>
+      <Text accessibilityLiveRegion="polite" style={{color:colors.text}}>{currentWindow.start.toLocaleDateString()} to {currentWindow.end.toLocaleDateString()}</Text>
+      <View style={{flexDirection:"row",flexWrap:"wrap",gap:16}}>
+        <Pressable onPress={()=>onMoveWindow(-1,1)} style={{minHeight:44,justifyContent:"center"}}><Text style={{color:colors.blue}}>Earlier period</Text></Pressable>
+        <Pressable onPress={()=>onMoveWindow(1,1)} style={{minHeight:44,justifyContent:"center"}}><Text style={{color:colors.blue}}>Later period</Text></Pressable>
+      </View>
+      <Text style={{color:colors.secondary}}>These are the same aggregated values shown in the chart. Individual readings are available in History.</Text>
+      {currentWindow.series.map(series => <View key={series.label} style={{gap:10}}>
+        <Text accessibilityRole="header" style={{color:colors.text,fontSize:18,fontWeight:"600"}}>{series.label}</Text>
+        {!series.points.length ? <Text style={{color:colors.secondary}}>No readings in this period.</Text> : series.points.map(point => <Text key={point.at} style={{color:colors.text,fontSize:16}}>{new Date(point.at).toLocaleString()}: {point.value.toFixed(1)} {unit}</Text>)}
+      </View>)}
+    </SettingsSheet></>
   );
 }
 
@@ -856,6 +874,7 @@ export function BloodPressureTrendCard({
           {averageCategory.label}
         </Text>
       ) : null}
+      <Text style={styles.subtitle}>Categories are a reference, not a diagnosis. Averages can hide individual high readings.</Text>
       <View style={styles.categoryLegend}>
         {bloodPressureCategories.map((category) => (
           <View key={category.id} style={styles.categoryKey}>
@@ -894,6 +913,8 @@ const styles = StyleSheet.create({
   header: {
     alignItems: "baseline",
     flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
     justifyContent: "space-between",
   },
   title: { color: colors.text, fontSize: 16, fontWeight: "600" },

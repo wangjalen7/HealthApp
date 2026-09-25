@@ -1,3 +1,4 @@
+import { HistorySkeleton } from "../../../src/ui/skeleton";
 import { ExerciseSetFields } from "../../../src/features/training/exercise-set-fields";
 import { IconButton } from "../../../src/ui/icon-button";
 import { ScreenScrollView } from "../../../src/ui/screen-scroll-view";
@@ -5,13 +6,7 @@ import { Pressable } from "../../../src/ui/pressable";
 import { colors } from "../../../src/ui/theme";
 import { useCallback, useState } from "react";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { StyleSheet, Text, TextInput, View } from "react-native";
 
 import { useAuth } from "../../../src/features/auth/auth-provider";
 import {
@@ -293,9 +288,12 @@ export default function EditWorkoutScreen() {
   }
   if (loading)
     return (
-      <View style={styles.loading}>
-        <ActivityIndicator color={colors.blue} />
-      </View>
+      <ScreenScrollView contentContainerStyle={styles.page}>
+        <Text accessibilityRole="header" style={styles.title}>
+          Edit workout
+        </Text>
+        <HistorySkeleton label="workout" />
+      </ScreenScrollView>
     );
   return (
     <ScreenScrollView
@@ -377,6 +375,7 @@ export default function EditWorkoutScreen() {
                 </Pressable>
               </View>
               <IconButton
+                variant="plain"
                 name="delete"
                 label="Remove"
                 onPress={() =>
@@ -525,7 +524,7 @@ const styles = StyleSheet.create({
   },
   chipActive: { backgroundColor: colors.blue },
   chipText: { color: colors.secondary, fontWeight: "600" },
-  chipTextActive: { color: "#fff", fontWeight: "600" },
+  chipTextActive: { color: colors.onAccent, fontWeight: "600" },
   card: {
     backgroundColor: colors.surface,
     borderColor: colors.separator,
@@ -601,7 +600,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   exerciseGroupTextActive: {
-    color: "#fff",
+    color: colors.onAccent,
     fontSize: 12,
     fontWeight: "600",
   },
@@ -625,5 +624,5 @@ const styles = StyleSheet.create({
     minHeight: 54,
     justifyContent: "center",
   },
-  saveText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  saveText: { color: colors.onAccent, fontSize: 16, fontWeight: "600" },
 });

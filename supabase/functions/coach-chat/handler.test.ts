@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { aiConsentVersion } from "../_shared/ai-privacy.ts";
 import { z } from "zod/v4";
 import {
   createCoachHandler,
@@ -40,6 +41,36 @@ const baseResult = {
   sources: [],
   actions: [],
 };
+
+test("current planner fails closed for missing/versioned consent and receipt failures; retired chat is disabled", async()=>{
+  const {defaultWorkoutPreferences}=await import("../_shared/workout-planning.ts");
+  let paid=0,context=0;
+  const handler=createCoachHandler(dependencies({allowLegacyChat:false,loadContext:async()=>{context++;return undefined;},fetch:async()=>{paid++;throw Error("not allowed");}}));
+  const make=(extra:Record<string,unknown>)=>new Request("https://example.test",{method:"POST",headers:{Authorization:"Bearer token"},body:JSON.stringify({message:"Plan workout",timezone:"UTC",localDate:"2026-09-25",workoutPreferences:defaultWorkoutPreferences,...extra})});
+  for(const version of [undefined,"old"]){assert.equal((await handler(make({consentVersion:version}))).status,403);}
+  assert.equal((await handler(request())).status,400);
+  assert.equal((await handler(make({consentVersion:aiConsentVersion,threadId:"11111111-1111-4111-8111-111111111111"}))).status,400);
+  const unavailable=createCoachHandler(dependencies({recordConsent:async()=>{throw Error("db unavailable");},fetch:async()=>{paid++;throw Error("not allowed");}}));
+  assert.equal((await unavailable(make({consentVersion:aiConsentVersion}))).status,503);
+  assert.equal(paid,0);assert.equal(context,0);
+});
+
+test("opting out of workout history strips snapshot data and denies tool access",async()=>{
+  const {defaultWorkoutPreferences}=await import("../_shared/workout-planning.ts");
+  let calls=0,toolRuns=0;
+  const handler=createCoachHandler(dependencies({
+    loadContext:async()=>({profile,snapshot:{privateHistory:"PRIVATE_HISTORY",user_id:"PRIVATE_ACCOUNT"},messages:[]}),
+    runTool:async()=>{toolRuns++;return {private:"PRIVATE_HISTORY"};},
+    fetch:async(_url,init)=>{
+      const body=String(init?.body);assert.equal(body.includes("PRIVATE_HISTORY"),false);assert.equal(body.includes("PRIVATE_ACCOUNT"),false);
+      calls++;
+      if(calls===1)return Response.json({output:[{type:"function_call",call_id:"one",name:"get_training_summary",arguments:"{}"}]});
+      return providerResponse({...baseResult,actions:[]});
+    },
+  }));
+  await handler(new Request("https://example.test",{method:"POST",headers:{Authorization:"Bearer token"},body:JSON.stringify({message:"Plan workout",timezone:"UTC",localDate:"2026-09-25",workoutPreferences:defaultWorkoutPreferences,consentVersion:aiConsentVersion,includeTrainingHistory:false})}));
+  assert.equal(calls,2);assert.equal(toolRuns,0);
+});
 const providerResponse = (result: unknown, output: unknown[] = []) =>
   Response.json({
     status: "completed",
@@ -62,6 +93,8 @@ const request = (message = "What should I eat next?", token = "token") =>
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: JSON.stringify({
       message,
+      consentVersion: aiConsentVersion,
+      includeTrainingHistory: true,
       timezone: "America/New_York",
       localDate: "2026-09-11",
     }),
@@ -90,6 +123,8 @@ function dependencies(
 ): CoachHandlerDependencies {
   return {
     enabled: true,
+    allowLegacyChat: true,
+    recordConsent: async () => undefined,
     apiKey: "test-key",
     standardModel: "standard-model",
     deepModel: "deep-model",
@@ -472,6 +507,8 @@ test("workout mode limits tools and actions while forwarding structured preferen
         message: "Plan my workout",
         timezone: "UTC",
         localDate: "2026-09-17",
+        consentVersion: aiConsentVersion,
+        includeTrainingHistory: true,
         workoutPreferences: defaultWorkoutPreferences,
       }),
     }),
@@ -510,6 +547,8 @@ test("missing planner numbers and goals return named field errors before quota o
           message: "Plan workout",
           timezone: "UTC",
           localDate: "2026-09-18",
+          consentVersion: aiConsentVersion,
+          includeTrainingHistory: true,
           workoutPreferences: { ...defaultWorkoutPreferences, ...patch },
         }),
       }),
@@ -637,6 +676,8 @@ for (const scenario of [
             message: "Generate workout",
             timezone: "UTC",
             localDate: "2026-09-21",
+            consentVersion: aiConsentVersion,
+            includeTrainingHistory: true,
             workoutPreferences: defaultWorkoutPreferences,
           }),
         }),

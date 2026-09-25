@@ -507,8 +507,11 @@ export type TodaySummary = {
   calories: number;
   protein: number;
 };
-export async function getTodaySummary(userId: string): Promise<TodaySummary> {
-  const start = new Date();
+export async function getTodaySummary(
+  userId: string,
+  reference = new Date(),
+): Promise<TodaySummary> {
+  const start = new Date(reference);
   start.setHours(0, 0, 0, 0);
   const end = new Date(start);
   end.setDate(end.getDate() + 1);

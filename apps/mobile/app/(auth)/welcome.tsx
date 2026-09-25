@@ -35,6 +35,7 @@ export default function Welcome() {
             secondary
             onPress={() => void continueTo("/(auth)/sign-in")}
           />
+          <SetupButton label="Privacy & Legal" secondary onPress={() => router.push("/legal")} />
         </>
       }
     >

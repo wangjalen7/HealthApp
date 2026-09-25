@@ -1,4 +1,5 @@
 import { observeReminderSignOut } from "./lifecycle";
+import { privateNotificationPreviews } from "./preview-privacy";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { assertAccount } from "../../lib/mutations";
 import {
@@ -84,7 +85,7 @@ async function reconcile(
   const active = await AsyncStorage.getItem(activeKey);
   const routines = active === user ? routinePlan(prefs) : [];
   const effectiveCustom = effectiveCustomReminders(prefs, custom);
-  const desired = [...customPlan(effectiveCustom, completions), ...routines];
+  const desired = privateNotificationPreviews([...customPlan(effectiveCustom, completions), ...routines], prefs.detailedPreviews);
   const oldIds = [
     ...custom.flatMap((r) => r.notificationIds),
     ...(JSON.parse(
@@ -175,10 +176,10 @@ async function reconcile(
       await reconcileSchedule(
         notificationAdapter,
         user,
-        [
+        privateNotificationPreviews([
           ...customPlan(effectiveCustomReminders(prefs, next), completions),
           ...routines,
-        ],
+        ], prefs.detailedPreviews),
         oldIds,
       );
     } else if (JSON.stringify(next) !== JSON.stringify(custom)) {

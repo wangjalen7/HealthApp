@@ -123,7 +123,7 @@ export function AiMealEditor({
   const disabled = busy || adding || picking;
 
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) { setPhoto(undefined); setConsent(false); return; }
     generation.current += 1;
     setDescription("");
     setPhoto(undefined);
@@ -161,7 +161,7 @@ export function AiMealEditor({
   }
 
   async function analyze() {
-    if (disabled || request.current) return;
+    if (disabled || !consent || request.current) return;
     const controller = new AbortController();
     request.current = controller;
     const current = generation.current;
@@ -170,7 +170,7 @@ export function AiMealEditor({
     setFeedback("");
     try {
       const result = await estimateMeal(
-        { description, imageBase64: photo?.base64, consent: true },
+        { description, imageBase64: photo?.base64, consent: true, consentVersion: "2026-09-25.1" },
         controller.signal,
       );
       if (current !== generation.current) return;
@@ -226,7 +226,7 @@ export function AiMealEditor({
     } finally {
       clearTimeout(timeout);
       if (request.current === controller) request.current = undefined;
-      if (current === generation.current) setBusy(false);
+      if (current === generation.current) { setBusy(false); setConsent(false); }
     }
   }
 
@@ -368,7 +368,7 @@ export function AiMealEditor({
               >
                 <Text style={styles.check}>{consent ? "☑" : "☐"}</Text>
                 <Text style={styles.consentText}>
-                  Send this meal description and photo to OpenAI for estimation.
+                  Send this meal description and selected photo through Supabase to OpenAI for this estimate. Avoid identifying details. Provider retention rules apply; cancelling cannot recall a sent request. Manual food entry remains available.
                   HealthApp does not upload the photo to your photo archive.
                   Estimates can be inaccurate; review before saving.
                 </Text>

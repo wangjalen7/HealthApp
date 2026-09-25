@@ -25,6 +25,7 @@ export function Pressable({
 }: PressableProps & { disabledOpacity?: number }) {
   const [pressed, setPressed] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
   const scale = useRef(new Animated.Value(1)).current;
   const reduced = useReducedMotion();
   useEffect(() => {
@@ -63,6 +64,8 @@ export function Pressable({
           }
         : {})}
       disabled={disabled}
+      onFocus={(event) => { setFocused(true); props.onFocus?.(event); }}
+      onBlur={(event) => { setFocused(false); props.onBlur?.(event); }}
       onPressIn={(event) => {
         setPressed(true);
         onPressIn?.(event);
@@ -83,6 +86,7 @@ export function Pressable({
         typeof style === "function" ? style({ pressed, hovered }) : style,
         pressed && !disabled && { opacity: 0.72 },
         disabled && { opacity: disabledOpacity },
+        Platform.OS === "web" && focused && { outlineColor: "#397BB8", outlineWidth: 3, outlineStyle: "solid", outlineOffset: 2 },
         { transform: [{ scale }] },
       ]}
     >

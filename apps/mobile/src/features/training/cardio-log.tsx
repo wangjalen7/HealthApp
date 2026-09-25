@@ -1,10 +1,11 @@
 import { completePendingDraftSave } from "../../lib/mutations";
+import { observeDraftReset } from "../privacy/draft-reset";
 import { trackingStyles } from "../../ui/tracking-styles";
 import { Pressable } from "../../ui/pressable";
 import { colors } from "../../ui/theme";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 
 import { useAuth } from "../auth/auth-provider";
 import {
@@ -34,37 +35,58 @@ export function useCardioLog() {
   const [feedback, setFeedback] = useState("");
   const [saving, setSaving] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
+  const editVersion = useRef(0);
+  const saveInFlight = useRef(false);
+  const loadedAccount = useRef<string | undefined>(undefined);
+  useEffect(() => observeDraftReset(session?.user.id, () => {
+    editVersion.current++;
+    setActivityType(undefined); setEntryDay(undefined); setDuration(""); setDistance(""); setNotes(""); setFeedback("");
+  }), [session?.user.id]);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
       const userId = session?.user.id;
-      setDraftLoaded(false);
-      setActivityType(undefined);
-      setEntryDay(undefined);
-      setDuration("");
-      setDistance("");
-      setNotes("");
+      if (loadedAccount.current !== userId) {
+        loadedAccount.current = userId;
+        setDraftLoaded(false);
+        setActivityType(undefined);
+        setEntryDay(undefined);
+        setDuration("");
+        setDistance("");
+        setNotes("");
+        setFeedback("");
+        editVersion.current++;
+      }
+      const version = editVersion.current;
       if (!userId) return () => undefined;
-      void loadCardioDraft(userId).then((draft) => {
-        if (!active) return;
-        if (draft) {
-          setActivityType(draft.activityType);
-          setEntryDay(draft.entryDay);
-          setDuration(
-            draft.durationMinutes === undefined
-              ? ""
-              : String(draft.durationMinutes),
-          );
-          setDistance(
-            draft.distanceMiles === undefined
-              ? ""
-              : String(draft.distanceMiles),
-          );
-          setNotes(draft.notes);
-        }
-        setDraftLoaded(true);
-      });
+      void loadCardioDraft(userId)
+        .then((draft) => {
+          if (!active) return;
+          if (draft && version === editVersion.current) {
+            setActivityType(draft.activityType);
+            setEntryDay(draft.entryDay);
+            setDuration(
+              draft.durationMinutes === undefined
+                ? ""
+                : String(draft.durationMinutes),
+            );
+            setDistance(
+              draft.distanceMiles === undefined
+                ? ""
+                : String(draft.distanceMiles),
+            );
+            setNotes(draft.notes);
+          }
+          setDraftLoaded(true);
+        })
+        .catch(() => {
+          if (active) {
+            setFeedback(
+              "Could not restore your saved draft. Return to this screen to retry.",
+            );
+          }
+        });
       return () => {
         active = false;
       };
@@ -104,6 +126,7 @@ export function useCardioLog() {
   ]);
 
   async function save() {
+    if (saveInFlight.current || !draftLoaded) return;
     if (!session) return setFeedback("Please sign in before saving.");
     const durationMinutes = Number(duration);
     const distanceMiles = distance ? Number(distance) : undefined;
@@ -119,6 +142,7 @@ export function useCardioLog() {
       return setFeedback(
         "Choose an activity, enter a whole-minute duration, and an optional valid distance.",
       );
+    saveInFlight.current = true;
     setSaving(true);
     setFeedback("");
     try {
@@ -142,20 +166,36 @@ export function useCardioLog() {
         error instanceof Error ? error.message : "Could not save cardio.",
       );
     } finally {
+      saveInFlight.current = false;
       setSaving(false);
     }
   }
   return {
     activityType,
-    setActivityType,
+    setActivityType: (value: CardioInput["activityType"] | undefined) => {
+      editVersion.current++;
+      setActivityType(value);
+    },
     entryDay,
-    setEntryDay,
+    setEntryDay: (value: string | undefined) => {
+      editVersion.current++;
+      setEntryDay(value);
+    },
     duration,
-    setDuration,
+    setDuration: (value: string) => {
+      editVersion.current++;
+      setDuration(value);
+    },
     distance,
-    setDistance,
+    setDistance: (value: string) => {
+      editVersion.current++;
+      setDistance(value);
+    },
     notes,
-    setNotes,
+    setNotes: (value: string) => {
+      editVersion.current++;
+      setNotes(value);
+    },
     feedback,
     saving,
     draftLoaded,
@@ -239,12 +279,32 @@ export function CardioLog({ log }: { log: ReturnType<typeof useCardioLog> }) {
         </Text>
       ) : null}
       <Pressable
-        disabled={saving}
+        disabled={saving || !draftLoaded}
         onPress={() => void save()}
         style={[styles.button, saving && { opacity: 0.65 }]}
       >
         <Text style={styles.buttonText}>
           {saving ? "Saving..." : "Save cardio"}
+        </Text>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        disabled={saving || !draftLoaded}
+        onPress={() =>
+          router.push({
+            pathname: "/(app)/history",
+            params: { view: "exercise", from: "cardio" },
+          })
+        }
+        style={{
+          minHeight: 48,
+          alignItems: "center",
+          justifyContent: "center",
+          marginTop: 8,
+        }}
+      >
+        <Text style={{ color: colors.blue, fontSize: 15, fontWeight: "600" }}>
+          View workout history
         </Text>
       </Pressable>
     </View>

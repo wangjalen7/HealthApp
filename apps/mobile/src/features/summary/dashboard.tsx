@@ -3,7 +3,6 @@ import { Icon } from "../../ui/icon";
 import { SegmentedControl } from "../../ui/segmented-control";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  ActivityIndicator,
   Platform,
   ScrollView,
   StyleSheet,
@@ -33,7 +32,8 @@ import {
   type Layout,
   type WidgetType,
 } from "./layout";
-import { loadLayout, saveLayout } from "./storage";
+import { cachedLayout, loadLayout, saveLayout } from "./storage";
+import { WidgetSkeleton } from "./widget-skeleton";
 
 export function Action({
   label,
@@ -110,9 +110,12 @@ export function Dashboard({
   onLayoutChange: (widgets: Widget[]) => void;
   onEditingChange: (editing: boolean) => void;
 }) {
-  const [saved, setSaved] = useState<Layout>();
+  const [saved, setSaved] = useState<Layout | undefined>(() =>
+    cachedLayout(user),
+  );
   const [draft, setDraft] = useState<Layout>();
   const [message, setMessage] = useState("");
+  const [layoutAttempt, setLayoutAttempt] = useState(0);
   const [selected, setSelected] = useState<string>();
   const [direct, setDirect] = useState(false);
   const [preview, setPreview] = useState(false);
@@ -129,6 +132,7 @@ export function Dashboard({
   editRef.current = onEditingChange;
   useEffect(() => {
     let live = true;
+    setMessage("");
     void loadLayout(user)
       .then((result) => {
         if (live) {
@@ -142,14 +146,14 @@ export function Dashboard({
       .catch(() => {
         if (live)
           setMessage(
-            "Could not read this device's layout. Retry by reopening Summary.",
+            "Could not read this device's layout. Your saved arrangement has not been changed.",
           );
       });
     return () => {
       live = false;
       editRef.current(false);
     };
-  }, [user]);
+  }, [user, layoutAttempt]);
   useEffect(() => {
     const layout = draft ?? saved;
     if (layout)
@@ -373,6 +377,10 @@ export function Dashboard({
                         onPress={() => setPreview(true)}
                       />
                       <Text style={styles.heading}>Size</Text>
+                      {!direct ? <View style={styles.controls}>
+                        <Action label="Move earlier" disabled={draft.widgets[0]?.id === w.id} onPress={() => { const i=draft.widgets.findIndex(item=>item.id===w.id); update(moveWidget(draft.widgets,i,i-1)); }} />
+                        <Action label="Move later" disabled={draft.widgets[draft.widgets.length-1]?.id === w.id} onPress={() => { const i=draft.widgets.findIndex(item=>item.id===w.id); update(moveWidget(draft.widgets,i,i+1)); }} />
+                      </View> : null}
                       <View style={styles.controls}>
                         {registry[w.type].sizes.map((size) => (
                           <Pressable
@@ -576,8 +584,25 @@ export function Dashboard({
           {message}
         </Text>
       ) : null}
+      {!saved && message ? (
+        <Action
+          label="Retry saved layout"
+          onPress={() => setLayoutAttempt((attempt) => attempt + 1)}
+        />
+      ) : null}
       {!saved ? (
-        <ActivityIndicator color={colors.blue} />
+        <View style={styles.grid}>
+          {defaultLayout().widgets.map((widget) => (
+            <View
+              key={widget.id}
+              style={{ width: widgetWidth(widget, contentWidth, fullWidth) }}
+            >
+              <WidgetFrame widget={widget}>
+                <WidgetSkeleton widget={widget} />
+              </WidgetFrame>
+            </View>
+          ))}
+        </View>
       ) : saved.widgets.length === 0 ? (
         <View style={styles.card}>
           <Text style={styles.title}>Make Summary your own</Text>

@@ -1,10 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Icon } from "../../ui/icon";
 import { Pressable } from "../../ui/pressable";
 import { SegmentedControl } from "../../ui/segmented-control";
-import { colors, surfaces } from "../../ui/theme";
+import { colors } from "../../ui/theme";
 import {
   deduplicateVitalSamples,
   latestSample,
@@ -25,7 +25,8 @@ import { classifyBloodPressure } from "../vitals/blood-pressure";
 import { TrendCard, BloodPressureTrendCard } from "../vitals/trend-card";
 import { pairedReadings } from "../streaks/engine";
 import { registry, type Widget, type WidgetType } from "./layout";
-import type { SummaryData } from "./data";
+import type { useSummary } from "./use-summary";
+import { WidgetSkeleton } from "./widget-skeleton";
 import { ExtraWidget } from "./extra-widgets";
 import { Action } from "./dashboard";
 export type WidgetContext = {
@@ -37,15 +38,10 @@ export type WidgetContext = {
   calendarMonth: Date;
   monthCalories: Record<string, DailyCalorieTotal>;
   moveCalendarMonth: (offset: -1 | 1) => void;
-  loading: boolean;
+  resources: ReturnType<typeof useSummary>;
   setChartSwipeActive: (active: boolean) => void;
-  baseError: boolean;
-  retry: () => void;
-  extraData?: SummaryData;
-  extraLoading: boolean;
   now: Date;
   user: string;
-  reloadExtras: () => void;
 };
 function formatDateTime(value: string): string {
   return new Intl.DateTimeFormat(undefined, {
@@ -74,7 +70,6 @@ function BaseWidget({
     calendarMonth,
     monthCalories,
     moveCalendarMonth,
-    loading,
     setChartSwipeActive,
   } = context;
   useEffect(() => () => setChartSwipeActive(false), [setChartSwipeActive]);
@@ -107,24 +102,39 @@ function BaseWidget({
     weightPounds === undefined ? undefined : Math.round(weightPounds * 0.7);
   const proteinGoal = goals.proteinGoal ?? automaticProteinGoal;
 
-  if (
-    context.baseError &&
-    ["calories", "protein", "fluids", "calendar"].includes(widget.type)
-  )
+  const resources = context.resources;
+  const resource =
+    widget.type === "calendar"
+      ? resources.calendar
+      : widget.type === "fluids"
+        ? resources.fluids
+        : ["calories", "protein"].includes(widget.type)
+          ? resources.nutrition
+          : resources.vitals;
+  const missing = resource.data === undefined;
+  if (missing && widget.type !== "calendar")
     return (
-      <View style={[surfaces.card, { padding: 16 }]}>
-        <Text style={{ color: colors.secondary }}>
-          Data is unavailable. Saved totals will return after a successful
-          refresh.
-        </Text>
-        <Action
-          label={"Retry " + registry[widget.type].title}
-          onPress={context.retry}
-        />
-      </View>
+      <WidgetSkeleton
+        widget={widget}
+        error={resource.error}
+        retry={
+          <Action
+            label={"Retry " + registry[widget.type].title}
+            onPress={() => void resource.refresh()}
+          />
+        }
+        controls={
+          widget.type.endsWith("_trend") ? (
+            <SegmentedControl
+              label={registry[widget.type].title + " time range"}
+              options={trendRanges.map((value) => ({ value, label: value }))}
+              value={range}
+              onChange={setRange}
+            />
+          ) : undefined
+        }
+      />
     );
-  if (loading && ["calories", "protein", "fluids"].includes(widget.type))
-    return <ActivityIndicator color={colors.blue} />;
   switch (widget.type) {
     case "weight":
       return (
@@ -177,6 +187,12 @@ function BaseWidget({
       return (
         <NutritionProgressCard
           size={widget.size}
+          goalLoading={
+            resources.goals.data === undefined && !resources.goals.error
+          }
+          goalUnavailable={
+            resources.goals.data === undefined && !!resources.goals.error
+          }
           accessibilityHint="Opens Food history."
           label="Calories"
           goal={goals.calorieGoal}
@@ -194,6 +210,12 @@ function BaseWidget({
       return (
         <NutritionProgressCard
           size={widget.size}
+          goalLoading={
+            resources.goals.data === undefined && !resources.goals.error
+          }
+          goalUnavailable={
+            resources.goals.data === undefined && !!resources.goals.error
+          }
           accessibilityHint="Opens Food history."
           label="Protein"
           goal={proteinGoal}
@@ -211,6 +233,12 @@ function BaseWidget({
       return (
         <NutritionProgressCard
           size={widget.size}
+          goalLoading={
+            resources.goals.data === undefined && !resources.goals.error
+          }
+          goalUnavailable={
+            resources.goals.data === undefined && !!resources.goals.error
+          }
           label={pendingFluidMl > 0 ? "Fluids (some pending)" : "Fluids"}
           goal={
             goals.waterGoalMl === undefined
@@ -232,15 +260,20 @@ function BaseWidget({
           onNext={() => moveCalendarMonth(1)}
           onPrevious={() => moveCalendarMonth(-1)}
           reference={calendarMonth}
-          totals={loading ? {} : monthCalories}
+          totals={monthCalories}
+          loading={missing || resources.goals.data === undefined}
+          error={resource.error}
+          unavailable={
+            (missing && !!resource.error) ||
+            (resources.goals.data === undefined && !!resources.goals.error)
+          }
+          onRetry={() => void resource.refresh()}
         />
       );
     case "weight_trend":
       return (
         <View>
-          {loading && !samples.length ? (
-            <ActivityIndicator color={colors.blue} />
-          ) : (
+          {
             <TrendCard
               controls={
                 <SegmentedControl
@@ -259,15 +292,13 @@ function BaseWidget({
               range={range}
               onHorizontalGestureChange={setChartSwipeActive}
             />
-          )}
+          }
         </View>
       );
     case "bp_trend":
       return (
         <View>
-          {loading && !samples.length ? (
-            <ActivityIndicator color={colors.blue} />
-          ) : (
+          {
             <BloodPressureTrendCard
               controls={
                 <SegmentedControl
@@ -284,7 +315,7 @@ function BaseWidget({
               range={range}
               onHorizontalGestureChange={setChartSwipeActive}
             />
-          )}
+          }
         </View>
       );
 
@@ -298,19 +329,92 @@ export const widgetRegistry = Object.fromEntries(
     type,
     {
       ...definition,
-      render: (widget: Widget, context: WidgetContext) =>
-        ["training", "meals", "actions", "streaks"].includes(type) ? (
-          <ExtraWidget
-            widget={widget}
-            data={context.extraData}
-            now={context.now}
-            user={context.user}
-            loading={context.extraLoading}
-            reload={context.reloadExtras}
-          />
-        ) : (
-          <BaseWidget widget={widget} context={context} />
-        ),
+      render: (widget: Widget, context: WidgetContext) => {
+        const extras = ["training", "meals", "actions", "streaks"].includes(
+          type,
+        );
+        const r = context.resources;
+        const resource =
+          type === "calendar"
+            ? r.calendar
+            : type === "fluids"
+              ? r.fluids
+              : ["calories", "protein"].includes(type)
+                ? r.nutrition
+                : type === "training"
+                  ? r.training
+                  : type === "meals"
+                    ? r.meals
+                    : type === "actions"
+                      ? r.actions
+                      : type === "streaks"
+                        ? r.streaks
+                        : r.vitals;
+        const extra =
+          type === "training"
+            ? r.training
+            : type === "meals"
+              ? r.meals
+              : type === "actions"
+                ? r.actions
+                : r.streaks;
+        return (
+          <View style={{ flex: 1 }}>
+            {extras ? (
+              <ExtraWidget
+                widget={widget}
+                data={extra.data}
+                now={context.now}
+                user={context.user}
+                loading={extra.loading}
+                error={extra.error}
+                reload={() => void extra.refresh()}
+              />
+            ) : (
+              <BaseWidget widget={widget} context={context} />
+            )}
+            {resource.data !== undefined &&
+            resource.error &&
+            type !== "calendar" ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => void resource.refresh()}
+                style={{
+                  minHeight: 44,
+                  justifyContent: "center",
+                  paddingHorizontal: 12,
+                }}
+              >
+                <Text style={{ color: colors.secondary, fontSize: 12 }}>
+                  Could not update. Showing saved data. Retry
+                </Text>
+              </Pressable>
+            ) : null}
+            {[
+              "calories",
+              "protein",
+              "fluids",
+              "calendar",
+              "weight",
+              "bp",
+            ].includes(type) && r.goals.error ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => void r.goals.refresh()}
+                style={{
+                  minHeight: 44,
+                  paddingHorizontal: 12,
+                  justifyContent: "center",
+                }}
+              >
+                <Text style={{ color: colors.secondary, fontSize: 12 }}>
+                  Goal could not update. Retry
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+        );
+      },
     },
   ]),
 ) as Record<
@@ -363,7 +467,14 @@ function Metric({
         ]}
       >
         {value}
-        {unit ? <Text style={{ fontSize: 14, color: colors.secondary, fontWeight: "500" }}> {unit}</Text> : null}
+        {unit ? (
+          <Text
+            style={{ fontSize: 14, color: colors.secondary, fontWeight: "500" }}
+          >
+            {" "}
+            {unit}
+          </Text>
+        ) : null}
       </Text>
       {detail ? <Text style={styles.metricDetail}>{detail}</Text> : null}
     </Pressable>

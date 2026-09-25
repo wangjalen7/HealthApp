@@ -2246,7 +2246,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  permissionButtonText: { color: "#fff", fontWeight: "600" },
+  permissionButtonText: { color: colors.onAccent, fontWeight: "600" },
   manualCard: {
     backgroundColor: colors.background,
     borderTopColor: colors.separator,

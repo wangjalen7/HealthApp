@@ -30,4 +30,6 @@ try {
   console.log('PASS: existing streak confirmations, prospective goals and account isolation.');
   await db.exec(await readFile(new URL('../supabase/tests/summary_refinements.sql',import.meta.url),'utf8'));
   console.log('PASS: Summary streak initialization, history, permissions, deletion guard and cleanup verification.');
+  await db.exec(await readFile(new URL('../supabase/tests/privacy_controls.sql',import.meta.url),'utf8'));
+  console.log('PASS: privacy receipts, cross-account isolation, planner cleanup and account-deletion write guard/cascade.');
 } finally { await db.close(); }

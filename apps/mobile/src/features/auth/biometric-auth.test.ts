@@ -146,7 +146,7 @@ test("Face ID rotation reads once, recreates protected storage without an update
               (args) => ({
                 contents:
                   args.path === "react-native"
-                    ? 'export const Platform={OS:"ios"};'
+                    ? 'export const Platform={OS:"ios"},AppState={currentState:"active"};'
                     : args.path === "expo-secure-store"
                       ? 'const s=globalThis.__biometricRotationTest.secure;export const getItemAsync=s.getItemAsync,setItemAsync=s.setItemAsync,deleteItemAsync=s.deleteItemAsync,WHEN_PASSCODE_SET_THIS_DEVICE_ONLY="device-only";'
                       : args.path === "expo-local-authentication"

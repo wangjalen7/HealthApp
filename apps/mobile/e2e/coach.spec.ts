@@ -18,7 +18,7 @@ test("workout questionnaire replaces the Coach tab and fits a narrow phone", asy
   ).toHaveCount(0);
   await expect(tabs.filter({ hasText: "Soon" })).toHaveCount(1);
   await page.getByRole("tab", { name: "Soon", exact: true }).click();
-  await expect(page.getByLabel("Placeholder", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Coming soon.", exact: true })).toBeVisible();
   await quickLog(page, "Workout");
   await page
     .getByRole("button", { name: "Plan workout with AI", exact: true })
@@ -66,7 +66,7 @@ test("workout questionnaire replaces the Coach tab and fits a narrow phone", asy
     .click();
   await expect(
     page.getByText(
-      "Enable Use my workout history for AI planning before generating.",
+      "Allow sharing your preferences with OpenAI for this plan, or cancel and log manually.",
       { exact: true },
     ),
   ).toBeVisible();
@@ -180,7 +180,7 @@ test("planner retries generation and fills an editable workout directly without 
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page
     .getByRole("switch", {
-      name: "Use my workout history for AI planning",
+      name: "Send my preferences to OpenAI for this plan",
       exact: true,
     })
     .click();
@@ -194,12 +194,14 @@ test("planner retries generation and fills an editable workout directly without 
     ),
   ).toBeVisible();
   expect(backend.tables.coach_profiles[0]).toMatchObject({
-    use_training: true,
+    use_training: false,
     use_nutrition: false,
     use_vitals: false,
     use_hydration: false,
     use_photo_metadata: false,
   });
+  await expect(page.getByRole("switch", { name: "Send my preferences to OpenAI for this plan", exact: true })).not.toBeChecked();
+  await page.getByRole("switch", { name: "Send my preferences to OpenAI for this plan", exact: true }).click();
   await page
     .getByRole("button", { name: "Generate workout plan", exact: true })
     .click();
@@ -364,7 +366,7 @@ for (const sessionType of ["cardio", "combo"] as const) {
       await page.getByRole("button", { name: "Continue", exact: true }).click();
       await page
         .getByRole("switch", {
-          name: "Use my workout history for AI planning",
+          name: "Send my preferences to OpenAI for this plan",
           exact: true,
         })
         .click();
@@ -555,6 +557,8 @@ test("multi-select preferences migrate old choices and explain missed selections
     .getByLabel("Describe your equipment", { exact: true })
     .fill("Suspension trainer");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("switch", { name: "Send my preferences to OpenAI for this plan", exact: true })).not.toBeChecked();
+  await page.getByRole("switch", { name: "Send my preferences to OpenAI for this plan", exact: true }).click();
   await page
     .getByRole("button", { name: "Generate workout plan", exact: true })
     .click();

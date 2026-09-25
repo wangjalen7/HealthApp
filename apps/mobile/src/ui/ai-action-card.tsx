@@ -21,12 +21,12 @@ export function AiActionCard({
       onPress={onPress}
       style={styles.card}
     >
-      <Icon name="sparkles" size={24} color="#FFFFFF" />
+      <Icon name="sparkles" size={24} color={colors.onAccent} />
       <View style={styles.text}>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.subtitle}>{subtitle}</Text>
       </View>
-      <Icon name="chevron" size={18} color="#F3EAFF" />
+      <Icon name="chevron" size={18} color={colors.onAccent} />
     </Pressable>
   );
 }
@@ -44,6 +44,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   text: { flex: 1 },
-  title: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
-  subtitle: { color: "#F3EAFF", fontSize: 13, lineHeight: 18, marginTop: 3 },
+  title: { color: colors.onAccent, fontSize: 16, fontWeight: "700" },
+  subtitle: { color: colors.onAccent, fontSize: 13, lineHeight: 18, marginTop: 3 },
 });
