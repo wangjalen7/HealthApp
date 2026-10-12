@@ -82,7 +82,7 @@ export const explanations: Record<Habit, string> = {
   training:
     "The chosen number of distinct training days in a Monday–Sunday week. Lifting needs valid saved sets; cardio needs a positive duration.",
   weight:
-    "A valid weight reading on each selected weekday. Manual readings by default; imported readings count only if selected.",
+    "A valid manual or imported weight reading on each selected weekday.",
   bp: "One valid paired blood pressure reading completes each local day. Manual and imported readings count automatically. BP is now daily; earlier weekday and manual-only preferences no longer apply.",
   reminder:
     "All due occurrences of the selected recurring reminder are explicitly completed for that day. On this device; recorded completion is not verified medication adherence.",

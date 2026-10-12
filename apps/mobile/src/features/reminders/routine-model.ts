@@ -49,7 +49,6 @@ export const routineSchema = z
   .object({
     version: z.literal(2),
     medicationEnabled: z.boolean().default(true),
-    detailedPreviews: z.boolean().default(false),
     userId: z.string().min(1),
     categories: z.object({
       meals: category,
@@ -108,7 +107,6 @@ export function defaultRoutines(userId: string): RoutinePreferences {
   return {
     version: 2,
     medicationEnabled: true,
-    detailedPreviews: false,
     userId,
     replacements: [],
     keepBoth: [],
@@ -203,11 +201,11 @@ export function overlappingCustom(
   });
 }
 export function routineBody(kind: RoutineKind, slotId: string) {
-  if (kind === "meals") return `Ready to log ${slotId}?`;
-  if (kind === "fluids") return "A little hydration check-in. Log a drink?";
-  if (kind === "blood_pressure") return `Time for your ${slotId} BP check-in.`;
-  if (kind === "weight") return "Your weight check-in. Ready to log?";
-  return "Workout or rest day? Make today work for you.";
+  if (kind === "meals") return `Time to log ${slotId}.`;
+  if (kind === "fluids") return "Time to log your fluids.";
+  if (kind === "blood_pressure") return `Time to log your ${slotId} blood pressure.`;
+  if (kind === "weight") return "Time to log your weight.";
+  return "Time for your workout.";
 }
 
 /** Upgrade legacy master-off settings without unexpectedly enabling notifications. */

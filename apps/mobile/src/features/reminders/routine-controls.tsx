@@ -193,7 +193,6 @@ export function RoutineFields({
         onChange={(enabled) => onChange({ ...value, enabled })}
         disabled={disabled}
       />
-      <Text style={styles.copy}>Choose days that fit your schedule.</Text>
       <Days
         value={value.days}
         onChange={(days) => onChange({ ...value, days })}
@@ -273,8 +272,7 @@ export function RoutineFields({
       ) : null}
       {kind === "workout" ? (
         <Text style={styles.copy}>
-          Rest days are valid. Rest Today is available from your workout
-          reminder.
+          Choose Rest Today from a workout reminder to pause it for the day.
         </Text>
       ) : null}
     </View>

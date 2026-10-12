@@ -145,15 +145,10 @@ export function PersonalDetails() {
               onChange={setPreferred}
               disabled={busy}
             />
-            <Text style={styles.copy}>
-              Your preferred name is used around HealthApp. Leave it blank to
-              use your name.
-            </Text>
+            <Text style={styles.copy}>Leave blank to use your name.</Text>
           </View>
           <Text style={styles.copy}>
-            Age, height and Gender used for estimates are kept with each goal
-            calculation. Edit them in the calorie or fluid helper. Recorded
-            weight and target weight are separate.
+            Edit calculation measurements in the calorie or fluid helper.
           </Text>
           <ErrorMessage message={error} />
           <SettingsButton

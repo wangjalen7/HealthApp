@@ -2,6 +2,16 @@
 
 ## Hosted state
 
+### Current repair state - 2026-10-11
+
+`coach-chat` v17 is ACTIVE with JWT verification. The required `202609250001_privacy_controls.sql` migration is applied. Hosted v16 rejected the current client's consent/history fields under strict validation, producing the misleading request/time-zone error; it also required optional blank focus/limitations. Both failures were reproduced with disposable accounts. v17 accepts the current consent contract and defaults omitted optional preferences. One real generation with optional focus, limitations and history fields omitted returned seven complete exercises, persisted the action, and cleaned up the disposable account/records. Existing model secrets and rollout settings were preserved.
+
+The current product entry is **Workout → Plan workout with AI**. Choosing **Generate workout plan** authorizes that request with the current notice version; **AI privacy details** retains the disclosure. There is no separate processing switch. Training history defaults off in its inline control. Missing/invalid required choices, unsupported device time zones, expired sessions, consent storage, quotas, provider billing/access/model failures and incomplete outputs produce cause-specific messages. For changes to this contract, deploy database dependencies → matching function → client. A client-only update against an older strict server is incompatible. The UI improvements are JavaScript changes; native privacy/backup preparation remains a separate rebuilt-client task.
+
+Evidence: `dist/coach-contract-reproduction.log`, `dist/coach-hosted-reproduction-final.log` and `dist/coach-hosted-optional-fields-check.log`. `scripts/check-workout-hosted.mjs` is explicitly gated, creates a disposable account, makes one paid generation without retries and deletes the test account/records. It now includes current consent and intentionally omits optional preferences/history to guard this regression.
+
+### Historical rollout notes
+
 HealthHub development (`lztqnyejimzuvdxgtext`) has migrations through `202609110005_coach_quota_refunds.sql` applied and authenticated `coach-chat` v11 deployed with JWT verification. The rollout secret `AI_COACH_ENABLED` is currently `true`. The function fails closed when the flag is absent or false. The configured model secrets are:
 
 - `OPENAI_COACH_CHAT_MODEL=gpt-5.6-luna` for ordinary coaching, meal selection, and follow-up chat.

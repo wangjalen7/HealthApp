@@ -60,7 +60,7 @@ const currentWorkoutPreferencesSchema = z
   .object({
     focus: z
       .array(z.enum(["Back", "Chest", "Tri", "Bi", "Delt", "Legs", "Abs"]))
-      .max(7),
+      .max(7).default([]),
     sessionType: z.enum(["lifting", "cardio", "combo"]).default("lifting"),
     goals: z
       .array(z.enum(workoutGoalOptions.map(([id]) => id)))
@@ -106,7 +106,7 @@ const currentWorkoutPreferencesSchema = z
     minutes: z.number().int().min(15).max(120),
     readiness: z.enum(["ready", "tired", "sore"]),
     novelty: z.enum(["familiar", "mix", "new"]),
-    limitations: z.string().trim().max(500),
+    limitations: z.string().trim().max(500).default(""),
   })
   .strict()
   .superRefine((value, context) => {

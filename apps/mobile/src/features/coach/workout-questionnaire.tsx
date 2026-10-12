@@ -1,3 +1,4 @@
+import { AiPrivacyDetails } from "../privacy/ai-privacy-details";
 import { useEffect, useState } from "react";
 import { StyleSheet, Switch, Text, View } from "react-native";
 import {
@@ -43,7 +44,6 @@ export function WorkoutQuestionnaire({
         limitations: profile?.limitations?.slice(0, 500) ?? "",
       },
   );
-  const [consent, setConsent] = useState(false);
   const [includeHistory, setIncludeHistory] = useState(false);
   const [error, setError] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -100,8 +100,8 @@ export function WorkoutQuestionnaire({
             {
               "Session type": "sessionType",
               "Muscle focus (optional)": "focus",
-              "Workout goals (select all that apply)": "goals",
-              "Training styles (select all that apply)": "styles",
+              "Workout goals": "goals",
+              "Training styles": "styles",
               "Cardio activity": "cardioActivity",
               "Where will you train?": "location",
               "Equipment available": "equipment",
@@ -145,11 +145,7 @@ export function WorkoutQuestionnaire({
     <View style={styles.section}>
       <Text style={styles.caption}>STEP {step + 1} OF 3</Text>
       <Text accessibilityRole="header" style={styles.title}>
-        {
-          ["What are we training today?", "Where and how?", "Make it fit you"][
-            step
-          ]
-        }
+        {["Session", "Equipment & time", "Preferences"][step]}
       </Text>
       {Object.keys(errors).length ? (
         <Text accessibilityLiveRegion="polite" style={styles.error}>
@@ -171,10 +167,6 @@ export function WorkoutQuestionnaire({
           )}
           {value.sessionType !== "cardio" ? (
             <>
-              <Text style={styles.copy}>
-                Leave muscle focus on Recommend for me to use your recent
-                training and balance the next session.
-              </Text>
               {choices(
                 "Muscle focus (optional)",
                 [
@@ -199,7 +191,7 @@ export function WorkoutQuestionnaire({
             </>
           ) : null}
           {choices(
-            "Workout goals (select all that apply)",
+            "Workout goals",
             workoutGoalOptions,
             value.goals,
             (id) =>
@@ -215,7 +207,7 @@ export function WorkoutQuestionnaire({
             ? otherInput("Describe your goal", "goalOther")
             : null}
           {choices(
-            "Training styles (select all that apply)",
+            "Training styles",
             workoutStyleOptions,
             value.styles,
             (id) =>
@@ -317,10 +309,6 @@ export function WorkoutQuestionnaire({
           {value.equipment.includes("other")
             ? otherInput("Describe your equipment", "equipmentOther")
             : null}
-          <Text style={styles.copy}>
-            Select only what you can use today. No equipment means bodyweight
-            movements are available.
-          </Text>
           {choices(
             "Total session time",
             [...new Set([15, 30, 45, 60, 90, 120, value.minutes])]
@@ -376,24 +364,7 @@ export function WorkoutQuestionnaire({
             style={styles.input}
           />
           {fieldError("limitations")}
-          <View style={styles.consentRow}>
-            <Text style={[styles.label, styles.consentLabel]}>
-              Send my preferences to OpenAI for this plan
-            </Text>
-            <Switch
-              accessibilityLabel="Send my preferences to OpenAI for this plan"
-              accessibilityState={{ checked: consent }}
-              disabled={busy}
-              value={consent}
-              onValueChange={(enabled) => {
-                setConsent(enabled);
-                setErrors({});
-              }}
-              trackColor={{ false: colors.separator, true: colors.blue }}
-              ios_backgroundColor={colors.separator}
-            />
-          </View>
-          {fieldError("consent")}
+          <AiPrivacyDetails details="Generate workout plan sends your preferences and typed limitations through Supabase to OpenAI. Avoid identifying details; OpenAI retention policies apply. Workout history is shared only if you enable it below. Cancelling cannot recall a sent request. Manual logging remains available." />
           <View style={styles.consentRow}>
             <Text style={[styles.label, styles.consentLabel]}>
               Include my workout history (optional)
@@ -406,13 +377,7 @@ export function WorkoutQuestionnaire({
             />
           </View>
           <Text style={styles.copy}>
-            Your preferences, including limitations you type, go through
-            Supabase to OpenAI to create one session. History is shared only if
-            you choose it. Avoid names or contact details. OpenAI may retain
-            inputs under its provider policies; cancelling cannot recall a sent
-            request. This choice starts off each time. Manual workouts remain
-            available. Review the editable draft before saving; AI can make
-            mistakes.
+            AI can make mistakes. Review the draft before logging your workout.
           </Text>
         </>
       )}
@@ -453,13 +418,6 @@ export function WorkoutQuestionnaire({
             const visibleProblems = problems.filter(
               (problem) => step === 2 || problem.step <= step,
             );
-            if (step === 2 && !consent)
-              visibleProblems.push({
-                field: "consent",
-                step: 2,
-                message:
-                  "Allow sharing your preferences with OpenAI for this plan, or cancel and log manually.",
-              });
             if (visibleProblems.length) {
               setErrors(
                 Object.fromEntries(
@@ -483,11 +441,7 @@ export function WorkoutQuestionnaire({
             }
             if (!parsed.success) return;
             try {
-              try {
-                await onGenerate(parsed.data, includeHistory);
-              } finally {
-                setConsent(false);
-              }
+              await onGenerate(parsed.data, includeHistory);
             } catch (e) {
               setError(
                 e instanceof Error ? e.message : "Could not prepare your plan.",
@@ -509,7 +463,7 @@ export function WorkoutQuestionnaire({
 }
 const styles = StyleSheet.create({
   section: { gap: 12, marginBottom: 16 },
-  title: { fontSize: 25, fontWeight: "700", color: colors.text },
+  title: { fontSize: 20, fontWeight: "700", color: colors.text },
   label: { fontSize: 16, fontWeight: "600", color: colors.text },
   caption: { fontSize: 12, color: colors.secondary },
   copy: { fontSize: 14, lineHeight: 21, color: colors.secondary },
@@ -520,7 +474,7 @@ const styles = StyleSheet.create({
     gap: 12,
     minHeight: 48,
   },
-  consentLabel: { flex: 1 },
+  consentLabel: { flex: 1, minWidth: 0 },
   chip: {
     minHeight: 44,
     borderWidth: 1,

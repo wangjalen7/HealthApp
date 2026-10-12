@@ -19,14 +19,14 @@
       {
         "heading": "Apple Health and photos",
         "paragraphs": [
-          "Connecting Apple Health is optional. On this iPhone, Sustain requests read access to weight, systolic and diastolic blood pressure, and heart rate used to pair pulse with blood-pressure readings. Imported readings and source identifiers are copied into your Sustain account and synchronized through Supabase. Sustain does not write to Apple Health or import workouts in the current implementation. Disconnect in Profile to stop future imports on this device; change permissions in Apple Health. Previously imported copies remain until deleted separately.",
+          "Connecting Apple Health is optional. On this iPhone, Sustain requests read access to steps, weight, systolic and diastolic blood pressure, and heart rate used to pair pulse with blood-pressure readings. Imported readings and source identifiers are copied into your Sustain account and synchronized through Supabase. Sustain does not write to Apple Health or import workouts in the current implementation. Disconnect in Profile to stop future imports on this device; change permissions in Apple Health. Previously imported copies remain until deleted separately. Steps is included in the same Apple Health connection. Derived hourly and daily step totals are cached only on this device, without uploading step history. An optional daily step goal is synchronized in your profile.",
           "Camera access is requested when you choose a camera feature. Library selection uses the system picker. Selected meal and progress photos are resized and re-encoded; unnecessary JPEG metadata is removed before transmission. Visible details in the image remain. Progress photos are stored in a private Supabase bucket with expiring display links. Meal photos are optional AI inputs and are not saved as progress photos."
         ]
       },
       {
         "heading": "Optional AI and barcode services",
         "paragraphs": [
-          "With your permission for that request, meal estimation sends your chosen description and optional photo through Supabase to OpenAI. Workout planning sends your selected preferences, including any limitations you type, and optionally relevant workout history. Manual logging works without AI. The app does not intentionally add your email, account ID, vital history, or progress photos to these AI requests. Avoid typing identifying details that the feature does not need.",
+          "Choosing Estimate foods authorizes that request: meal estimation sends your chosen description and optional photo through Supabase to OpenAI. Choosing Generate workout plan sends your selected preferences, including any limitations you type, and optionally relevant workout history. Manual logging works without AI. The app does not intentionally add your email, account ID, vital history, or progress photos to these AI requests. Avoid typing identifying details that the feature does not need.",
           "AI requests use the provider's store:false setting. This does not establish zero retention or remove provider abuse-monitoring obligations. Provider retention, processing locations, and contractual controls must be verified for the production account. Workout preferences, generated plans, and legacy conversations are retained in Supabase; reviewed nutrition may become a saved meal or food label. Privacy controls can delete saved planner data. Permission for each new AI request starts off; declining stops that request, not processing already completed.",
           "Barcode lookup sends a product barcode through Supabase to Open Food Facts. It does not intentionally include your account identity or health history in the provider request. Shared product data is cached; private corrections and logged foods stay associated with your own account."
         ]
@@ -34,8 +34,8 @@
       {
         "heading": "Device storage and reminders",
         "paragraphs": [
-          "This device keeps account-scoped vital caches and pending changes, unfinished drafts, Apple Health sync anchors, Summary layout, reminder schedules and completion history, and selected preferences. Native credentials use iOS secure storage. Other local records are not end-to-end encrypted by Sustain. Protect your device and review device backup settings. Sign-out does not erase all local drafts; account deletion clears this device's associated records.",
-          "Reminders are scheduled locally with iOS; the app does not register a remote push token. Notification previews use generic text by default. You can choose detailed previews, which may reveal reminder or medication names on a locked or shared device. Turning notifications off in iOS stops delivery; turning off a reminder cancels its schedule."
+          "This device keeps account-scoped vital caches and pending changes, unfinished drafts, Apple Health sync anchors and derived step totals, Summary layout, reminder schedules and completion history, and selected preferences. Native credentials use iOS secure storage. Other local records are not end-to-end encrypted by Sustain. Protect your device and review device backup settings. Sign-out does not erase all local drafts; account deletion clears this device's associated records.",
+          "Reminders are scheduled locally with iOS; the app does not register a remote push token. Notifications show Sustain and the reminder purpose, including medication or supplement names where applicable. You can manage Lock Screen preview visibility in iOS Settings. Turning notifications off in iOS stops delivery; turning off a reminder cancels its schedule."
         ]
       },
       {
@@ -181,7 +181,7 @@
         "heading": "AI review and control",
         "paragraphs": [
           "Meal photos cannot reliably reveal portions, cooking fats, allergens or hidden ingredients. Check package labels and actual quantities. AI workouts may be unsuitable for your health, experience or equipment. Review exercise selection, weights, duration and technique; stop painful activity. Generated results populate editable drafts and do not mark a workout or meal completed by themselves.",
-          "AI is optional. Each new request explains what will be shared with OpenAI and requires your choice. History sharing is separate. You can cancel before sending or decline the next request. Cancelling an already transmitted request cannot recall provider processing. Deleting a saved plan is separate from stopping future requests."
+          "AI is optional. AI privacy details explains what will be shared with OpenAI. Choosing Estimate foods or Generate workout plan authorizes that request. History sharing is separate. You can cancel before sending or decline the next request. Cancelling an already transmitted request cannot recall provider processing. Deleting a saved plan is separate from stopping future requests."
         ]
       }
     ]

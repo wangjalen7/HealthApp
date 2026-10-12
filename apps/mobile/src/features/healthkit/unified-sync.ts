@@ -1,6 +1,7 @@
 import { importHealthKitData, loadHealthKitSyncState } from "./sync";
 import { syncVitals } from "../vitals/sync";
 import { saveHealthKitSyncState } from "./state";
+import { disconnectSteps, drainSteps } from "../steps/storage";
 const disconnecting = new Set<string>();
 const running = new Map<
   string,
@@ -56,6 +57,7 @@ export function synchronizeHealthData(user: string, configured = true) {
 
 export async function drainHealthSync(user: string) {
   await running.get(user);
+  await drainSteps(user);
   status.delete(user);
 }
 
@@ -66,5 +68,8 @@ export async function disconnectHealthKit(user: string) {
     await drainHealthSync(user);
     const state = await loadHealthKitSyncState(user);
     await saveHealthKitSyncState(user, { ...state, connected: false });
-  } finally { disconnecting.delete(user); }
+    await disconnectSteps(user);
+  } finally {
+    disconnecting.delete(user);
+  }
 }

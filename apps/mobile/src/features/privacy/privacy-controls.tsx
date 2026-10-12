@@ -1,14 +1,11 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { router } from "expo-router";
 import { Text } from "react-native";
 import { useAuth } from "../auth/auth-provider";
 import { assertAccount } from "../../lib/mutations";
 import { supabase } from "../../lib/supabase";
 import { resetMountedDrafts } from "./draft-reset";
-import { loadRoutines } from "../reminders/routine-storage";
-import { saveRoutinePreferences } from "../reminders/service";
-import type { RoutinePreferences } from "../reminders/routine-model";
 import { clearWorkoutDraft } from "../training/workout-draft";
 import { clearCardioDraft } from "../training/cardio-draft";
 import { clearNutritionDraft } from "../nutrition/draft";
@@ -26,27 +23,10 @@ import {
 export function PrivacyControls() {
   const { session } = useAuth();
   const user = session!.user.id;
-  const [prefs, setPrefs] = useState<RoutinePreferences>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [confirm, setConfirm] = useState<"drafts" | "ai">();
-  useEffect(() => {
-    let live = true;
-    void loadRoutines(user)
-      .then((p) => {
-        if (live) setPrefs(p);
-      })
-      .catch(() => {
-        if (live)
-          setError(
-            "Could not load notification privacy settings. Reopen this screen to retry.",
-          );
-      });
-    return () => {
-      live = false;
-    };
-  }, [user]);
   async function clear() {
     setBusy(true);
     setError("");
@@ -111,29 +91,6 @@ export function PrivacyControls() {
       </SettingsGroup>
       <SettingsGroup title="On this device">
         <SettingsRow
-          icon="bell"
-          label="Detailed notification previews"
-          description="Off uses generic text. On may show medication names and reminder details on your Lock Screen."
-          disabled={!prefs || busy}
-          toggle={{
-            value: prefs?.detailedPreviews ?? false,
-            onChange: (value) => {
-              if (!prefs) return;
-              setBusy(true);
-              setError("");
-              const next = { ...prefs, detailedPreviews: value };
-              void saveRoutinePreferences(next)
-                .then(() => setPrefs(next))
-                .catch(() =>
-                  setError(
-                    "Could not finish updating scheduled previews. Reopen this screen and retry; some existing notifications may still use the old text.",
-                  ),
-                )
-                .finally(() => setBusy(false));
-            },
-          }}
-        />
-        <SettingsRow
           icon="delete"
           label="Clear unfinished drafts"
           onPress={() => setConfirm("drafts")}
@@ -149,17 +106,12 @@ export function PrivacyControls() {
         />
       </SettingsGroup>
       <Text style={styles.copy}>
-        Each meal or workout AI request requires a new choice before sending to
-        OpenAI. Decline it to stop that request; manual tracking remains
-        available. Workout history is optional. Deleting saved planner data
-        removes saved preferences and conversations, including older chats; it
-        does not recall provider processing, remove AI-derived meals or erase
-        saved workouts.
+        Estimate or Generate sends that request to OpenAI. Workout history is a
+        separate choice; manual tracking remains available.
       </Text>
       <Text style={styles.copy}>
-        Camera, selected photos and notifications can be managed in iOS
-        Settings. Face ID and enrolled devices have their own Profile controls.
-        No advertising tracking is implemented.
+        Manage camera, photos and notifications in iOS Settings; Face ID devices
+        in Profile. Sustain has no advertising tracking.
       </Text>
       <ErrorMessage message={error} />
       {notice ? (

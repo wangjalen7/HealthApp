@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { aiConsentVersion } from "../../../../supabase/functions/_shared/ai-privacy";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import {
@@ -218,7 +219,7 @@ export default function WorkoutPlannerScreen() {
       const response = await sendCoachMessage(
         {
           workoutPreferences: value,
-          consentVersion: "2026-09-25.1",
+          consentVersion: aiConsentVersion,
           includeTrainingHistory: includeHistory,
           message:
             "Generate one workout from my preferences and recent training as a structured next_workout action. Fill the appropriate lifting and cardio sections, sharing the total session time. I will edit the drafts in my log. Do not ask follow-up questions.",

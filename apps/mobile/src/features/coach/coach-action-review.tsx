@@ -241,11 +241,11 @@ export function CoachActionReview({
             </Text>
             <Text style={styles.copy}>
               {hasExisting
-                ? "Choose whether this plan should be added to or replace your current draft. Cancel is safest if you are unsure."
+                ? "Append to your draft or replace it."
                 : payload.kind === "next_workout" &&
                     payload.recommendation === "rest"
                   ? "Confirm this recommendation. No workout or cardio is recorded."
-                  : "This creates an editable draft. It does not record a completed meal or workout."}
+                  : "Creates an editable draft; completed logs are saved separately."}
             </Text>
             {hasExisting ? (
               <View style={styles.actions}>
@@ -400,8 +400,7 @@ function WorkoutReview({
         <View style={styles.itemCard}>
           <Text style={styles.itemTitle}>Recovery day</Text>
           <Text style={styles.detail}>
-            The Coach used your recent training frequency, progression, and
-            recovery context. Confirming does not record a workout.
+            Based on recent training. Confirming does not log a workout.
           </Text>
         </View>
       ) : null}

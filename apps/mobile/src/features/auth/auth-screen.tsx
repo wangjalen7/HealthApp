@@ -1,4 +1,3 @@
-import { PendingReminderPrompt } from "../reminders/pending-prompt";
 import { ScreenScrollView } from "../../ui/screen-scroll-view";
 import { finishWelcomeIntro } from "./welcome-intro";
 import { useAccountDeletion } from "./account-deletion";
@@ -362,7 +361,6 @@ export function AuthScreen({ mode }: { mode: Mode }) {
             }
           />
           <Text style={styles.brandCopy}>A little care. Every day.</Text>
-          <Link href="/legal" style={[styles.link, { paddingVertical: 14 }]}>Privacy & Legal</Link>
         </Animated.View>
         <Animated.View style={{ opacity: reveal }}>
           {mode !== "signIn" ? (
@@ -377,7 +375,6 @@ export function AuthScreen({ mode }: { mode: Mode }) {
               </Text>
             </>
           ) : null}
-          {mode === "signIn" ? <PendingReminderPrompt /> : null}
           {!supabaseConfig.isConfigured && (
             <Text style={styles.warning}>
               Supabase is not configured yet. You can still explore the app

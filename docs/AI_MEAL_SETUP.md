@@ -1,6 +1,12 @@
 # AI meal labels
 
-## Current deployment (2026-09-11)
+## Current deployment (2026-10-11)
+
+HealthHub has the privacy/consent migration `202609250001` applied and the matching `estimate-meal` v17 deployed with JWT verification enabled. This repairs the old v16 strict schema rejecting the current app's `consentVersion` field for both descriptions and photos. The editor uses the shared consent-version constant. Local lint/TypeScript, 257 app tests, 71 Edge tests and focused text/photo browser journeys pass; downloaded hosted schema matches local source. No real authenticated provider estimate or physical-device retry was performed during this repair. Existing OpenAI secrets/model settings were preserved.
+
+When changing the request contract, deploy database dependencies first, then the matching function, then release the client. Do not strip consent metadata or automatically resend a meal after a validation failure to work around an outdated deployment.
+
+## Historical activation notes (2026-09-11)
 
 HealthHub development (`lztqnyejimzuvdxgtext`) has migration `202609110001_ai_meal_estimates.sql` applied and the authenticated `estimate-meal` Edge Function deployed. `OPENAI_API_KEY` and `OPENAI_MEAL_MODEL` are present as hosted secrets. **The remaining activation step is funding the OpenAI API project.** No successful real LLM estimate has been validated yet.
 
@@ -33,9 +39,9 @@ If the command reports `.env.local: not found`, check both the working directory
 
 ## Use the feature
 
-1. Open **AI Coach → Estimate a meal**, or **Food → Estimate meal with AI**.
+1. Open **Food > Add food > Estimate meal from photo or text**.
 2. Take an iPhone camera photo, choose a library photo, enter a description, or combine photo and text. Specify amounts, cooked/raw weights, sauces and preparation where possible. Browser preview supports photo selection and text.
-3. Select **Allow AI meal processing**, then **Estimate foods**. Only that description/photo is sent. Other health records, progress photos and user identity are not included in the OpenAI request.
+3. Choose **Estimate foods** to authorize this request. Provider/data/retention information is available in **AI privacy details**; there is no separate sharing switch. Only that description/photo is sent. Other health records, progress photos and user identity are not included in the OpenAI request.
 4. Review the separate food cards. Each has an editable short name/description, one-serving label, consumed portion, serving weight/volume or item conversion, and all seven tracked nutrient fields. Countable foods use their item unit: for example, `8 pork dumplings` produces one label based on `1 dumpling`, with a portion of `8 dumplings`. The portion can also switch among serving, item, grams, or milliliters when the estimate supplies the needed conversion.
 5. Remove incorrect components or revise the original details and estimate again. **Add foods to meal** creates/reuses private labels and appends the accepted portions to the existing local meal draft. It preserves existing foods and meal selection. Choose a meal and **Save meal** to record the immutable nutrition snapshots.
 6. Use **Manage labels** to edit reusable names, descriptions, serving conversions and nutrition later. **Edit amount** changes a meal item's amount and note. Editing a saved label does not rewrite historical meals.

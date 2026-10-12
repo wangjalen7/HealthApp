@@ -95,6 +95,7 @@ test("native credential failure cannot downgrade into ordinary storage; successf
 });
 
 test("Apple Health disconnect drains an active import and persists off before later sync", async () => {
+  const local = new Map<string, string>();
   let state = { connected: true },
     imports = 0;
   let finish!: () => void;
@@ -103,6 +104,7 @@ test("Apple Health disconnect drains an active import and persists off before la
   });
   Object.assign(globalThis, {
     __privacyHealth: {
+      local,
       load: async () => state,
       save: async (_u: string, s: typeof state) => {
         state = s;
@@ -128,6 +130,8 @@ test("Apple Health disconnect drains an active import and persists off before la
         "export const saveHealthKitSyncState=globalThis.__privacyHealth.save;",
       "../vitals/sync":
         'export const syncVitals=async()=>({lastSyncedAt:"2026-09-25"});',
+      "@react-native-async-storage/async-storage":
+        'export default {getItem:async key=>globalThis.__privacyHealth.local.get(key)??null,setItem:async(key,value)=>{globalThis.__privacyHealth.local.set(key,value);}};',
     },
     "health",
   );
@@ -138,6 +142,7 @@ test("Apple Health disconnect drains an active import and persists off before la
   finish();
   await Promise.all([sync, disconnect]);
   assert.equal(state.connected, false);
+  assert.equal(local.get("healthapp:steps-connected:v1:synthetic-user"), "false");
   await synchronizeHealthData("synthetic-user");
   assert.equal(imports, 1);
   delete (globalThis as Record<string, unknown>).__privacyHealth;

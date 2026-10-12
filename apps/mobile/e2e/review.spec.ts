@@ -545,7 +545,10 @@ test("profile name persistence and browser reminder guidance", async ({
     .getByRole("button", { name: "Back to Profile", exact: true })
     .click();
   await quickLog(page, "Reminders");
-  await expect(page.getByText("Set reminders on your iPhone")).toBeVisible();
+  await expect(page.getByText("Set reminders on your iPhone")).toHaveCount(0);
+  await expect(
+    page.getByText(/This preview can save settings, but it does not schedule notifications/),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "Save reminder" })).toHaveCount(
     0,
   );

@@ -177,7 +177,7 @@ test("late calendar results cannot replace the selected month and midnight refre
   ).toBeVisible();
 });
 
-test("History categories load independently, and original fluid actions stay usable at narrow and larger text sizes", async ({
+test("History categories load independently, and fluid Edit/Delete actions stay usable at narrow and larger text sizes", async ({
   page,
   backend,
 }, info) => {
@@ -203,7 +203,7 @@ test("History categories load independently, and original fluid actions stay usa
     fullPage: true,
   });
   await page.getByRole("tab", { name: "Fluids", exact: true }).click();
-  const classify = page.getByRole("button", { name: "Classify Test water" });
+  const classify = page.getByRole("button", { name: "Edit Test water entry" });
   const remove = page.getByRole("button", { name: "Delete Test water entry" });
   const checkActions = async () => {
     await expect(classify).toBeVisible();
@@ -222,15 +222,12 @@ test("History categories load independently, and original fluid actions stay usa
   };
   await checkActions();
   await page.setViewportSize({ width: 320, height: 740 });
-  await classify.locator('[dir="auto"]').evaluateAll((nodes) =>
-    nodes.forEach((node) => {
-      if (node.textContent === "Change drink category")
-        Object.assign((node as HTMLElement).style, {
-          fontSize: "28px",
-          lineHeight: "34px",
-        });
-    }),
-  );
+  await page.getByText("Test water", { exact: true }).evaluate((node) => {
+    Object.assign((node as HTMLElement).style, {
+      fontSize: "28px",
+      lineHeight: "34px",
+    });
+  });
   await checkActions();
   await page.screenshot({
     path: info.outputPath("history-fluid-large-text-320.png"),

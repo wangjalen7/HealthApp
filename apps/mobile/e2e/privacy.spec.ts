@@ -1,23 +1,27 @@
 import { test, expect, signIn, quickLog } from "./fixture";
 
-test("legal drafts are available signed out and signed in, with readable narrow dark layout",async({page,backend},info)=>{
+test("legal documents are reached through Profile settings, with readable narrow dark layout",async({page,backend},info)=>{
   expect(backend.tables.profiles).toHaveLength(1);
   await page.emulateMedia({reducedMotion:"reduce"});
   await page.goto("/sign-in");
-  await page.getByRole("link",{name:"Privacy & Legal",exact:true}).click();
+  await expect(page.getByRole("button",{name:"Sign in",exact:true})).toBeVisible();
+  await expect(page.getByText("Privacy & Legal",{exact:true})).toHaveCount(0);
+  await page.screenshot({path:info.outputPath("sign-in-without-legal.png")});
+  await page.goto("/welcome");
+  await expect(page.getByRole("button",{name:"Continue with email",exact:true})).toBeVisible();
+  await expect(page.getByText("Privacy & Legal",{exact:true})).toHaveCount(0);
+  await signIn(page);
+  await page.getByRole("tab",{name:"Profile",exact:true}).first().click();
+  await page.getByRole("button",{name:"Privacy & Legal",exact:true}).click();
+  await page.getByRole("button",{name:"Privacy & Legal documents",exact:true}).click();
   await expect(page.getByText("Development draft",{exact:true})).toBeVisible();
   await page.getByRole("button",{name:"Privacy Policy",exact:true}).click();
   await expect(page.getByRole("heading",{name:"Your account and information",exact:true})).toBeVisible();
-  await page.screenshot({path:info.outputPath("privacy-signed-out.png")});
   await page.setViewportSize({width:320,height:740});
   await page.emulateMedia({colorScheme:"dark",reducedMotion:"reduce"});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:info.outputPath("privacy-dark-320.png")});
-  await signIn(page);
-  await page.getByRole("tab",{name:"Profile",exact:true}).first().click();
-  await page.getByRole("button",{name:"Privacy & Legal",exact:true}).click();
-  await expect(page.getByRole("switch",{name:"Detailed notification previews",exact:true})).not.toBeChecked();
-  await page.getByRole("button",{name:"Privacy & Legal documents",exact:true}).click();
+  await page.getByRole("button",{name:"Back",exact:true}).click();
   await page.getByRole("button",{name:"Consumer Health Data Privacy Policy",exact:true}).click();
   await expect(page.getByText("Separate health-data notice — draft",{exact:true})).toBeVisible();
 });
@@ -49,18 +53,13 @@ test("privacy deletion is confirmed, failures recover, and draft clearing preser
   expect(calls).toBe(2);expect(backend.tables.profiles).toHaveLength(1);
 });
 
-test("chart readings and dates have a non-gesture path and sheet focus",async({page,backend},info)=>{
+test("both trend widgets retain graphs without chart-data buttons or popups",async({page,backend})=>{
   expect(backend.tables.profiles).toHaveLength(1);
-  await page.emulateMedia({reducedMotion:"reduce"});
   await signIn(page);
-  await page.getByRole("button",{name:"View chart data and dates",exact:true}).first().click();
-  await expect(page.getByRole("heading",{name:"Chart data",exact:true})).toBeVisible();
-  await expect(page.getByRole("heading",{name:"Chart data",exact:true})).toBeFocused();
-  await page.getByRole("button",{name:"Earlier period",exact:true}).click();
-  await expect(page.getByText(/same aggregated values shown/)).toBeVisible();
-  await page.screenshot({path:info.outputPath("chart-accessible-data.png")});
-  await page.getByRole("button",{name:"Dismiss Chart data",exact:true}).click();
-  await expect(page.getByRole("button",{name:"View chart data and dates",exact:true}).first()).toBeFocused();
+  await expect(page.getByTestId("summary-widget-default-weight_trend")).toBeVisible();
+  await expect(page.getByTestId("summary-widget-default-bp_trend")).toBeVisible();
+  await expect(page.getByRole("button",{name:"View chart data and dates",exact:true})).toHaveCount(0);
+  await expect(page.getByRole("heading",{name:"Chart data",exact:true})).toHaveCount(0);
 });
 
 test("clearing a draft also clears the retained logging form and cannot repersist it",async({page,backend})=>{

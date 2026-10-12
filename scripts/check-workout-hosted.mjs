@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { aiConsentVersion } from "../supabase/functions/_shared/ai-privacy.ts";
 if (process.env.HEALTHAPP_ALLOW_WORKOUT_TEST !== "yes")
   throw new Error(
     "Explicit workout test opt-in required (one paid generation).",
@@ -98,10 +99,10 @@ try {
       message:
         "Generate one full-body workout as a structured next_workout action, with every exercise, set, rep target, RIR, rest and technique cue. Fill the editable workout draft. Do not ask follow-up questions.",
       timezone: "UTC",
+      consentVersion: aiConsentVersion,
       localDate: new Date().toISOString().slice(0, 10),
       workoutPreferences: {
         sessionType: "lifting",
-        focus: [],
         goals: ["strength_muscle"],
         styles: ["science"],
         location: "home",
@@ -110,7 +111,6 @@ try {
         minutes: 45,
         readiness: "ready",
         novelty: "mix",
-        limitations: "",
       },
     },
     bearer,

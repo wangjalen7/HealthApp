@@ -101,6 +101,7 @@ export function Dashboard({
   onEditingChange,
   header,
   onCommit,
+  reminders = [],
 }: {
   user: string;
   header?: (begin: () => void, ready: boolean) => ReactNode;
@@ -454,8 +455,7 @@ export function Dashboard({
                       {w.type === "actions" ? (
                         <>
                           <Text style={styles.copy}>
-                            Choose shortcuts in the order you want them. Toggle
-                            actions off and on to reorder.
+                            Select shortcuts in display order.
                           </Text>
                           <View style={{ gap: 4 }}>
                             {actionNames.map((action) => (
@@ -522,16 +522,11 @@ export function Dashboard({
                               ? "Select at least one streak."
                               : w.size === "small"
                                 ? "Choose one streak."
-                                : "Choose one to four streaks."}
+                                : "Choose your streaks."}
                           </Text>
                           {habits.map((h) => (
                             <ChoiceRow
                               key={h}
-                              disabled={
-                                w.size === "wide" &&
-                                !w.config.habits!.includes(h) &&
-                                w.config.habits!.length >= 4
-                              }
                               selected={w.config.habits!.includes(h)}
                               label={habitLabels[h]}
                               onPress={() => {
@@ -544,12 +539,25 @@ export function Dashboard({
                                         ? [h]
                                         : list.includes(h)
                                           ? list.filter((a) => a !== h)
-                                          : [...list, h].slice(0, 4),
+                                          : [...list, h],
                                   },
                                 });
                               }}
                             />
                           ))}
+                          {w.config.habits?.includes("reminder") ? (
+                            <View style={{ gap: 4, marginTop: 8 }}>
+                              <Text style={styles.copy}>Recurring reminder · on this device</Text>
+                              {reminders.length ? reminders.map((reminder) => (
+                                <ChoiceRow
+                                  key={reminder.id}
+                                  label={reminder.label}
+                                  selected={w.config.reminderId === reminder.id}
+                                  onPress={() => patch(w.id, { config: { ...w.config, reminderId: reminder.id } })}
+                                />
+                              )) : <Text style={styles.copy}>Create a recurring reminder in Reminders first.</Text>}
+                            </View>
+                          ) : null}
                         </View>
                       ) : null}
                       <Action
@@ -670,7 +678,7 @@ export function Dashboard({
             />
           </View>
           <Text style={[styles.copy, { paddingHorizontal: 16 }]}>
-            Hold any widget to drag. Tap a widget for size and options.
+            Hold to reorder. Tap for options.
           </Text>
           {message ? (
             <Text
@@ -749,12 +757,6 @@ export function Dashboard({
                       })}
                     </WidgetFrame>
                   </View>
-                  <Text style={styles.copy}>
-                    {def.sizes
-                      .map((size) => (size === "small" ? "Small" : "Large"))
-                      .join(" / ")}
-                  </Text>
-                  <Text style={styles.copy}>{def.description}</Text>
                   <Action
                     label={added ? `${def.title} — Added` : `Add ${def.title}`}
                     disabled={added}

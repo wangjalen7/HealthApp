@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   AppState,
   Linking,
-  Platform,
   Text,
   Switch,
   View,
@@ -313,9 +312,6 @@ export function RemindersScreen() {
       >
         Reminders
       </Text>
-      {Platform.OS === "web" ? (
-        <Text style={styles.copy}>Set reminders on your iPhone</Text>
-      ) : null}
       <ErrorMessage message={error} />
       {loading ? (
         <ActivityIndicator />

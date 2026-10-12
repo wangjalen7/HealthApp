@@ -1014,9 +1014,9 @@ function MethodPicker({
     <>
       <AiActionCard
         title="Estimate meal from photo or text"
-        subtitle="AI creates editable foods and portions"
         accessibilityLabel="Estimate meal with AI from a photo or description"
         onPress={onAiEstimate}
+        style={styles.aiMethodCard}
       />
       {methods.map(([title, action]) => (
         <Pressable
@@ -1252,9 +1252,8 @@ function LabelEditor({
       />
       <Text style={styles.sectionLabel}>Serving size</Text>
       <Text style={styles.help}>
-        Required: enter a weight, a volume, or a count with a specific item unit
-        such as 1 bottle, 1 package, or 12 pieces. Do not use a generic
-        &quot;serving&quot; as the item unit.
+        Add a weight, volume or item count (e.g. 12 pieces). Use a specific item
+        unit, not &quot;serving&quot;.
       </Text>
       <View style={styles.formRow}>
         <FormField
@@ -1328,19 +1327,11 @@ function LabelEditor({
             Scale serving details and nutrition
           </Text>
           <Text style={styles.helpInline}>
-            Updating weight/volume per serving will scale nutrition facts. Turn
-            off to correct each value independently.
+            Adjust nutrition with serving size. Turn off to edit values
+            independently.
           </Text>
         </View>
         <View style={styles.scaleControl}>
-          <Text
-            style={[
-              styles.scaleState,
-              scaleNutrition && styles.scaleStateActive,
-            ]}
-          >
-            {scaleNutrition ? "ON" : "OFF"}
-          </Text>
           <Switch
             accessibilityLabel="Scale serving details and nutrition"
             accessibilityState={{ checked: scaleNutrition }}
@@ -1468,7 +1459,7 @@ function FoodSearch({
       />
       <Text style={styles.help}>
         {managingLabels
-          ? "Edit or delete reusable labels saved in My Foods. Past food history will not change."
+          ? "Label changes leave past meals unchanged."
           : `Select a match from ${includeRecipes ? "Recipes, Recent, or My Foods" : "Recent or My Foods"}. If the food does not exist, create a reusable label with its name already filled in.`}
       </Text>
       {searching ? <Text style={styles.searchState}>Searching...</Text> : null}
@@ -1612,11 +1603,13 @@ function SuggestionSection({
           {showActions && item.basis.profileId ? (
             <View style={styles.profileActions}>
               <IconButton
+                variant="plain"
                 name="edit"
                 label={`Edit ${item.basis.name} food label`}
                 onPress={() => edit(item)}
               />
               <IconButton
+                variant="plain"
                 name="delete"
                 label={`Delete ${item.basis.name} food label`}
                 onPress={() => requestDelete(item)}
@@ -1965,6 +1958,14 @@ const styles = StyleSheet.create({
     padding: 15,
   },
   methodText: { flex: 1 },
+  aiMethodCard: {
+    minHeight: 68,
+    paddingHorizontal: 15,
+    paddingVertical: 15,
+    marginBottom: 11,
+    borderWidth: 1,
+    borderColor: colors.purple,
+  },
   methodTitle: { color: colors.text, fontSize: 16, fontWeight: "600" },
   arrow: { color: colors.blue, fontSize: 22, marginLeft: 10 },
   field: { marginBottom: 14 },
@@ -1993,13 +1994,6 @@ const styles = StyleSheet.create({
   scaleCopy: { flex: 1 },
   scaleControl: { alignItems: "center", gap: 4 },
   scaleTitle: { color: colors.text, fontSize: 14, fontWeight: "600" },
-  scaleState: {
-    color: colors.secondary,
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 0.5,
-  },
-  scaleStateActive: { color: colors.blue },
   helpInline: {
     color: colors.tertiary,
     fontSize: 12,
@@ -2085,22 +2079,11 @@ const styles = StyleSheet.create({
   },
   suggestionMeta: { color: colors.tertiary, fontSize: 12, marginTop: 4 },
   profileActions: {
-    borderTopColor: colors.fill,
-    borderTopWidth: 1,
     flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingBottom: 8,
   },
-  profileActionButton: {
-    alignItems: "center",
-    flex: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-  },
-  profileDeleteAction: {
-    borderLeftColor: colors.fill,
-    borderLeftWidth: 1,
-  },
-  profileEditText: { color: colors.blue, fontSize: 12, fontWeight: "600" },
-  profileDeleteText: { color: "#B42318", fontSize: 12, fontWeight: "600" },
   profileDeleteOverlay: {
     alignItems: "center",
     backgroundColor: "rgba(16, 42, 67, 0.52)",

@@ -1,0 +1,2294 @@
+{
+  "reviewedAt": "2026-09-25",
+  "commit": "4fb1bddb1d95af71564828cc3cf8d202bf12ae7b",
+  "scope": "Source inventory hashes identify the reviewed implementation; they do not claim every branch was executed. Documentation-only task; no hosted/device/provider checks performed.",
+  "results": {
+    "appTests": 256,
+    "edgeTests": 70,
+    "sqlMigrations": 37,
+    "browser": {
+      "passed": 110,
+      "failed": 2,
+      "focusedRerun": "both failures reproduced"
+    }
+  },
+  "files": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "bytes": 273,
+      "sha256": "8135be364ef8f1279015257621fcc3ce023acb157435f9cea891b5820113bcbd"
+    },
+    {
+      "path": "apps/mobile/app.config.ts",
+      "bytes": 1852,
+      "sha256": "22f084b487c0a87ced45ac96c87128c1e3fb6476c57af0b2ecbd1dfbb8e9d517"
+    },
+    {
+      "path": "apps/mobile/app.json",
+      "bytes": 2760,
+      "sha256": "ee144417c15e0768f4ecdccd00bff83826524003a9a2c9376c999ee223e72d73"
+    },
+    {
+      "path": "apps/mobile/app/(app)/_layout.tsx",
+      "bytes": 10293,
+      "sha256": "f354c5ed08b4103cd2df18a0f3e2dac949d4b92dfe3e7b93702c2434f6611df0"
+    },
+    {
+      "path": "apps/mobile/app/(app)/coach.tsx",
+      "bytes": 12596,
+      "sha256": "898bc2652a5e3ffe2a8c2a519bf4fb1d751805d9b35a56d0ded96876b404cd03"
+    },
+    {
+      "path": "apps/mobile/app/(app)/history.tsx",
+      "bytes": 55367,
+      "sha256": "a1d3b3dff4b6f9ca9b7da788b5b1db62c1b6563c06dbd0ae21457cdf4f3960aa"
+    },
+    {
+      "path": "apps/mobile/app/(app)/history/[id].tsx",
+      "bytes": 19903,
+      "sha256": "2f0eca221b8a124b1aefaf213fc0e8aeff9a91646496ee8dbb0a0d6d95fbe818"
+    },
+    {
+      "path": "apps/mobile/app/(app)/history/edit.tsx",
+      "bytes": 20304,
+      "sha256": "b8352b778b60c1a6c78e5942c27fe4ff7c52be1d21680e04fc49797daf6218a5"
+    },
+    {
+      "path": "apps/mobile/app/(app)/index.tsx",
+      "bytes": 7739,
+      "sha256": "28bd67c0033ad3faf895ae1aaf59d24e217e1db084efb696295e50a57a7fc570"
+    },
+    {
+      "path": "apps/mobile/app/(app)/nutrition.tsx",
+      "bytes": 22571,
+      "sha256": "0a84fb31b8ed62278e9e3412e6c80933b9896785836a0b472e38cb5a36511482"
+    },
+    {
+      "path": "apps/mobile/app/(app)/placeholder.tsx",
+      "bytes": 6708,
+      "sha256": "a8c8b6bb651bbfc3647d683db797a575cc7640790bda091b85bcded2dfca6335"
+    },
+    {
+      "path": "apps/mobile/app/(app)/profile/_layout.tsx",
+      "bytes": 448,
+      "sha256": "f58a690e6ad84f1c8f8d4940575a2758661c80d5275066a4497941178a29c489"
+    },
+    {
+      "path": "apps/mobile/app/(app)/profile/contacts.tsx",
+      "bytes": 91,
+      "sha256": "c85c21dc3af3dca77594354200ded3bfec3fa82c0c395280dab65fa3e04b84f2"
+    },
+    {
+      "path": "apps/mobile/app/(app)/profile/devices.tsx",
+      "bytes": 90,
+      "sha256": "ef96a0ee9ff55e84d132e01d0f48a838425c1b31eb65eef44f460effb298bf0c"
+    },
+    {
+      "path": "apps/mobile/app/(app)/profile/export.tsx",
+      "bytes": 93,
+      "sha256": "7b5af87262ce2486a0728f68c417da8da10ce2aafebeceab0095a64cd95271c6"
+    },
+    {
+      "path": "apps/mobile/app/(app)/profile/face-id.tsx",
+      "bytes": 89,
+      "sha256": "77f018e96981d63ab818130fdc09f1a52c9886a48633df6d216d3f56dd8a4c6d"
+    },
+    {
+      "path": "apps/mobile/app/(app)/profile/goal/[kind].tsx",
+      "bytes": 86,
+      "sha256": "6e7a968f0346d492daab25470c5c5fe37bde2197446dfe6cff1d106bfcf2c089"
+    },
+    {
+      "path": "apps/mobile/app/(app)/profile/health.tsx",
+      "bytes": 98,
+      "sha256": "032051ac9996b566e01b7cc4be4c459d922865f0fc8f657290009b159cef03c4"
+    },
+    {
+      "path": "apps/mobile/app/(app)/profile/index.tsx",
+      "bytes": 91,
+      "sha256": "ea0750e4bfc3c4b9c305e0141766e1b4aabf636b642381358ab8c4acc32afac3"
+    },
+    {
+      "path": "apps/mobile/app/(app)/profile/manage.tsx",
+      "bytes": 96,
+      "sha256": "c0089f05b18f7a8312be60aca98af0b9531367ccc5f05c38a6f6ca046efbf9a8"
+    },
+    {
+      "path": "apps/mobile/app/(app)/profile/personal.tsx",
+      "bytes": 93,
+      "sha256": "6e05f9d92d8f698c5f9f1948763de0ec00e03da9a55c93a502a038051ce90a8e"
+    },
+    {
+      "path": "apps/mobile/app/(app)/profile/privacy.tsx",
+      "bytes": 93,
+      "sha256": "ac382c4c35cae98245c5fbd9bf048abae1ffc3fdc625713cf28bbd5dd6842422"
+    },
+    {
+      "path": "apps/mobile/app/(app)/profile/reminders.tsx",
+      "bytes": 193,
+      "sha256": "2830a492f4af96f4a3d68e1b341db73855512c6e3eb48d0c5f0d5050f9ad6a49"
+    },
+    {
+      "path": "apps/mobile/app/(app)/profile/sync.tsx",
+      "bytes": 91,
+      "sha256": "c1dbb156750815c5b2e34fc7c24434ff01f3145ba57aef5dd0bc6dbd3bee3322"
+    },
+    {
+      "path": "apps/mobile/app/(app)/reminders.tsx",
+      "bytes": 92,
+      "sha256": "31c89428aed10ce50c302079ed4f46bd1ab894eec4443b3622c6f6b415a053f3"
+    },
+    {
+      "path": "apps/mobile/app/(app)/track.tsx",
+      "bytes": 178,
+      "sha256": "93f3f18072e7b313cdf9cdc6c68d2ffc4cd5f5c32b414604a0822374bbcdb4e5"
+    },
+    {
+      "path": "apps/mobile/app/(app)/water.tsx",
+      "bytes": 12301,
+      "sha256": "43e6803602e82249770c89e122df8b3020218da4b6a6a412c2f3a0dcd4665de4"
+    },
+    {
+      "path": "apps/mobile/app/(app)/weight.tsx",
+      "bytes": 167,
+      "sha256": "4b03813bd9918c2fdd6d7b162424736ab8afa4c5a5e37c4371222df8bde384b1"
+    },
+    {
+      "path": "apps/mobile/app/(app)/workout.tsx",
+      "bytes": 37130,
+      "sha256": "fb03d5180b88c01bb715467d435df22ebe7242bb5d1191ecec5e5bfcb7d42883"
+    },
+    {
+      "path": "apps/mobile/app/(auth)/check-email.tsx",
+      "bytes": 1959,
+      "sha256": "d54158f0abe6b68c2e0a928903af6d2afc48c610c1cf4ef6646f04b832b4803a"
+    },
+    {
+      "path": "apps/mobile/app/(auth)/forgot-password.tsx",
+      "bytes": 147,
+      "sha256": "c86eae05f0e8b5eef687b3a31c9b536f62bdae7d94b0f35ce6194dd8448b98cb"
+    },
+    {
+      "path": "apps/mobile/app/(auth)/phone.tsx",
+      "bytes": 196,
+      "sha256": "c75f256171472232ee3c1e3f5c7995e519b23dc207fc6bf738013af0a339c3a0"
+    },
+    {
+      "path": "apps/mobile/app/(auth)/reset-password.tsx",
+      "bytes": 5488,
+      "sha256": "dea18fa4643c9c74805e7023898fa85d3a4d7966e315ab6a0206c31a61e78db9"
+    },
+    {
+      "path": "apps/mobile/app/(auth)/sign-in.tsx",
+      "bytes": 140,
+      "sha256": "3f8f84dcf67c5867667c9f2b6bef7a5cbd8f654eb2093cac271b17bd0f6dacb5"
+    },
+    {
+      "path": "apps/mobile/app/(auth)/sign-up.tsx",
+      "bytes": 140,
+      "sha256": "dfcb93165e394008cc226a28501927c1bd05125811bc0263427a03e7a00e2abd"
+    },
+    {
+      "path": "apps/mobile/app/(auth)/welcome.tsx",
+      "bytes": 1528,
+      "sha256": "e75c06ff23e806ad782b6cb2a9681291ae55923a5c75a1efdf5626b79a89851c"
+    },
+    {
+      "path": "apps/mobile/app/_layout.tsx",
+      "bytes": 2812,
+      "sha256": "30c1e6ac6dab35a00e0e57dea336bfa80a6cd142fc10cb0ed95d0a5628336e0c"
+    },
+    {
+      "path": "apps/mobile/app/create.tsx",
+      "bytes": 4585,
+      "sha256": "501594acaa5dc7cf1c73b98f5c6d66fadc848f59d65e439f54b6d632449371e8"
+    },
+    {
+      "path": "apps/mobile/app/index.tsx",
+      "bytes": 1016,
+      "sha256": "7de12cc5731591f7f3f1e2ee2c15e5ff3784eb775d75ecaa4f304f85e49aafeb"
+    },
+    {
+      "path": "apps/mobile/app/legal/[document].tsx",
+      "bytes": 82,
+      "sha256": "28a9037fc55b2fc4db2670f1707b5bfd2bceab8ba531d6b0203545ffb1371939"
+    },
+    {
+      "path": "apps/mobile/app/legal/index.tsx",
+      "bytes": 82,
+      "sha256": "28a9037fc55b2fc4db2670f1707b5bfd2bceab8ba531d6b0203545ffb1371939"
+    },
+    {
+      "path": "apps/mobile/app/legal/licenses.tsx",
+      "bytes": 976,
+      "sha256": "4b6105d66fbf3951e4483697e67c2c2ec02e09ac2cb71d15de64e5cf87be8f4d"
+    },
+    {
+      "path": "apps/mobile/app/onboarding.tsx",
+      "bytes": 115,
+      "sha256": "ca18666038bb4f457eb6c03479fd25e37272cdc9e60ae703e4791ae7376c87bb"
+    },
+    {
+      "path": "apps/mobile/eas.json",
+      "bytes": 558,
+      "sha256": "51a1625d276e59fadfda4148289d527a0a5265531fd826b3e9d702f54a4e924b"
+    },
+    {
+      "path": "apps/mobile/package.json",
+      "bytes": 2243,
+      "sha256": "d2410c86b87fcc552235d9d96918d6c9e42fb127eadd8ce293ec83200bbf51e7"
+    },
+    {
+      "path": "apps/mobile/plugins/with-private-backups.js",
+      "bytes": 2565,
+      "sha256": "94e7cfef758a2a4df0b2dc88d718779912cfe0b9d9e6809e98e8cf6de94f2d4b"
+    },
+    {
+      "path": "apps/mobile/src/domain/vital-ranges.test.ts",
+      "bytes": 7858,
+      "sha256": "803b0af03ee6a92be113dcc4549c8653b42d5daa07163c5a11a32b1ee98e4f08"
+    },
+    {
+      "path": "apps/mobile/src/domain/vitals.test.ts",
+      "bytes": 1775,
+      "sha256": "d20c6ec2ec07d228aa4f4a1d94ea826321bbe88ef2524f1072d30b49158f5459"
+    },
+    {
+      "path": "apps/mobile/src/domain/vitals.ts",
+      "bytes": 11163,
+      "sha256": "225234d0507c07a37d1e7a00803f2d8b185ced33670d0d19c478c88099cf04fd"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/account-contacts.tsx",
+      "bytes": 6121,
+      "sha256": "d60e47dcfd0708424c1feeb3fa28b28f8ff4650ca4fea69369c8c45d7c38b0b1"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/account-deletion.tsx",
+      "bytes": 14773,
+      "sha256": "b74fd479d9def3b98a61d2f7eb7a0095281342dc1cdc9ff75ebdc25c0f054703"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/auth-callback.test.ts",
+      "bytes": 1072,
+      "sha256": "8700ba35a9c4bd8e08d073a1d9335c00d5ac62aa747b46c490e8327f3a0c1238"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/auth-callback.ts",
+      "bytes": 810,
+      "sha256": "06e28d1c455abfbb90b673ec06075d955ac1e51d70b333ad4eeca25e9a47d01e"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/auth-provider.test.ts",
+      "bytes": 7047,
+      "sha256": "13d020a9565ee83086151d1b3fa9719980912723f99db7f53d20f0f2369dc83c"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/auth-provider.tsx",
+      "bytes": 12517,
+      "sha256": "b53e803cd78d5cf390e71cce806f7ae7920f784f3b36be7636b5c4ea57c578da"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/auth-screen.tsx",
+      "bytes": 22864,
+      "sha256": "6c750dd608e8825b344c78f9bb2a99443900a6ad8ab7329b491fe2a249de97d4"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/biometric-auth.test.ts",
+      "bytes": 7569,
+      "sha256": "0093505368ac979a64dddf40539f2ca4987c4a9527480cd67275a41ae98d4700"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/biometric-auth.ts",
+      "bytes": 12349,
+      "sha256": "85861aaec2294e742fdfdcd91a0bf0050b174a1601ec0143970f03b54e75a23c"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/biometric-credential.test.ts",
+      "bytes": 4162,
+      "sha256": "519510e63e7354c62f0a9990d4e24d875e0349356c13ab63976061895656682a"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/biometric-credential.ts",
+      "bytes": 4447,
+      "sha256": "3f56e711a1e8d4c6e60e8fbee414140cf3966f814ffa4622bc4c3e0b09d2ac57"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/biometric-entry.test.ts",
+      "bytes": 9758,
+      "sha256": "764cfe9cf53fd14bd0bd3da1972aeeb576cad6cf0d60b222d96784cb470022b4"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/biometric-function-error.test.ts",
+      "bytes": 1614,
+      "sha256": "dea6d6001102e036170850e8ebe0cf7733b7711b6ea99f3345da001a3c9f3b54"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/biometric-function-error.ts",
+      "bytes": 2022,
+      "sha256": "49fb318bef205f93975016af12cbea17be5c13a0a306eaf8df6c15c18a7d6a4a"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/biometric-lock-navigation.test.ts",
+      "bytes": 1034,
+      "sha256": "30ac5ba763a04d452481cc363792ad274c0cebb1fd25bac71539a4271147fa29"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/biometric-lock-navigation.ts",
+      "bytes": 937,
+      "sha256": "434026c25b504a64b64d2d9d40fe2a90e89f6cc6c0c0ea09ae3a55e59ba8bcb5"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/code-input.tsx",
+      "bytes": 2537,
+      "sha256": "abeb224ed594de0bda81a0ffb581317cd4b3071cc8b4297df5fe79780317dfc9"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/contact-service.ts",
+      "bytes": 2000,
+      "sha256": "6c7dbfc7e85519e7d4acd29124933c79f19abb86c967ff6eb2ee4f4d8617ca5e"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/country-names.json",
+      "bytes": 5258,
+      "sha256": "4a480689f59d570d8e05539a9def459448170b819f191189beea096948fa6519"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/entry-provider.tsx",
+      "bytes": 11354,
+      "sha256": "13fd63f3b040aef3657f2b216ecdcdfedcd8de0aa730f70191c0a7979c448a4c"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/entry-state.test.ts",
+      "bytes": 1808,
+      "sha256": "679efd0ed7f7ce876ebe241fd2f5318ad8af0d2e31735a0124c63469e16f0361"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/entry-state.ts",
+      "bytes": 1020,
+      "sha256": "29a4366b752610b467da5236c117e3695fab22cd7cd84ec9996977075f1ff0dd"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/face-id-setup.tsx",
+      "bytes": 3037,
+      "sha256": "be312b3c9ec311041ae8fef47389dcb364954479ab4dc932554feef30afd56ee"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/launch-cover.tsx",
+      "bytes": 2239,
+      "sha256": "b9fc705c662d1c3a0a53591de2a468d9e03c1f0087031b9c60d6f5088f369e1c"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/phone-field.tsx",
+      "bytes": 2763,
+      "sha256": "47769579d0e155a1fa82360320af255357862c1243a8227d5e2c3d8d7ecaef81"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/phone-model.test.ts",
+      "bytes": 982,
+      "sha256": "0fa2b469b0b0ec3f75d0572803fabe3eb65da79aa390554d90aa2fd352d36d33"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/phone-model.ts",
+      "bytes": 1739,
+      "sha256": "edc142f95aff36753d1cdda577337e185b5c55c415adc71981c9b49f134f49ab"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/private-cache.native.ts",
+      "bytes": 378,
+      "sha256": "a4f66138710c552ca3d94c6118f3087a630f55e97f76e765753d947e54ee93c0"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/private-cache.ts",
+      "bytes": 109,
+      "sha256": "2a4406bec5ee0b7c92ed4863c928ecc89ea159bb0c2143400cbcfbba4fdcac9a"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/security-settings.tsx",
+      "bytes": 6026,
+      "sha256": "7848449115e3ad41835b7a82d78b1a8ee91fdb68c329d51d856b2ca7b3cea839"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/sustain-brand.test.ts",
+      "bytes": 3669,
+      "sha256": "f2f6d83b62f712576f80ca990063d063e826b264e998e831b4227e9083579f2a"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/sustain-brand.tsx",
+      "bytes": 5540,
+      "sha256": "54d1f5f22ee60a61bfa07e56d66a58adcda984f67dbf11be311dc2dd15328332"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/validation.test.ts",
+      "bytes": 840,
+      "sha256": "79bdfcec84199dd4b31376470dc8737b3c248566eb9eb377b329448733ea8b51"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/validation.ts",
+      "bytes": 448,
+      "sha256": "5ee1c29964a317af172e7d79badbfaecdb01bde08f73c685ca5383efaecfe453"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/welcome-intro.tsx",
+      "bytes": 1062,
+      "sha256": "5f17398ff1f226c656e10700518cb27ecd2a8e84b0eeed6b8341d32bcb175dbf"
+    },
+    {
+      "path": "apps/mobile/src/features/auth/welcome-storage.ts",
+      "bytes": 228,
+      "sha256": "14f532e0b7523c91969b6da91048cf842dc28b0ce7b075a88cb31d93236d298d"
+    },
+    {
+      "path": "apps/mobile/src/features/coach/coach-action-review.tsx",
+      "bytes": 24913,
+      "sha256": "f3224d9b5e60508c655e536736039a8eac4f52f7d7b7d1f95cefa99f768f58aa"
+    },
+    {
+      "path": "apps/mobile/src/features/coach/coach-setup.tsx",
+      "bytes": 18016,
+      "sha256": "288647e0594e7fb91760e4a8a59c4e84e64dd740e679be98995a89deb19729fe"
+    },
+    {
+      "path": "apps/mobile/src/features/coach/draft-action-model.ts",
+      "bytes": 2477,
+      "sha256": "8e015e6d5920ec51b4fd33e6e5fbc3fad1a4f3b0188d41834f55e5f3bc0f0d14"
+    },
+    {
+      "path": "apps/mobile/src/features/coach/draft-actions.test.ts",
+      "bytes": 2933,
+      "sha256": "b3c0b47b3d76f4c9099d59fa6b09b4285ee11888c0f92e94ad891c84917688e6"
+    },
+    {
+      "path": "apps/mobile/src/features/coach/draft-actions.ts",
+      "bytes": 4481,
+      "sha256": "61d9edbecb81301348cff04840c1f4ae602f6180623d9d6aadce2071fe77bd37"
+    },
+    {
+      "path": "apps/mobile/src/features/coach/repository.ts",
+      "bytes": 7920,
+      "sha256": "4bd7113e3642c340813e5c4fd9a2721a5138f6a462f53957b506e4e4408d6c93"
+    },
+    {
+      "path": "apps/mobile/src/features/coach/workout-questionnaire.tsx",
+      "bytes": 18241,
+      "sha256": "da1d3eefd3e94001314c8088e3c197fb788925608f5d2a3510141de5d3b95911"
+    },
+    {
+      "path": "apps/mobile/src/features/data-export/archive.native.ts",
+      "bytes": 3821,
+      "sha256": "9ee3644f76f02565d5f274fad6bf8162b02a39bb5248350f4d2bde6cea9b313b"
+    },
+    {
+      "path": "apps/mobile/src/features/data-export/archive.web.ts",
+      "bytes": 1973,
+      "sha256": "2e643ed20f601666147a6b46c0303c8db87ac3867a895bf1e1b1469aeac0c4e8"
+    },
+    {
+      "path": "apps/mobile/src/features/data-export/local-inventory.test.ts",
+      "bytes": 738,
+      "sha256": "4990f3cd2abda4b49731052aa81f3f28c4f6ffb669b57c5fee9fd7b080e11e40"
+    },
+    {
+      "path": "apps/mobile/src/features/data-export/local-inventory.ts",
+      "bytes": 503,
+      "sha256": "99aa4a8b8b4bb224c4e9af6deae573a3ad8b63d055a695be1fdac42180c907e2"
+    },
+    {
+      "path": "apps/mobile/src/features/data-export/model.test.ts",
+      "bytes": 1569,
+      "sha256": "a31f166212329396f1f048bf568fe4073b1b4129503e925b7378ed40c249da00"
+    },
+    {
+      "path": "apps/mobile/src/features/data-export/model.ts",
+      "bytes": 2581,
+      "sha256": "d2577a578b6a18deac3e2845eca339fec4d9515e8a75a9c7151fb7ed95ea43d9"
+    },
+    {
+      "path": "apps/mobile/src/features/data-export/repository.ts",
+      "bytes": 6080,
+      "sha256": "027bfe32039739b5ba199f0c1efd044be5207c1e79b0d85c446f903997597062"
+    },
+    {
+      "path": "apps/mobile/src/features/goals/calculator.test.ts",
+      "bytes": 6203,
+      "sha256": "aa947116b90e8e4495aecd631abf9ae750518a93295b8ede3e108f74d281e014"
+    },
+    {
+      "path": "apps/mobile/src/features/goals/calculator.ts",
+      "bytes": 8129,
+      "sha256": "88cdc76c70f91e41f9183b82d4c39ab95adb7a4486fad83a861b47bd20e5312e"
+    },
+    {
+      "path": "apps/mobile/src/features/goals/calorie-goal-form.tsx",
+      "bytes": 18280,
+      "sha256": "b1366069b70ebd57e0bb25a372c43606fc72fc7670620cbdfac5ab05b7fd77c5"
+    },
+    {
+      "path": "apps/mobile/src/features/goals/fluid-goal-form.tsx",
+      "bytes": 8794,
+      "sha256": "bd24713878d614b258c7314219ee90a42ef44345733f2f766a98641027525de3"
+    },
+    {
+      "path": "apps/mobile/src/features/goals/goal-helper.tsx",
+      "bytes": 5696,
+      "sha256": "5bb540dec7fac07b966ee420a534ee8146a1166685f87d1ea63260358becbf73"
+    },
+    {
+      "path": "apps/mobile/src/features/goals/helper-components.tsx",
+      "bytes": 7777,
+      "sha256": "dbb152bc6a6e7a62336ac25a964c37d3bcc2013e4ee1f0e4aa8cf81ed14ebc65"
+    },
+    {
+      "path": "apps/mobile/src/features/goals/helper-draft.test.ts",
+      "bytes": 3624,
+      "sha256": "94d5405006b012c07b9c7560d5c6f4b7944f50a0a165d64e88e481721e6900f9"
+    },
+    {
+      "path": "apps/mobile/src/features/goals/helper-draft.ts",
+      "bytes": 1516,
+      "sha256": "ad13158ca281c9179d9eef308976474332864289a42a5e75c274bb26968176a1"
+    },
+    {
+      "path": "apps/mobile/src/features/goals/helper-model.test.ts",
+      "bytes": 6418,
+      "sha256": "92c85d234ded838ba08b429f42ce94e7f1ec828179303e57b2eece5426c1d5c7"
+    },
+    {
+      "path": "apps/mobile/src/features/goals/helper-model.ts",
+      "bytes": 14063,
+      "sha256": "7322564bb8dfadea8b6124df515cad5a2e50c0203f0a757f0707c49b8426220a"
+    },
+    {
+      "path": "apps/mobile/src/features/goals/repository.ts",
+      "bytes": 9437,
+      "sha256": "9db3037cebeea7e87f0acfdccd011b9ee0d1d32f93713459c1a936ca6b9e6b99"
+    },
+    {
+      "path": "apps/mobile/src/features/goals/target-date-field.tsx",
+      "bytes": 1905,
+      "sha256": "1abb3a277ae229d762e754c780084536060d0e1935a558a6ff513bfbe5237c9d"
+    },
+    {
+      "path": "apps/mobile/src/features/goals/target-date-field.web.tsx",
+      "bytes": 2153,
+      "sha256": "4a3df1171860712a291daa3c10e4c40bc94bb1b459b8f6536f28eb5908918d7b"
+    },
+    {
+      "path": "apps/mobile/src/features/goals/use-helper-state.ts",
+      "bytes": 4879,
+      "sha256": "38f4f8a0f68397d25ec9a83f2f796d1076fc9efc9001f88f923a556f9cd55afb"
+    },
+    {
+      "path": "apps/mobile/src/features/healthkit/identity.test.ts",
+      "bytes": 566,
+      "sha256": "e1c670c777dde0e975d674e40ba75b4fc4c18f30d0fb4f7eb8b6a8c1b9c828f2"
+    },
+    {
+      "path": "apps/mobile/src/features/healthkit/identity.ts",
+      "bytes": 193,
+      "sha256": "5799d50995f00ddf08295805a0b955a007ddcb4e06a7a6e35de11bf1aba09e9e"
+    },
+    {
+      "path": "apps/mobile/src/features/healthkit/mapping.test.ts",
+      "bytes": 698,
+      "sha256": "a4699f305a231a05fa1593faffda884357bd35973ce70b545a72978213a45fb0"
+    },
+    {
+      "path": "apps/mobile/src/features/healthkit/mapping.ts",
+      "bytes": 1596,
+      "sha256": "606131507614631cd1339a64166e475e3182de2c1f588ab938f38bf1d981ba2f"
+    },
+    {
+      "path": "apps/mobile/src/features/healthkit/permissions.test.ts",
+      "bytes": 904,
+      "sha256": "679f9b42687fafb42b9d5f72bcdbbec79940974553dc711d349e16345c04ebac"
+    },
+    {
+      "path": "apps/mobile/src/features/healthkit/permissions.ts",
+      "bytes": 475,
+      "sha256": "d5f2ebf8b136fe06d879f8c0266a9c9d732f8b1218a6fa97921a528da86275c0"
+    },
+    {
+      "path": "apps/mobile/src/features/healthkit/reader.ios.ts",
+      "bytes": 6933,
+      "sha256": "78aea4a9396dc8dd170ed2ec66d8869749d07cb304aca26a62b71b5c42709bfb"
+    },
+    {
+      "path": "apps/mobile/src/features/healthkit/reader.ts",
+      "bytes": 690,
+      "sha256": "01a3e0dacd0bc30c431759eaf1e0c9fda3e64b1539827a8164a7b4a0f4ed9b1e"
+    },
+    {
+      "path": "apps/mobile/src/features/healthkit/state.ts",
+      "bytes": 1099,
+      "sha256": "2a9c31e770b11f78d6faf06f96e6776076167e47306d6233ec4968bff4c92968"
+    },
+    {
+      "path": "apps/mobile/src/features/healthkit/sync-settings.tsx",
+      "bytes": 1944,
+      "sha256": "9c22656646f0ac6a1c1cd61a283bdf163fbb33a8ebd79d737778095a10b69edf"
+    },
+    {
+      "path": "apps/mobile/src/features/healthkit/sync.ts",
+      "bytes": 4132,
+      "sha256": "5994d4eb78eb8fc95a9b576bddb35aedccc3d3714ea1e514551e0658e3a4f85a"
+    },
+    {
+      "path": "apps/mobile/src/features/healthkit/types.ts",
+      "bytes": 874,
+      "sha256": "5100b3403755ead57580958ac19dbaa78b6af3f77162deb54ee0194ffc3e566f"
+    },
+    {
+      "path": "apps/mobile/src/features/healthkit/unified-sync.ts",
+      "bytes": 2503,
+      "sha256": "1d9ffa9eedbdb7dfdee8a8abf6741ccd7254f3de67c34c7dc467f58014e53936"
+    },
+    {
+      "path": "apps/mobile/src/features/hydration/categories.ts",
+      "bytes": 3318,
+      "sha256": "3684fefa443970d66d5ecb85bcb8aa2771e28433952b187acf5feab9d7c1b9bf"
+    },
+    {
+      "path": "apps/mobile/src/features/hydration/classify-drink.tsx",
+      "bytes": 4283,
+      "sha256": "c4ad73b190422dc556717a7919f3dd81bf94007c936ebddbc0ad8c437bafc0fe"
+    },
+    {
+      "path": "apps/mobile/src/features/hydration/drink-selector.tsx",
+      "bytes": 9438,
+      "sha256": "033201991516e4d02460e091a80dc37ad375dd7f6334f2761e0900723deb0029"
+    },
+    {
+      "path": "apps/mobile/src/features/hydration/model.test.ts",
+      "bytes": 2230,
+      "sha256": "8b3047b7ce6383fe8d48075ebe48d1e0ddba5f8c724c89dafb06e7a5946f9ef9"
+    },
+    {
+      "path": "apps/mobile/src/features/hydration/model.ts",
+      "bytes": 2100,
+      "sha256": "24fd9b93c6fffd92c0cc6c2ff4a5e6f61f3c509324b66b781c125d9427447bf6"
+    },
+    {
+      "path": "apps/mobile/src/features/hydration/repository.ts",
+      "bytes": 5758,
+      "sha256": "8733fb81ae77c71ced0f4b9eab93fe654e575c075e50b6231b1dc9dc56ef0886"
+    },
+    {
+      "path": "apps/mobile/src/features/hydration/water-glass.tsx",
+      "bytes": 2871,
+      "sha256": "4999ae259b396b642c42915a66332c338aaa01ee4b8c6ad8417dce16b4107127"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/ai-meal-client.ts",
+      "bytes": 1366,
+      "sha256": "06f8833f4befabf39d79f9e8b9db068a089d83b3e8f603f8fa807b6cf6b752c2"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/ai-meal-editor.tsx",
+      "bytes": 31769,
+      "sha256": "232fb0e86974ca3d6f558bdf143a754185aa512678339315caea15cdaa97dbf9"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/ai-meal-image.ts",
+      "bytes": 1783,
+      "sha256": "77ad66370b04884441f0f75c67e787e100057e6ce8f6d55ec60567e38171a368"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/ai-meal.test.ts",
+      "bytes": 5446,
+      "sha256": "5760c1b312e23f907e59e7d0f2efccb65f899a994d107c98e9d9deecc0ddfb59"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/ai-meal.ts",
+      "bytes": 3371,
+      "sha256": "ad620baa728ccdba994b838bf80b90ba5696c52368f3f08ae8c1b0d3abc55c93"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/calendar.test.ts",
+      "bytes": 1192,
+      "sha256": "cc55ce83bdbfde541b174b443a46b70f017c2e3dc2df6fd708da3fa2914c3616"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/calendar.ts",
+      "bytes": 1729,
+      "sha256": "197cbab8072c85229062b55211e70703534738a936f92253f8680dc1dba76a0a"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/calorie-calendar.tsx",
+      "bytes": 8694,
+      "sha256": "a4c57ff7ec62d642906f59bc8df44e8036f9fbf5786f484146223ec70c29526c"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/draft.test.ts",
+      "bytes": 553,
+      "sha256": "068941dd96b8247b5dadabf52438778b6401df7e5c03ea75802ede4b598a5e56"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/draft.ts",
+      "bytes": 1477,
+      "sha256": "79d75272a6703d57086f79174e4c0afbeb69a63a5e1d10528b81f210d212b407"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/food-editor.tsx",
+      "bytes": 69878,
+      "sha256": "fbfd4a5fca81563049d36d3152e467e90168b2c445b85430f00c4ccbee2f0fad"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/history-totals.test.ts",
+      "bytes": 1348,
+      "sha256": "2e38c34939ab3c7efd1270193f74d53b2616e7a2a80a31fcf42c83f98a4db0d1"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/history-totals.ts",
+      "bytes": 1743,
+      "sha256": "1a0b88918b3c83a15e5a5ad139042cbe617fe177eebf1f13d7504016ea4a2325"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/model.test.ts",
+      "bytes": 10090,
+      "sha256": "80af593a94150af5226300c31ea3f4e356aa2115effed22a047eefc877bbea3e"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/model.ts",
+      "bytes": 17389,
+      "sha256": "ce3210909ace5004250ee479a3d659723171851e00b90ecb36a73bb504a9ab3e"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/recipe-manager.tsx",
+      "bytes": 23405,
+      "sha256": "f418c32772acca755bec23f321e61a854adcfaf33a11852dea3b666dccc26e68"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/recipe.test.ts",
+      "bytes": 3022,
+      "sha256": "e1a8723bd1c518e858d549d8f209864128f7d34aa517027d0fce497698b2c822"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/recipe.ts",
+      "bytes": 3471,
+      "sha256": "f02c3c151ef8fe94e0bac64958f4025e0a4d713fb0200595785b26b89b3e84e7"
+    },
+    {
+      "path": "apps/mobile/src/features/nutrition/repository.ts",
+      "bytes": 30445,
+      "sha256": "98a4380785e5512322f9561e98bde83d094427e22dc4fcaab1980f92e5ede10a"
+    },
+    {
+      "path": "apps/mobile/src/features/onboarding/account-preferences.tsx",
+      "bytes": 1844,
+      "sha256": "4354b5ef050cb613a76039673dccc71f19f1f24960786e017c48b7efaae7389f"
+    },
+    {
+      "path": "apps/mobile/src/features/onboarding/artwork.tsx",
+      "bytes": 3303,
+      "sha256": "c7011720f93c322310f70f10b24ac2020f1e891d1d968f05bf9248abc1e8f0c3"
+    },
+    {
+      "path": "apps/mobile/src/features/onboarding/components.tsx",
+      "bytes": 6808,
+      "sha256": "8f01a092cb4ce948214a3857ba68faa7c795239e5277cef446dc362db65504be"
+    },
+    {
+      "path": "apps/mobile/src/features/onboarding/loading.tsx",
+      "bytes": 1086,
+      "sha256": "9bb165be02e7e8d758464fbb46800523cee084b3e440fabc7251e361c8d6ca68"
+    },
+    {
+      "path": "apps/mobile/src/features/onboarding/model.test.ts",
+      "bytes": 1125,
+      "sha256": "a4b2cbffa0c86bdf65e53cae1abf1d840b9cd34b7e086c4921592b981064a0a3"
+    },
+    {
+      "path": "apps/mobile/src/features/onboarding/model.ts",
+      "bytes": 1186,
+      "sha256": "77bd83a3d80d53655c9c3b6777e8eef3a0f53d481c2fc789d7feb68941c4dd36"
+    },
+    {
+      "path": "apps/mobile/src/features/onboarding/onboarding-screen.tsx",
+      "bytes": 19284,
+      "sha256": "c440ed63674f63f7d1bd1dc1dd8093db4c536fb35af77ed7657f870bc4b2db32"
+    },
+    {
+      "path": "apps/mobile/src/features/onboarding/provider.test.ts",
+      "bytes": 3960,
+      "sha256": "d2ec1ff04c42059face7199437c850d087e49851831d8d77f3bf59a240eac067"
+    },
+    {
+      "path": "apps/mobile/src/features/onboarding/provider.tsx",
+      "bytes": 2708,
+      "sha256": "d82ba506562bead02376fb7e1f5f31c59f2f605bf0aa00d0e11016866c5dc679"
+    },
+    {
+      "path": "apps/mobile/src/features/onboarding/repository.ts",
+      "bytes": 2707,
+      "sha256": "d7011a7ac67d34005dce105cd51aaba555bd74251617a916c0280cc598e4bc4a"
+    },
+    {
+      "path": "apps/mobile/src/features/onboarding/setup-card.tsx",
+      "bytes": 1358,
+      "sha256": "640cbee5b4b70dac74786d26c903bdb84cf99a4c494786b9f0f633146cee1570"
+    },
+    {
+      "path": "apps/mobile/src/features/privacy/backup-plugin.test.ts",
+      "bytes": 1083,
+      "sha256": "33ab6570190cda24af78726575b5381de39d3677e84f375f7ee0ee3f590dde90"
+    },
+    {
+      "path": "apps/mobile/src/features/privacy/draft-reset.test.ts",
+      "bytes": 512,
+      "sha256": "bbc77849a4db045cf1a11daff1be2ba08ac4922f675dae3a9b012151da191cfc"
+    },
+    {
+      "path": "apps/mobile/src/features/privacy/draft-reset.ts",
+      "bytes": 492,
+      "sha256": "496f1844988999d552c32ef990d906aabba53bdf9d17e07cee9dc5d44e21c9ce"
+    },
+    {
+      "path": "apps/mobile/src/features/privacy/jpeg.test.ts",
+      "bytes": 1001,
+      "sha256": "e33629039a5fb2d8c2025c365d58b0ef6ccd5ed226fedf686fd8ebb1c0f3be29"
+    },
+    {
+      "path": "apps/mobile/src/features/privacy/jpeg.ts",
+      "bytes": 1882,
+      "sha256": "e9d2253d3c259aec8fcfe59f3824b60bedfb864dcd8b4abeb453a0bc3aef9134"
+    },
+    {
+      "path": "apps/mobile/src/features/privacy/legal-screen.tsx",
+      "bytes": 2774,
+      "sha256": "efc9a68978b2aced3d3f09814e3e1d1bd27e8615294d8d181fa4ed78c19fc7b3"
+    },
+    {
+      "path": "apps/mobile/src/features/privacy/native-boundaries.test.ts",
+      "bytes": 4627,
+      "sha256": "2d4227038b885a17788e15dca6c5d531651fe26f214071417c4225844bf701dd"
+    },
+    {
+      "path": "apps/mobile/src/features/privacy/photo-cache-path.test.ts",
+      "bytes": 687,
+      "sha256": "f6264e7f1cdfc4a3ac16e65e59b17a0e09ff3bf8311847b3680dfdeb576de549"
+    },
+    {
+      "path": "apps/mobile/src/features/privacy/photo-cache-path.ts",
+      "bytes": 495,
+      "sha256": "e546a9365aa60cba0959d62af6b3f6ddfca52038b77459cbf859c96b8458c592"
+    },
+    {
+      "path": "apps/mobile/src/features/privacy/photo-cache.native.ts",
+      "bytes": 592,
+      "sha256": "effde7f2a374b49db6f1a271626ce690a80d1c2f3b167dd1e5f2cf3213ffa04f"
+    },
+    {
+      "path": "apps/mobile/src/features/privacy/photo-cache.ts",
+      "bytes": 154,
+      "sha256": "433d5a1a6a13449e1229043647b77f4eba94afe372c38e065e7c9a79036d3832"
+    },
+    {
+      "path": "apps/mobile/src/features/privacy/privacy-controls.tsx",
+      "bytes": 7205,
+      "sha256": "cfeec28d90d209263be8f4d17115d72c9f8b5b125e1fa4ff7806c4f0dee0f7f6"
+    },
+    {
+      "path": "apps/mobile/src/features/profile/account-screens.tsx",
+      "bytes": 1868,
+      "sha256": "f72bb23ada1a2fa221cfb78fcea3a15babd4e0e8c8dc61021f9197788c545919"
+    },
+    {
+      "path": "apps/mobile/src/features/profile/calorie-options.tsx",
+      "bytes": 3523,
+      "sha256": "1eaab685a7cb255f170391d9656233ac096c43d20b6f8827d79188d55e66d27d"
+    },
+    {
+      "path": "apps/mobile/src/features/profile/goal-display.test.ts",
+      "bytes": 1916,
+      "sha256": "b8fc74733ec31c4ad077fe6f306563e64232e47192a9b85f8ae61906fee44155"
+    },
+    {
+      "path": "apps/mobile/src/features/profile/goal-display.ts",
+      "bytes": 2132,
+      "sha256": "1a321e8e5778b10fb5b5fff5c1ea50d832571e70685b3c9a91db038e6e13756c"
+    },
+    {
+      "path": "apps/mobile/src/features/profile/goal-editor.tsx",
+      "bytes": 17720,
+      "sha256": "8f5cbbcb9d094c97cf91955235f00b5bf8f6becb15583afff25ec8e0745098a0"
+    },
+    {
+      "path": "apps/mobile/src/features/profile/health-data-screens.tsx",
+      "bytes": 11108,
+      "sha256": "0110f332ff9be0ec6843b5b0b8f3dfcae93a7c07511a35a1d4ad02773144b9d2"
+    },
+    {
+      "path": "apps/mobile/src/features/profile/pending-changes.tsx",
+      "bytes": 5855,
+      "sha256": "b1ba31dd4a5ee64cb3bcfcd64f8c30eeebddb04ff1b8ce4b433b5d65f69ca130"
+    },
+    {
+      "path": "apps/mobile/src/features/profile/personal-details.tsx",
+      "bytes": 5468,
+      "sha256": "1cb31618cf87ffb3361cfaec87d9afae2b0fccfb285b91530e1ddce2d00dc1fe"
+    },
+    {
+      "path": "apps/mobile/src/features/profile/preference-sheets.tsx",
+      "bytes": 4433,
+      "sha256": "4bdcde1607d7f0215512719f8c00e0c4168cd547cbb8d4fb02d597daba93d31e"
+    },
+    {
+      "path": "apps/mobile/src/features/profile/profile-landing.tsx",
+      "bytes": 10673,
+      "sha256": "fc333965489803b057a500cc93bdeabd9c96e3731be8a766742a9d158b85c5fd"
+    },
+    {
+      "path": "apps/mobile/src/features/profile/repository.ts",
+      "bytes": 1789,
+      "sha256": "b0f48871c306629d11105556e035ebe05edd0a47c90eb6749e9d1d2bc8c7979c"
+    },
+    {
+      "path": "apps/mobile/src/features/profile/settings-ui.tsx",
+      "bytes": 8720,
+      "sha256": "0c87cb5ec84876a22f437c6dbb6007d815c87f6990c36434e9f6f4491bba00c6"
+    },
+    {
+      "path": "apps/mobile/src/features/profile/sync-status.ts",
+      "bytes": 1767,
+      "sha256": "2a25e75d8963971f630abab8b2dcb6c5f6e64d56e7dfac512a7035023da5bfb7"
+    },
+    {
+      "path": "apps/mobile/src/features/profile/use-unsaved-changes.tsx",
+      "bytes": 1888,
+      "sha256": "72b098e7216c33d1e0bccc5f0c6c1d59d1adaa78d11f4dc861fb89fde936f949"
+    },
+    {
+      "path": "apps/mobile/src/features/progress-photos/image.ts",
+      "bytes": 3441,
+      "sha256": "93caa6b856be494f95e017cdf27285185f2dbb4c7104c52a70f2b416ed140072"
+    },
+    {
+      "path": "apps/mobile/src/features/progress-photos/model.test.ts",
+      "bytes": 980,
+      "sha256": "8e7be36981fc6483932be3211c40e315a42ed9f8fccaadc77d4755174c34b8b4"
+    },
+    {
+      "path": "apps/mobile/src/features/progress-photos/model.ts",
+      "bytes": 2153,
+      "sha256": "da1ac4ea2db7d2b373e84a738eb342c3c7284b0d42a4bea5a39d28a77a86265a"
+    },
+    {
+      "path": "apps/mobile/src/features/progress-photos/progress-photo-gallery.tsx",
+      "bytes": 15791,
+      "sha256": "5b9b0a9bc518f25049c3e022eb21e7e2073b44cde458f13039d739a4a55bead2"
+    },
+    {
+      "path": "apps/mobile/src/features/progress-photos/repository.ts",
+      "bytes": 5475,
+      "sha256": "ef1bf1f92c24dc1ecac45ebb140dece15a1ce0aa76c6ecd0f4cd54868f8e7c75"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/custom-editor.tsx",
+      "bytes": 11770,
+      "sha256": "ac16dce91b5110ee525fcae8df9e634914348c27c65a4f63675991f2ccc3c9ce"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/device.native.ts",
+      "bytes": 3550,
+      "sha256": "969c16b8c5d56003c69ebf4e2dc7892f517fa75637653a32c361994bcf45bac1"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/device.test.ts",
+      "bytes": 4812,
+      "sha256": "0d1d52429854c7279303cad830d911f85d3b50f5125679d9375d3a777fd13667"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/device.web.ts",
+      "bytes": 1007,
+      "sha256": "b8c71f0ea2184e8bb2b26f3d11a0b9c25465df2202883a20b8646bd810163e44"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/intent-storage.ts",
+      "bytes": 2359,
+      "sha256": "d8e3fb472cb4c949132899d0b8d8e66d670afdf824f06da3b26777d69517af2d"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/lifecycle.ts",
+      "bytes": 505,
+      "sha256": "f78e830ab5c830447aea203a6efe236f6f192b355bd1c3354a759ec67ed43ebb"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/meal-intent.test.ts",
+      "bytes": 679,
+      "sha256": "af67d138dad9a15fea5543244f4974ee916bdeb7c559c8313378f58ff2bd6625"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/meal-intent.ts",
+      "bytes": 488,
+      "sha256": "53037e3b41d04f35f015aff01866e59b8bbfab6e4f2424357232d7d210e27bd4"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/model.test.ts",
+      "bytes": 7495,
+      "sha256": "117a520b67bd16a900239c4012bb23a797d1c40231e2b563ce349519b40cd811"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/model.ts",
+      "bytes": 10331,
+      "sha256": "e7576c6f625d1a6e1e547984a515ba8a386de08a652feb241a3f9a5f6d38ccf8"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/navigation-model.test.ts",
+      "bytes": 3494,
+      "sha256": "54a25c835e4c449ecccd1bdf579df150e67a4324d1b46368b1101aa2ca33c3fa"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/navigation-model.ts",
+      "bytes": 2837,
+      "sha256": "469521c6acd4a2aca37c96383b5c035bbd43afb5ac1a7fd3edc85a2edb6096e6"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/notification-observer.tsx",
+      "bytes": 8386,
+      "sha256": "5e45549e36bad9a6ac2afeb7e2108a8a4d3704ded4cb760937c162c0d161184f"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/notifications.native.ts",
+      "bytes": 136,
+      "sha256": "72249cc08406b3de508156434f9b1a9bb2d662d1930c8cea3b3202712c11caca"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/notifications.web.ts",
+      "bytes": 136,
+      "sha256": "72249cc08406b3de508156434f9b1a9bb2d662d1930c8cea3b3202712c11caca"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/pending-prompt.tsx",
+      "bytes": 910,
+      "sha256": "cacdc94e501534d95a2d8890578563065523ee2580e221c787114412ca5a1258"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/preview-privacy.test.ts",
+      "bytes": 1041,
+      "sha256": "a2d8fe7aa6193363cc02590cfc3bc30054442c838c25fe3e0e577b3b6b540e19"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/preview-privacy.ts",
+      "bytes": 588,
+      "sha256": "c13707ac56da1e47941d2b780a6fcfebc0a44cc8757f18329586d9ab49e97f76"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/reminders-screen.tsx",
+      "bytes": 16358,
+      "sha256": "bd5e263c6c1ebbf5707c356f5b8ffba0b422c230e3375e7d7a4ff0b91923a2d2"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/repository.ts",
+      "bytes": 3062,
+      "sha256": "55c34e5c8a0bac186fc8b93d8421fa66c70b6e750ece82232b7566ef34ddaafb"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/rest-today.tsx",
+      "bytes": 2206,
+      "sha256": "07968a9019737a2f374ae6adfc3782f129deeaa6461c126ac895518633e68e11"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/routine-controls.tsx",
+      "bytes": 7572,
+      "sha256": "6ea0d87f179b7eb890e88053a25d2a8950fc8a1a5b2731195cccde3cec23c4aa"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/routine-editor.tsx",
+      "bytes": 2974,
+      "sha256": "f26735b5f432ed04a4a94c7ec32f6b17b0a4232bb5df7fec1de8d498aafa0afd"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/routine-model.test.ts",
+      "bytes": 2913,
+      "sha256": "71ae70df684b145c0548495cdee091757f57273d39e837817ef5c0632af41b0e"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/routine-model.ts",
+      "bytes": 7619,
+      "sha256": "809cf70ad4f468e058a1c8024bfa0b65a1d2807f504e66f7fe8b99c3fa949776"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/routine-storage.ts",
+      "bytes": 801,
+      "sha256": "c72a491cbae6d67acf17dc09172c311c8e89796317bf489794d7d4794570d4a3"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/schedule-model.test.ts",
+      "bytes": 10261,
+      "sha256": "603f47ce6b3ed1f358dd4cbfd66adb5fb630b69bff74000b7b4101509555a461"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/schedule-model.ts",
+      "bytes": 9242,
+      "sha256": "8d5a759148cbf0c44692edab4ef9d97b12507dc5e49ad793a2983ab58b560e24"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/service.test.ts",
+      "bytes": 9236,
+      "sha256": "f12951cbebe4de7ed8a023ce19d3c8d4db90af8ae656bf034505ba5a7fa5dd07"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/service.ts",
+      "bytes": 12824,
+      "sha256": "3c0c9426315e835ff75487650a6c35ae14e083e46aeefd53a789eaa966edc769"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/time-field.native.tsx",
+      "bytes": 1433,
+      "sha256": "82aaed5851bbb80dccf617c9e035be566fc8e0f8241e10334066f74ddb25954a"
+    },
+    {
+      "path": "apps/mobile/src/features/reminders/time-field.web.tsx",
+      "bytes": 1593,
+      "sha256": "311edf921307240c0d8532eab9fa6d4ce03924b0ff557c49172ae8dbe7ddad4c"
+    },
+    {
+      "path": "apps/mobile/src/features/streaks/engine.test.ts",
+      "bytes": 14806,
+      "sha256": "cbbd483037d66d1d00bfbf875a173b1c783ecccdd9c07fa4c132023a49b8f78d"
+    },
+    {
+      "path": "apps/mobile/src/features/streaks/engine.ts",
+      "bytes": 11718,
+      "sha256": "de3a49a70b6e8fd5a19062efeab2f0a6aef8ffcc94be757f7f56927a54536591"
+    },
+    {
+      "path": "apps/mobile/src/features/streaks/initialize.ts",
+      "bytes": 797,
+      "sha256": "dbd00728f37b9af94131de9b3590a7f2e63d4413984811d4226824e0bd291cc1"
+    },
+    {
+      "path": "apps/mobile/src/features/streaks/model.ts",
+      "bytes": 3838,
+      "sha256": "47b7268be795996d6cc9f80295a3472714e40d7dc33fe869ecde1cfcd3fe5336"
+    },
+    {
+      "path": "apps/mobile/src/features/streaks/repository.ts",
+      "bytes": 3187,
+      "sha256": "f7256a6ad209b1012b085dbb0b90ba5d015151133360c2bb28dd85998812ea27"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/calendar.ts",
+      "bytes": 776,
+      "sha256": "34fabef3681157363fe8bd50aa31dd96e6925f8dfb93d8b86d6ddb98a052f49d"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/dashboard.test.ts",
+      "bytes": 6277,
+      "sha256": "cf04056438ea3330750fd50bbcdb5c3664f390d304e29a9b87747bf1822ae5c3"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/dashboard.tsx",
+      "bytes": 29644,
+      "sha256": "50c4228410fff1ebdbd90b01bf35b556cb1103dace4067771742e45266cb59ac"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/data.ts",
+      "bytes": 9131,
+      "sha256": "31eaa0afbb7ed214ccda641b3a447ea84070cc085177aa8266c9de6f834b1c77"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/drag.test.ts",
+      "bytes": 759,
+      "sha256": "2011d17339331ead7e548ec533b7136ecd6139521cccdc80eb143258c52cc40d"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/drag.ts",
+      "bytes": 693,
+      "sha256": "752e76068e6e6a77459b3aedee1c44d82ebb2f61d02710039a3d69bb53ce44e5"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/editor-grid.tsx",
+      "bytes": 14378,
+      "sha256": "9a31eec20d4ca513a718ca35feae916b85fe6922f623ee8a303a0eb8eaff7410"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/extra-widgets.test.ts",
+      "bytes": 4859,
+      "sha256": "b44167c375820cfa495d67171d5116a5b8f8f45ba005a74b7ba9e6f5dfdce681"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/extra-widgets.tsx",
+      "bytes": 22982,
+      "sha256": "35827ab868d7c2ec8d961de03ec022b1dcb2f0752da1ad2de3b8ebc82e59253d"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/layout-store.ts",
+      "bytes": 1855,
+      "sha256": "fedad7f792f91031e07a7c0e5814b07fccc5097166a65c84dac457538664b755"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/layout.ts",
+      "bytes": 9048,
+      "sha256": "439dd8e345bbc0c3051c6d6394c88528573540da4a6ad06fe8722efa110fa312"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/meals.ts",
+      "bytes": 896,
+      "sha256": "7bda9d09f3b400efb9811f07100d1df410868d712c95a9ed5a0935213d17fc9e"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/storage.ts",
+      "bytes": 744,
+      "sha256": "78cab9a3a45fa0645f17516b47138f2306aeddfe2991a328de0e2d8cbf41961e"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/streak-week.test.ts",
+      "bytes": 2417,
+      "sha256": "257acd13c29a59429c46dccb62c35dce82e818e3f282c86cead416ce0da51600"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/streak-week.ts",
+      "bytes": 1144,
+      "sha256": "3aca1e78cb20af1e89ca8fe1a173ef82e71e4f16f9a60eeee517e63d9914b8dd"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/summary.test.ts",
+      "bytes": 12009,
+      "sha256": "e4c4f36abc547dc47bfd2ac5e8f44a3b113f4e1929eb05d4c533be51361903fa"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/training.ts",
+      "bytes": 7495,
+      "sha256": "78aa9d38d6d5d048adc55fa359b5b916f5b9c2d72b0f73fc9e6a473cde7284a0"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/use-summary.ts",
+      "bytes": 7960,
+      "sha256": "b7169611536c74639a5074f494fa0929e7e3c8fc9fd8c99eecf16baecc5ca5ca"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/widget-design.tsx",
+      "bytes": 2484,
+      "sha256": "06b22599bde7f90aa26b6bc0f877f701f738284af80fb2e856c50851914e1c21"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/widget-frame.tsx",
+      "bytes": 1650,
+      "sha256": "987ccb4c6efcf6cc3f796a58c94d569f75691cfe8c865a4b2f60f7b3f97b351d"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/widget-renderers.tsx",
+      "bytes": 15133,
+      "sha256": "6822621383c3a4dc085b2f44623c98f9efba36f4fd0422b55779d630ced20aad"
+    },
+    {
+      "path": "apps/mobile/src/features/summary/widget-skeleton.tsx",
+      "bytes": 3809,
+      "sha256": "53843e7563c122c3753155cdd4589bb42f9ba5783817af30eccc05d182ca885e"
+    },
+    {
+      "path": "apps/mobile/src/features/training/cardio-draft.ts",
+      "bytes": 1850,
+      "sha256": "b5a80a8079a7ed6dd4979cfa6d427761c1c10988a11669f44e4b692e940f2a66"
+    },
+    {
+      "path": "apps/mobile/src/features/training/cardio-log.test.ts",
+      "bytes": 4153,
+      "sha256": "565d7f4e44a1b395fd1d311b4ca0e2fbab31f8b55c9eb7fa92956fc18a9fbe64"
+    },
+    {
+      "path": "apps/mobile/src/features/training/cardio-log.tsx",
+      "bytes": 10270,
+      "sha256": "f8b9a40678f636ae49ce9dc435a5cccac20fcb02a69babf0c5968ee838b5b061"
+    },
+    {
+      "path": "apps/mobile/src/features/training/catalog.test.ts",
+      "bytes": 725,
+      "sha256": "dab364508182586412e5c050cc567ac7a002ebda5fffb2353ebf9cf1baae3c1c"
+    },
+    {
+      "path": "apps/mobile/src/features/training/catalog.ts",
+      "bytes": 1744,
+      "sha256": "0dee661d10f5e7072c7daa54258bfb14284af028e0e8de1fe2adfc917be11387"
+    },
+    {
+      "path": "apps/mobile/src/features/training/exercise-guides.test.ts",
+      "bytes": 511,
+      "sha256": "d9479d59a1e32ff08ecd453048c3589505fdd4fb4715e484e94e9530727b395f"
+    },
+    {
+      "path": "apps/mobile/src/features/training/exercise-guides.ts",
+      "bytes": 2101,
+      "sha256": "b04555dec0fe6ba9885a42a94caa42ca8e39fd68528aa029d60d9f855e046854"
+    },
+    {
+      "path": "apps/mobile/src/features/training/exercise-help.tsx",
+      "bytes": 1900,
+      "sha256": "86b6a4241662f87d22999c652ad43cf0b1d8105ae0c824c4ca9d02a23f462dc9"
+    },
+    {
+      "path": "apps/mobile/src/features/training/exercise-reorder-controls.tsx",
+      "bytes": 731,
+      "sha256": "525bf2f9dde76a17584547fbb0cfeae129476bf851db74c4124debeff9572a70"
+    },
+    {
+      "path": "apps/mobile/src/features/training/exercise-set-fields.tsx",
+      "bytes": 6056,
+      "sha256": "0ee5d19b282d90918c1840ee55a69edb727b46ea84e52e06c63dcce013069348"
+    },
+    {
+      "path": "apps/mobile/src/features/training/nutrition-progress-card.tsx",
+      "bytes": 8578,
+      "sha256": "02fc2284d36183b42fae1b8dafe9808de49cade33a17ca0b65bdb0a6b2cbe1ec"
+    },
+    {
+      "path": "apps/mobile/src/features/training/progression.test.ts",
+      "bytes": 1584,
+      "sha256": "4fcf61d4754cf8a0fda5f3d5f2ce067d8ad3ed0de7e705e82837eed8069980a5"
+    },
+    {
+      "path": "apps/mobile/src/features/training/progression.ts",
+      "bytes": 2006,
+      "sha256": "242a6211d71075244fdd96179d6bce1c4b5c2a443a8be04037e640c561697bd5"
+    },
+    {
+      "path": "apps/mobile/src/features/training/repository.ts",
+      "bytes": 16395,
+      "sha256": "da4703964fe98282f113e357e3137fd56ac0b3f33d17c8181b1d1a0ab55d4e14"
+    },
+    {
+      "path": "apps/mobile/src/features/training/use-history-data.ts",
+      "bytes": 4134,
+      "sha256": "0576ab89e2babff5ff3b4bec586e1b73830a78b2d13474abbfe7671180265435"
+    },
+    {
+      "path": "apps/mobile/src/features/training/workout-draft.test.ts",
+      "bytes": 3629,
+      "sha256": "86313f507001b037f3c880755bdab5aedd4e9048afba01afc2b408c500390f56"
+    },
+    {
+      "path": "apps/mobile/src/features/training/workout-draft.ts",
+      "bytes": 5969,
+      "sha256": "01a7a855b8cd950398efa7ade381133be74a83850a344356babf819ce4304a40"
+    },
+    {
+      "path": "apps/mobile/src/features/training/workout-history.test.ts",
+      "bytes": 781,
+      "sha256": "8a003bbb3a508190f89d7eb998a7a316a4ee5098689a23b35443fa12e6da90eb"
+    },
+    {
+      "path": "apps/mobile/src/features/training/workout-history.ts",
+      "bytes": 824,
+      "sha256": "f2612fffd5b7c287ea9ef40005d12277ec28423c28bbf186e1b2ecd8b9fdefbe"
+    },
+    {
+      "path": "apps/mobile/src/features/vitals/blood-pressure-pulse.test.ts",
+      "bytes": 2595,
+      "sha256": "ddb39d74d3853bb476d8f2644f65fd15538f5e9ef5cf7b150e593c90a8a1c581"
+    },
+    {
+      "path": "apps/mobile/src/features/vitals/blood-pressure-pulse.ts",
+      "bytes": 2160,
+      "sha256": "7a38acc4d7c4f5c545abab3e150d1462207c05706d8e3dd79954277dc704e628"
+    },
+    {
+      "path": "apps/mobile/src/features/vitals/blood-pressure.test.ts",
+      "bytes": 729,
+      "sha256": "546ff3cab3f95c5bd822fecba19931de586ae4ba9c200d6924a7441d079be91d"
+    },
+    {
+      "path": "apps/mobile/src/features/vitals/blood-pressure.ts",
+      "bytes": 1104,
+      "sha256": "3ccccba50682e1ec5e560e41cccb858789ce177a0e4940950e03b4e2fdfc72d2"
+    },
+    {
+      "path": "apps/mobile/src/features/vitals/chart.test.ts",
+      "bytes": 3382,
+      "sha256": "b71ad184d22ad5ab1fc9c76eaf52743e279340e2d36bb1b63c120e181d45d930"
+    },
+    {
+      "path": "apps/mobile/src/features/vitals/chart.ts",
+      "bytes": 5760,
+      "sha256": "020b0759a9d51f9689b472d35543c105cd3ccf457ef854fce4d7ff8b18e64ddb"
+    },
+    {
+      "path": "apps/mobile/src/features/vitals/manual-vitals-log.tsx",
+      "bytes": 11172,
+      "sha256": "1a3316d4d1bfa8db26b9564a0041c7c0d921417c9e7b4a2a76bf6a98605203ae"
+    },
+    {
+      "path": "apps/mobile/src/features/vitals/sqlite-store.test.ts",
+      "bytes": 8115,
+      "sha256": "65164223cff13f5674d223745bcbf350b647c9045ccbd7b722931be901bd2afb"
+    },
+    {
+      "path": "apps/mobile/src/features/vitals/sqlite-store.ts",
+      "bytes": 2743,
+      "sha256": "55dd840462e175781713f02f0aff64346cbf739b2a269432f357c0f88b3204a7"
+    },
+    {
+      "path": "apps/mobile/src/features/vitals/storage.native.ts",
+      "bytes": 4857,
+      "sha256": "ab30ff4d2622b019332d04ead2797d1c37fff41052c88b5f556539ace43a491f"
+    },
+    {
+      "path": "apps/mobile/src/features/vitals/storage.web.ts",
+      "bytes": 3427,
+      "sha256": "f756444977672822dc682f8afbbe33af89e9b243c7d093de54cb3807cdfdde75"
+    },
+    {
+      "path": "apps/mobile/src/features/vitals/store-model.ts",
+      "bytes": 9136,
+      "sha256": "c48092171a1bd516e4ab4af8f76dbbe5a18f28479a7c5cf61bbdfc54d1ce0721"
+    },
+    {
+      "path": "apps/mobile/src/features/vitals/sync.ts",
+      "bytes": 4647,
+      "sha256": "9dc34c217a0be956a967c3e7dfd03eeb7bdbc3ba03f53a50e015ffaa2fe68b43"
+    },
+    {
+      "path": "apps/mobile/src/features/vitals/trend-card.tsx",
+      "bytes": 28199,
+      "sha256": "0cb9f5c3c810737bd744818e0528de8057f70a2f141709384f46e6d3081a9f7b"
+    },
+    {
+      "path": "apps/mobile/src/lib/app-links.test.ts",
+      "bytes": 677,
+      "sha256": "6206448332f4d7589462a19bb320b051acdb1362c6d9fa99a67026b72b81c4c2"
+    },
+    {
+      "path": "apps/mobile/src/lib/app-links.ts",
+      "bytes": 497,
+      "sha256": "8aa47c155372d79ea4a40143e9b6563f0904346aea833553190295136d528882"
+    },
+    {
+      "path": "apps/mobile/src/lib/config.ts",
+      "bytes": 346,
+      "sha256": "ebe7c05ec0fc9542180cefe0b465caabb5a890a86d23f30adb2e3481a69b54a2"
+    },
+    {
+      "path": "apps/mobile/src/lib/data-changes.ts",
+      "bytes": 541,
+      "sha256": "805b002c3dcda6d063c12e5676ad234a9610187354388e6f4e91716864c36e42"
+    },
+    {
+      "path": "apps/mobile/src/lib/entry-date.test.ts",
+      "bytes": 898,
+      "sha256": "b67945410209941a37333a0b85de0eefc714e1a18db3c48e8117a0627a4019ed"
+    },
+    {
+      "path": "apps/mobile/src/lib/entry-date.ts",
+      "bytes": 890,
+      "sha256": "31e9a93cfbb361d7de0bf19a10260a89868d5aa880b50a65328ecb63d10d3b7a"
+    },
+    {
+      "path": "apps/mobile/src/lib/id.test.ts",
+      "bytes": 448,
+      "sha256": "95bdfcf19b0f4acc3731b521b160e707ec5ba8edabe65c9d3036f2afe6fcb632"
+    },
+    {
+      "path": "apps/mobile/src/lib/id.ts",
+      "bytes": 633,
+      "sha256": "1f8568c7189bd7057d19a88080ff47596c020a5813ff46cf1fc8904fda7a5536"
+    },
+    {
+      "path": "apps/mobile/src/lib/mutation-model.test.ts",
+      "bytes": 5444,
+      "sha256": "119e507acac7dcc56dba360b636809a5860bbedd1f8705c20f55fde8c11e8cbb"
+    },
+    {
+      "path": "apps/mobile/src/lib/mutation-model.ts",
+      "bytes": 3922,
+      "sha256": "d987471112dd01a3e63a6e227e80d953ede18ad0281f39a5d27e3588c945ec22"
+    },
+    {
+      "path": "apps/mobile/src/lib/mutations.ts",
+      "bytes": 7098,
+      "sha256": "ca1c5695891d2610b23776e2c2ea4d3046b1fbd22c81b8ab642a7cf36c038492"
+    },
+    {
+      "path": "apps/mobile/src/lib/pagination.ts",
+      "bytes": 824,
+      "sha256": "255b36f846b7122fbb799d3a6ed7bb35e28205f54c33117d786e70324e0a4993"
+    },
+    {
+      "path": "apps/mobile/src/lib/resource-store.test.ts",
+      "bytes": 2544,
+      "sha256": "c29dd7316edaf43cbc059ea735fc9e05e788c141c4c25c419736abcdad020900"
+    },
+    {
+      "path": "apps/mobile/src/lib/resource-store.ts",
+      "bytes": 2150,
+      "sha256": "248ecbce2b61b454d62562af06c1c2c86c526ea1c14e0337506f13cf6dc8888e"
+    },
+    {
+      "path": "apps/mobile/src/lib/secure-store.ts",
+      "bytes": 1021,
+      "sha256": "5704cab8149f809ee802fb876473ea03f79a9d961455d0eba71b8b779103695e"
+    },
+    {
+      "path": "apps/mobile/src/lib/service-errors.test.ts",
+      "bytes": 713,
+      "sha256": "cdb5229b5d131e1a649b1ae402c0f0e5199d1f02902ae89be69bf960e4409f07"
+    },
+    {
+      "path": "apps/mobile/src/lib/service-errors.ts",
+      "bytes": 599,
+      "sha256": "e505f0093b21e25dda217a4c78773bd2f389b7608ccd1c4b1b987a2b55c43bcb"
+    },
+    {
+      "path": "apps/mobile/src/lib/supabase.ts",
+      "bytes": 1014,
+      "sha256": "a692b97d75fffea03b690ecc7c2e83c7bb97bd6da5814ea4b9083715065899df"
+    },
+    {
+      "path": "apps/mobile/src/lib/use-draft-field.ts",
+      "bytes": 553,
+      "sha256": "59b13820795eed738dca4d9fc4d44f1696e921b4e1d7ffd32a01e548392d6898"
+    },
+    {
+      "path": "apps/mobile/src/lib/use-resource.ts",
+      "bytes": 1195,
+      "sha256": "7b690eac6e32416a964beba4b45079a13f26ac30d43ad63753c180cd687452a3"
+    },
+    {
+      "path": "apps/mobile/src/ui/accessibility-focus.ts",
+      "bytes": 1120,
+      "sha256": "1e497c92b651e6586619a48419408ce5c4c076e82015f94e4fcf2a4670ab65cc"
+    },
+    {
+      "path": "apps/mobile/src/ui/adaptive-color.ios.ts",
+      "bytes": 184,
+      "sha256": "f0f02bcfefed77e7b324bdc509a4cc8d425ed776f01f7d2b449475da3c40aa57"
+    },
+    {
+      "path": "apps/mobile/src/ui/adaptive-color.ts",
+      "bytes": 100,
+      "sha256": "9fbad27e726cbe6e8a69432f3d03ae65a4c1892199a1c2d733bf33d162c33259"
+    },
+    {
+      "path": "apps/mobile/src/ui/adaptive-color.web.ts",
+      "bytes": 998,
+      "sha256": "41bec847aa3c1815293dd81f9aefcb8da0af813394415b1ffbc8faa82e39bab6"
+    },
+    {
+      "path": "apps/mobile/src/ui/ai-action-card.tsx",
+      "bytes": 1300,
+      "sha256": "028b7a083d7a8ad3c96868e879970d17ae9b266e58870fc4e635cbc30f7b3047"
+    },
+    {
+      "path": "apps/mobile/src/ui/appearance-model.ts",
+      "bytes": 661,
+      "sha256": "7c68367a1876fae69615aee102b44d1ddc238dd67acde84f97592e6eeb01bd9a"
+    },
+    {
+      "path": "apps/mobile/src/ui/appearance.test.ts",
+      "bytes": 915,
+      "sha256": "df93ea0384667ac12bc8726d1eeebc4133560af2c2ab1f1b975e455fd3763f98"
+    },
+    {
+      "path": "apps/mobile/src/ui/appearance.tsx",
+      "bytes": 3225,
+      "sha256": "14a3abcf95c911c9910597b054d13cae09e8cf4b40e74e0aabec1cdb265c0672"
+    },
+    {
+      "path": "apps/mobile/src/ui/confirmation-actions.tsx",
+      "bytes": 2129,
+      "sha256": "01c05a2e66ab8a0bb13af5f6f50689f893229dda810f6a2d6564598e6051d326"
+    },
+    {
+      "path": "apps/mobile/src/ui/entry-date-field.tsx",
+      "bytes": 1899,
+      "sha256": "05d043c045faa471a87b42a21bb13dc01d8bd246988716820620739fb454e3e3"
+    },
+    {
+      "path": "apps/mobile/src/ui/entry-date-field.web.tsx",
+      "bytes": 2269,
+      "sha256": "350013f3371514c01c71454b09721f4e43597b8c8f15cc7c749079262120dc08"
+    },
+    {
+      "path": "apps/mobile/src/ui/icon-button.tsx",
+      "bytes": 1485,
+      "sha256": "12086ae48096ccbc0b277ab9d9fbef55466368fdf364fa94b179abd1c8c79224"
+    },
+    {
+      "path": "apps/mobile/src/ui/icon.tsx",
+      "bytes": 5997,
+      "sha256": "0cab89670a40ad98cbabe6f863f5ee2c06f3436006896f57a1ad0ba9f6005c43"
+    },
+    {
+      "path": "apps/mobile/src/ui/integer-slider.tsx",
+      "bytes": 3786,
+      "sha256": "3146fb911be1a0cc23967acf415711acaa72c88427a1852d8cfe601785817eb0"
+    },
+    {
+      "path": "apps/mobile/src/ui/keyboard-input-scope.tsx",
+      "bytes": 1764,
+      "sha256": "2370de08c5021668098ffc44dd52b6de78cc86b8ba869322e82dfd62c988a3fe"
+    },
+    {
+      "path": "apps/mobile/src/ui/modal.tsx",
+      "bytes": 486,
+      "sha256": "61201b836b403cd92582cb86618e21089231dd2c9943dee217a0e8949a3e1203"
+    },
+    {
+      "path": "apps/mobile/src/ui/motion.tsx",
+      "bytes": 1279,
+      "sha256": "9c052421915b8b534a72d229044ff0b383345ab9a4f4d85224e0eb88d600a861"
+    },
+    {
+      "path": "apps/mobile/src/ui/pressable.tsx",
+      "bytes": 3038,
+      "sha256": "876bf2c2156a537c25a966f8aa26972010451c990793ffcba0bdc80e5f4fc7fd"
+    },
+    {
+      "path": "apps/mobile/src/ui/privacy-boundary.test.ts",
+      "bytes": 5039,
+      "sha256": "fcf5ce8b256e428c06c850370b93e5b64f0c71f22c8e45609ed6909ad2092d25"
+    },
+    {
+      "path": "apps/mobile/src/ui/privacy-boundary.tsx",
+      "bytes": 1539,
+      "sha256": "c414ad29a1d7aa2a87e1c90da64fdd18f78afa9fce804b3854f1a4f29bc2548c"
+    },
+    {
+      "path": "apps/mobile/src/ui/profile-theme.ts",
+      "bytes": 4929,
+      "sha256": "5c8fb29cd77ef50a46b937295d06b5d865ab03cab67299139cc8c1f2539574c7"
+    },
+    {
+      "path": "apps/mobile/src/ui/screen-scroll-view.tsx",
+      "bytes": 1080,
+      "sha256": "1709fb3bfe368e6a3df3e905f01660e8075663f914d204b3b6fb717337f7af3a"
+    },
+    {
+      "path": "apps/mobile/src/ui/segmented-control.tsx",
+      "bytes": 2791,
+      "sha256": "3658ad100b7ceae714fc1e4dd9375383c6dc9324e721547da672f146466e9cbd"
+    },
+    {
+      "path": "apps/mobile/src/ui/settings-sheet.tsx",
+      "bytes": 5461,
+      "sha256": "873ba619350e7ed4181bf316aa1f1daf7f51c554113fe34dae19afed2961ca73"
+    },
+    {
+      "path": "apps/mobile/src/ui/skeleton.tsx",
+      "bytes": 2466,
+      "sha256": "33a91695f418d6002e0956b422deadfea2e43a966fac490150735ca4c53b1b73"
+    },
+    {
+      "path": "apps/mobile/src/ui/swipe-content.tsx",
+      "bytes": 2342,
+      "sha256": "2eea19754966b1fc96cd7215c8f55c5a23d95fd8187f51eb7cfde1812ec740b5"
+    },
+    {
+      "path": "apps/mobile/src/ui/swipe.test.ts",
+      "bytes": 1001,
+      "sha256": "d4db94eb560136d1cf98181cc798238b5b79424f1cd7f9fccf631d84556fe984"
+    },
+    {
+      "path": "apps/mobile/src/ui/swipe.ts",
+      "bytes": 558,
+      "sha256": "9c652bc6a3c4b2825cc0cb763d0f793145e95b2b9cedf15d9c9572342f04b7ac"
+    },
+    {
+      "path": "apps/mobile/src/ui/text-input.tsx",
+      "bytes": 1232,
+      "sha256": "7539a24dde615a704e460c9d61f890c2e518984da02d1c6f898811f59d869b9c"
+    },
+    {
+      "path": "apps/mobile/src/ui/theme.ts",
+      "bytes": 1428,
+      "sha256": "04594ba2c53202f914f663fa1f7219fb00a056f3e48d948fb298c1a523bd2788"
+    },
+    {
+      "path": "apps/mobile/src/ui/tracking-styles.ts",
+      "bytes": 2429,
+      "sha256": "c2cf0e053de1e2a253361e31b43956d494bfff85d41c2864cf9f4fe12b9a4f79"
+    },
+    {
+      "path": "docs/decisions/ADR-001-hosted-supabase-without-docker.md",
+      "bytes": 644,
+      "sha256": "96b04d289efc943459a527873e5b5522d507c445d7fa110c31a66e256ca86c9e"
+    },
+    {
+      "path": "docs/decisions/ADR-002-read-only-healthkit-imports.md",
+      "bytes": 2388,
+      "sha256": "5199d2b3c7c9e1cde6d7c946faa1d584a23f9fabed6f4c2614050bfe9aeb4834"
+    },
+    {
+      "path": "docs/decisions/ADR-003-private-progress-photo-storage.md",
+      "bytes": 3182,
+      "sha256": "f9a5d9951653c90077312b8d9fe5d512af0ec284cbc60749bc79230bad569bae"
+    },
+    {
+      "path": "docs/decisions/ADR-004-ai-meal-label-estimates.md",
+      "bytes": 3321,
+      "sha256": "9558dcf03eb96af0e7672d30c299e930471beb6d7bad12dc978ece1bf152935a"
+    },
+    {
+      "path": "docs/decisions/ADR-005-private-ai-health-coach.md",
+      "bytes": 5519,
+      "sha256": "a744c6f7168c081e7bca2733114d7605ef07e41148820edad60cf42ba622cbb2"
+    },
+    {
+      "path": "docs/decisions/ADR-006-reusable-recipe-snapshots.md",
+      "bytes": 1934,
+      "sha256": "44ef780afa5c9980f80f79706785c0e4170f4afd105e6c8e2648094beea4a69d"
+    },
+    {
+      "path": "docs/decisions/ADR-007-beverage-volume-counting.md",
+      "bytes": 4021,
+      "sha256": "d3146d4cb063c2569903f8ce4bbb79dd752e52836863b9c8ff165160dc11cedc"
+    },
+    {
+      "path": "docs/decisions/ADR-008-summary-widgets-and-streaks.md",
+      "bytes": 16522,
+      "sha256": "0ef633989878b07d62b788e59e9202afda5590b41ea825641587c6955e0f4689"
+    },
+    {
+      "path": "docs/decisions/ADR-009-routine-reminders.md",
+      "bytes": 17584,
+      "sha256": "f800fff3d4abca3b732c5f85d1841f8b5c137259a7d16927d20484349e1ad6a5"
+    },
+    {
+      "path": "docs/decisions/ADR-010-sustain-entry.md",
+      "bytes": 7617,
+      "sha256": "5915ff125a5ec96b534cc0a9f304ae54e62c140ec7341dda008363c7211f9515"
+    },
+    {
+      "path": "legal/README.md",
+      "bytes": 2349,
+      "sha256": "9aeb4ad9bd0744cacf150b1b10cbf354fb285dec19d8c93b4c1a58cfeeaf24b7"
+    },
+    {
+      "path": "legal/policies.json",
+      "bytes": 20772,
+      "sha256": "3c3adfbf2868eb37e4edc6e2b476dc4b391d12aab4c2e9c0dc6f893a4b37f9ad"
+    },
+    {
+      "path": "legal/release.json",
+      "bytes": 413,
+      "sha256": "79f2236795f33267b38352a6fb73eaf7d00eed4c23a6ad59eb8de1784f00fcf0"
+    },
+    {
+      "path": "legal/third-party-notices.json",
+      "bytes": 849368,
+      "sha256": "009eb06899b70fb012fe5b1831dbc5e9fd9e4ad85b8f1390f3c87299178ded54"
+    },
+    {
+      "path": "package-lock.json",
+      "bytes": 379629,
+      "sha256": "a94e22f6256286b6718fec56fc44f8a7b7d45f041f2815006d57385d4864d1b4"
+    },
+    {
+      "path": "package.json",
+      "bytes": 1080,
+      "sha256": "ff050b37b61734a13781f7b9cceb43073d2169593429d449c219deeb24d2811b"
+    },
+    {
+      "path": "scripts/build-legal.mjs",
+      "bytes": 4299,
+      "sha256": "c38abf8fc44d04e5fcfc3a4f6a6c9e1d81e8be6d8da0a56bd0332571025c1f08"
+    },
+    {
+      "path": "scripts/check-account-deletion-hosted.mjs",
+      "bytes": 6847,
+      "sha256": "019a9176a4c3973d53960ac9101affb346437ee90d19b7ada168ace429582a7f"
+    },
+    {
+      "path": "scripts/check-biometric-hosted.mjs",
+      "bytes": 4292,
+      "sha256": "a576c7f852fbf69d9327db30ce925ac5a6c18a62f1da4fb461a66307af0492d3"
+    },
+    {
+      "path": "scripts/check-hardening-concurrency.mjs",
+      "bytes": 4698,
+      "sha256": "64d6011e633f43500937b0d18e932e8af39b7d4432a8b807faf27de437b0fc93"
+    },
+    {
+      "path": "scripts/check-hardening-sql.mjs",
+      "bytes": 2133,
+      "sha256": "9d4ea2dddf161497752fdd2fe4aa278bafffd2c7988a11c42eb8dd4eac99051b"
+    },
+    {
+      "path": "scripts/check-legal-preview.mjs",
+      "bytes": 1999,
+      "sha256": "029a70076ff3408878eeef4ba36e03e289e9f0ed94cb76159998d47b3eb84277"
+    },
+    {
+      "path": "scripts/check-onboarding-hosted.mjs",
+      "bytes": 4048,
+      "sha256": "f3c1b3dce2cc89bbb922282c7a3aead82f2b34b567aeabd285ac447ff90b9df2"
+    },
+    {
+      "path": "scripts/check-onboarding-sql.mjs",
+      "bytes": 3089,
+      "sha256": "a5fb2d3a011802aac341a609d9d3b31b9011cdbed34ebb66837e53e2281b498f"
+    },
+    {
+      "path": "scripts/check-streak-initialization-hosted.mjs",
+      "bytes": 4110,
+      "sha256": "95ae98defc844a71faf2240c3d70af7a7de59721d622361353c5b0a5cd74bdeb"
+    },
+    {
+      "path": "scripts/check-summary-sql.mjs",
+      "bytes": 2516,
+      "sha256": "13071c9c10f1112092443fca41905b5763a6080e424c1a64afaa79c74fe8c962"
+    },
+    {
+      "path": "scripts/check-workout-hosted.mjs",
+      "bytes": 5465,
+      "sha256": "a1dd4e4327320b2355d188a970fd2e03ab3b9311cac830c399c277d684a10c6e"
+    },
+    {
+      "path": "scripts/collect-license-notices.mjs",
+      "bytes": 1563,
+      "sha256": "58cb985bef2871e94bdc8afab66068e63f13957ffd48a289228e42910fbfadf0"
+    },
+    {
+      "path": "supabase/functions/_shared/ai-privacy.test.ts",
+      "bytes": 485,
+      "sha256": "bd61479ca22359da053e5aacf8e3b0e65894adc130b1814c981c8e0a3ab984b9"
+    },
+    {
+      "path": "supabase/functions/_shared/ai-privacy.ts",
+      "bytes": 768,
+      "sha256": "51449873ec6d77c6e336e780e25d37bc72a08df4ecde3699f40bc028d60c72df"
+    },
+    {
+      "path": "supabase/functions/_shared/barcode-normalization.test.ts",
+      "bytes": 1266,
+      "sha256": "95414f584e7bd9f666591131555fd18fafc06d00003461962fe4d3d0778a3e82"
+    },
+    {
+      "path": "supabase/functions/_shared/barcode-normalization.ts",
+      "bytes": 2345,
+      "sha256": "3a3e33874200ac66f71a7710ce67b88a9376f1b8b52ce2664d3509d2a6c0c703"
+    },
+    {
+      "path": "supabase/functions/_shared/biometric-device.test.ts",
+      "bytes": 2423,
+      "sha256": "86e3547c8e3665f00deff446e80e3c3e2e22df48e12efaaba033988011ac480d"
+    },
+    {
+      "path": "supabase/functions/_shared/biometric-device.ts",
+      "bytes": 3558,
+      "sha256": "beff33173b5c69dbf0819147f63d5911cb208feb93e4ebd4471154cb8d36141a"
+    },
+    {
+      "path": "supabase/functions/_shared/biometric-enrollment.test.ts",
+      "bytes": 964,
+      "sha256": "37aa0e4c4c22e6c6b0d737cc4d036717716bea6998d2577337a1c3bc91631796"
+    },
+    {
+      "path": "supabase/functions/_shared/biometric-enrollment.ts",
+      "bytes": 1303,
+      "sha256": "5e6a17f3c9471fc9ec2b51a2df24c49c527edaa753c253308c534ecb91d4ed41"
+    },
+    {
+      "path": "supabase/functions/_shared/biometric-otp.test.ts",
+      "bytes": 1405,
+      "sha256": "67288c08fdfe870a99e2c314b40f74774a014611d1b0eca24afe266e8304978d"
+    },
+    {
+      "path": "supabase/functions/_shared/coach-action-validation.test.ts",
+      "bytes": 4285,
+      "sha256": "690287e81ae5e0ba17e9c6b705a5fdb39546b8a55e48026b33ae3acf780ea0b2"
+    },
+    {
+      "path": "supabase/functions/_shared/coach-action-validation.ts",
+      "bytes": 2801,
+      "sha256": "a01d9f25b5d962d396bd007404f1f397fe1729ba8ee52fb856c15f9ce56cf737"
+    },
+    {
+      "path": "supabase/functions/_shared/coach-context.test.ts",
+      "bytes": 5410,
+      "sha256": "619f34dec7123510e02a70de3e0b702f2fd7496c9c21a39d2edc7227ec7473ac"
+    },
+    {
+      "path": "supabase/functions/_shared/coach-context.ts",
+      "bytes": 10546,
+      "sha256": "b7b558326b7079678bd4690fdaeec61d2b94f96e6248f0dc86511cfcdacdae37"
+    },
+    {
+      "path": "supabase/functions/_shared/coach.ts",
+      "bytes": 10884,
+      "sha256": "6e9bbf1872f32ccada361b2f87963f696f325e9f2376cba54a54762efecdcefe"
+    },
+    {
+      "path": "supabase/functions/_shared/cors.ts",
+      "bytes": 214,
+      "sha256": "0dab4747e2806f4cc95766af425572f96655c962b02abd84ab4d23983d186de8"
+    },
+    {
+      "path": "supabase/functions/_shared/food-normalization.test.ts",
+      "bytes": 8812,
+      "sha256": "cd028ca3508bab416b0a90c529deffc62a473cbf031eb415f5fc939d5e52b982"
+    },
+    {
+      "path": "supabase/functions/_shared/food-normalization.ts",
+      "bytes": 18325,
+      "sha256": "22452104e39175c60753e035f109a272762cc5cb0e525051bae081e164f7336c"
+    },
+    {
+      "path": "supabase/functions/_shared/hydration.ts",
+      "bytes": 1280,
+      "sha256": "5aae17a84d65ab77453f36f15c67cbbc32c8465a741ae4c00ac9cd5430c1896c"
+    },
+    {
+      "path": "supabase/functions/_shared/meal-estimate.ts",
+      "bytes": 11756,
+      "sha256": "547af522c70c8a52ea30dc0bde75659edbb0bb0243bd243f122a77a001345611"
+    },
+    {
+      "path": "supabase/functions/_shared/workout-planning.test.ts",
+      "bytes": 6891,
+      "sha256": "c5ab78c4dd89263d71811b04cbf0b520b2139a88333e3d3fec7712cf5d18705c"
+    },
+    {
+      "path": "supabase/functions/_shared/workout-planning.ts",
+      "bytes": 17827,
+      "sha256": "83788d305b683816e9f8b06165558948d1ec0f94343eb97332782fae1844002b"
+    },
+    {
+      "path": "supabase/functions/biometric-auth/index.ts",
+      "bytes": 9634,
+      "sha256": "a55f590c3e1c80634f7156fac0d614a32a8ddeebeb26ed90fc6fd009da1722e8"
+    },
+    {
+      "path": "supabase/functions/coach-chat/.env.example",
+      "bytes": 152,
+      "sha256": "58436df58c8d20b7e12a8d7df13c1970b67b99e50418162dd97bd21b4dde6a5f"
+    },
+    {
+      "path": "supabase/functions/coach-chat/deno.json",
+      "bytes": 50,
+      "sha256": "2ee323fc5b13e605e4f364619bd0c1dcf7dbf9e20aefd586e1a6b701be973365"
+    },
+    {
+      "path": "supabase/functions/coach-chat/deno.lock",
+      "bytes": 2272,
+      "sha256": "1e463ba3f1d6458fd2d9a9c9647ce62da39254ab6d821f4290cded9dee67e43c"
+    },
+    {
+      "path": "supabase/functions/coach-chat/handler.test.ts",
+      "bytes": 22732,
+      "sha256": "c87ec5edcd3314fbe75fff1326e4a7be784ae71ac922cdffea17a6ddbe9c234a"
+    },
+    {
+      "path": "supabase/functions/coach-chat/handler.ts",
+      "bytes": 25382,
+      "sha256": "f549c2eef59e8946d601b939c0e7b933651e5a6a113818c1ecb13f41fd639979"
+    },
+    {
+      "path": "supabase/functions/coach-chat/index.ts",
+      "bytes": 22467,
+      "sha256": "78d990091ce893446d33658e1c410a2ca3da60652001b3a49cf21b3cb87218f7"
+    },
+    {
+      "path": "supabase/functions/delete-account/cleanup.test.ts",
+      "bytes": 1296,
+      "sha256": "0ed78deb92d3241207078ba06a73794a2cc765f930d37c9fb4fcafce091aa283"
+    },
+    {
+      "path": "supabase/functions/delete-account/cleanup.ts",
+      "bytes": 736,
+      "sha256": "35463b2c258f09c908652f3f719aad83064afbe66ff3eb49c959863f4acae4cc"
+    },
+    {
+      "path": "supabase/functions/delete-account/index.ts",
+      "bytes": 4559,
+      "sha256": "52532e4f095f0c3583772c2eca072935169156f4ac67d74b5a31f1a3b4292072"
+    },
+    {
+      "path": "supabase/functions/estimate-meal/.env.example",
+      "bytes": 158,
+      "sha256": "f8ca62016fd6a7c0cf1eb61d986e5e6f04ae32986a6fe4a747f669a889290d91"
+    },
+    {
+      "path": "supabase/functions/estimate-meal/deno.json",
+      "bytes": 50,
+      "sha256": "2ee323fc5b13e605e4f364619bd0c1dcf7dbf9e20aefd586e1a6b701be973365"
+    },
+    {
+      "path": "supabase/functions/estimate-meal/deno.lock",
+      "bytes": 2272,
+      "sha256": "1e463ba3f1d6458fd2d9a9c9647ce62da39254ab6d821f4290cded9dee67e43c"
+    },
+    {
+      "path": "supabase/functions/estimate-meal/handler.test.ts",
+      "bytes": 11710,
+      "sha256": "5b16a16fdc562872ec026c97f50e33e817091c34d885548b9939b63e6b96a734"
+    },
+    {
+      "path": "supabase/functions/estimate-meal/handler.ts",
+      "bytes": 7987,
+      "sha256": "a521c1751686859479c5e486de424863b670d3aba5e0f334257360fa8cdd0e8f"
+    },
+    {
+      "path": "supabase/functions/estimate-meal/index.ts",
+      "bytes": 2422,
+      "sha256": "f9c737595c0ff1ae48ad8e73d5abc84d53d8b293e4513b59ad185ec8f6e149fe"
+    },
+    {
+      "path": "supabase/functions/resolve-food-barcode/index.ts",
+      "bytes": 10751,
+      "sha256": "c7d56561b5185187cd09a345fed0eaf15b6ec620f0055a6bf029554fa000dcf4"
+    },
+    {
+      "path": "supabase/migrations/202608290001_release_1_vitals.sql",
+      "bytes": 2835,
+      "sha256": "51530e9f0258137d4f6af5ca26f5a9ba6c2a3bb35fb1d2c3bc3bdd653cf13803"
+    },
+    {
+      "path": "supabase/migrations/202608290002_training_nutrition.sql",
+      "bytes": 4042,
+      "sha256": "46dd91ac60ab549835debfb936f25c8d64368840a4a2ff153169a26abb2ab707"
+    },
+    {
+      "path": "supabase/migrations/202608290003_workout_muscle_groups.sql",
+      "bytes": 205,
+      "sha256": "e211ec381486e712e078401c10bba329046a4683f9e50c79c2cd49bee63a0c17"
+    },
+    {
+      "path": "supabase/migrations/202608290004_replace_workout_session.sql",
+      "bytes": 1763,
+      "sha256": "35aa71b362098691319416126a82c0d79882341ff110fbba109890d3c585c5f5"
+    },
+    {
+      "path": "supabase/migrations/202608290005_daily_goals.sql",
+      "bytes": 567,
+      "sha256": "be413ee35d491a4d64d4ef7d2e2d6964f145b2da4a6a9e853b77eb8699b98e41"
+    },
+    {
+      "path": "supabase/migrations/202608290006_bp_goal_defaults.sql",
+      "bytes": 393,
+      "sha256": "4cfa7b0fe07660c31f9570bebc50f521123f0eb4c09f081f866e7a3e953c56e6"
+    },
+    {
+      "path": "supabase/migrations/202608290007_daily_protein_goal.sql",
+      "bytes": 264,
+      "sha256": "06d73e334aeda3eacbf92eccc6a8b4ffc8873bb1d288667656ed22dd9d59a888"
+    },
+    {
+      "path": "supabase/migrations/202608300001_healthkit_imports.sql",
+      "bytes": 1131,
+      "sha256": "ceb52c764fd85c83579d00335fb8c8ca0f40edb62b9cb5d67e02771cfd8da9c5"
+    },
+    {
+      "path": "supabase/migrations/202608310001_food_catalog.sql",
+      "bytes": 5897,
+      "sha256": "c1714f49cf86c9232d908aa90dd2a884b5af6e3676d856b4f86e7cbe8203c925"
+    },
+    {
+      "path": "supabase/migrations/202608310002_food_household_servings.sql",
+      "bytes": 1946,
+      "sha256": "62a4fe397f5dbaeca03fbeaaad8f7f0735448c4a94c5a116889d940b81230169"
+    },
+    {
+      "path": "supabase/migrations/202609010001_food_provider_servings.sql",
+      "bytes": 483,
+      "sha256": "2e48d12da890ddf844b8e1c7c6d8c30e00276ff59b4f2ca41d4323e58642c3ad"
+    },
+    {
+      "path": "supabase/migrations/202609010002_open_food_facts_v3.sql",
+      "bytes": 499,
+      "sha256": "4d092a63b1ccf31e7b703de04b382afe335160c57214bb778d4502906c4da792"
+    },
+    {
+      "path": "supabase/migrations/202609010003_user_food_profile_barcode_dedup.sql",
+      "bytes": 1645,
+      "sha256": "add1ef55b2f34e434e93c70c549906dbcc5b71b2d7a15e254ea38100089b3ae3"
+    },
+    {
+      "path": "supabase/migrations/202609020001_tracking_expansion.sql",
+      "bytes": 4010,
+      "sha256": "92e3dac01325195ab330e842be664745097fc25f454328607911f1d87fc4d4fa"
+    },
+    {
+      "path": "supabase/migrations/202609020002_workout_muscle_group_sets.sql",
+      "bytes": 2888,
+      "sha256": "54f7ba88d345cfb88dfbba3ef37b1d83bfb4be3ce17150d9add7b3365a89686e"
+    },
+    {
+      "path": "supabase/migrations/202609020003_profile_names.sql",
+      "bytes": 1493,
+      "sha256": "6910b69f1728f01d1156946b8117768e56227cd3c4bff2ee0aaea87176a4858c"
+    },
+    {
+      "path": "supabase/migrations/202609040001_biometric_device_credentials.sql",
+      "bytes": 1721,
+      "sha256": "0b1270c9006c3c98a4a877af6a9dc6b7b2b19afbc260b7acc4ca8a87736910e5"
+    },
+    {
+      "path": "supabase/migrations/202609040002_progress_photos.sql",
+      "bytes": 2619,
+      "sha256": "76b16eeff0b1b458237862995302b89c344870aea895122782f483df80237c74"
+    },
+    {
+      "path": "supabase/migrations/202609110001_ai_meal_estimates.sql",
+      "bytes": 2019,
+      "sha256": "4e7ae593b8715cef2a87ebe4e034a6ede1d7099864b9c97eb5f19c2105088bc5"
+    },
+    {
+      "path": "supabase/migrations/202609110002_ai_coach.sql",
+      "bytes": 7733,
+      "sha256": "acc0a5269f9741d1b65dd19f6fb08bf3dad0eeff39bbf89b467e378b66af290d"
+    },
+    {
+      "path": "supabase/migrations/202609110003_ai_coach_multi_goals.sql",
+      "bytes": 701,
+      "sha256": "cb2c1762c371a4c637d093918d9266bad60678c0fe8862d2165127b43edce804"
+    },
+    {
+      "path": "supabase/migrations/202609110004_save_coach_turn.sql",
+      "bytes": 2899,
+      "sha256": "2fe7ad0dee30e9b9f54f022c169d447a7c8f8b3fa49a34f6f5d6359d57dddb6c"
+    },
+    {
+      "path": "supabase/migrations/202609110005_coach_quota_refunds.sql",
+      "bytes": 1884,
+      "sha256": "0cc2aaa4d9cedede4379d7dd4524dd37e5215a8dc16dfc538d759077547a1d1e"
+    },
+    {
+      "path": "supabase/migrations/202609150001_unilateral_workout_sets.sql",
+      "bytes": 3061,
+      "sha256": "3227e10ca98e20fd9dc4fd3d700ad316c65b7a2c9ffe2d2336c20ce4e9703f86"
+    },
+    {
+      "path": "supabase/migrations/202609150002_food_servings_per_container.sql",
+      "bytes": 339,
+      "sha256": "33a87eb1ff5162c2176b99b61a8afcf7deb574df503074aa65f50dbd475c5d93"
+    },
+    {
+      "path": "supabase/migrations/202609160001_progress_photos_per_entry.sql",
+      "bytes": 1656,
+      "sha256": "bf6f53c59b182fdce1267c49d23a7d79b249ef4506cb4fd9799a826cc65bd2e2"
+    },
+    {
+      "path": "supabase/migrations/202609170001_food_recipes.sql",
+      "bytes": 1723,
+      "sha256": "9581b37a8063ecc62aa40d0faa11518d431502a156cdf7f7f21173201193df93"
+    },
+    {
+      "path": "supabase/migrations/202609170002_drink_categories.sql",
+      "bytes": 2870,
+      "sha256": "a049cad714596386df92b5defae647d44a6b641107b47430e02793f3397efe80"
+    },
+    {
+      "path": "supabase/migrations/202609180001_summary_streaks.sql",
+      "bytes": 10977,
+      "sha256": "4107debb1865b1e474b0f99b00c2848ccdc331f336efc50b1197ed375b62aca7"
+    },
+    {
+      "path": "supabase/migrations/202609180002_summary_function_permissions.sql",
+      "bytes": 741,
+      "sha256": "37dd4a5a626832b9cf41e9fac7d0985b9e278ad0fec0fb77e807b36396add89f"
+    },
+    {
+      "path": "supabase/migrations/202609180003_biometric_hardening.sql",
+      "bytes": 4101,
+      "sha256": "114a99a6c5d6acb561b7feede92ff012e2307a5ce0ecb51cfed0b141a653cf99"
+    },
+    {
+      "path": "supabase/migrations/202609180004_consistent_writes.sql",
+      "bytes": 14618,
+      "sha256": "85ded84ffab657c8e0cecc6778a8da79d8edf265a413bef7c5c6bee77a8f5ebc"
+    },
+    {
+      "path": "supabase/migrations/202609180005_remaining_ownership.sql",
+      "bytes": 2571,
+      "sha256": "f684e86180b47ba550d2aa50aa00610cac7396a6b764c78efca55ae7c132cf79"
+    },
+    {
+      "path": "supabase/migrations/202609210001_account_onboarding.sql",
+      "bytes": 4283,
+      "sha256": "bc7b055067e2d3f1df0c59256ed48c90092b5fbf9730daf7f762c4ff40b3e559"
+    },
+    {
+      "path": "supabase/migrations/202609220001_summary_refinements.sql",
+      "bytes": 6102,
+      "sha256": "ea8921ead1df70f0cda7172dd098ec1f787f09742ba29a34d8fe87d1ef443d8b"
+    },
+    {
+      "path": "supabase/migrations/202609220002_account_deletion.sql",
+      "bytes": 7254,
+      "sha256": "9b999b938ca41f83cd340f39265aaf99a01b77a9e09bcc53870be3285b7a7405"
+    },
+    {
+      "path": "supabase/migrations/202609250001_privacy_controls.sql",
+      "bytes": 2244,
+      "sha256": "f52b532dfb06ea0b7bfd0815990b8b10ea46016347e19172bf29b041c2968cd2"
+    },
+    {
+      "path": "supabase/tests/drink_categories.sql",
+      "bytes": 4293,
+      "sha256": "00b109028b6e2c75a0a6568a2a1faafb0f192aeb73f46bfef8358c70bf294447"
+    },
+    {
+      "path": "supabase/tests/hardening.sql",
+      "bytes": 13281,
+      "sha256": "ee21ca22b28c6f66156741afc5035ae40a77d15c0e17548674529742b1557c22"
+    },
+    {
+      "path": "supabase/tests/hardening_preflight.sql",
+      "bytes": 828,
+      "sha256": "b168578815919d93def330a6b34377b10db09dff0e2900e2f43a5d578ecb94ae"
+    },
+    {
+      "path": "supabase/tests/onboarding.sql",
+      "bytes": 3189,
+      "sha256": "fa643d14bc279ebae36c7d9d23af2529784f3125805faaed439e1b1955447244"
+    },
+    {
+      "path": "supabase/tests/privacy_controls.sql",
+      "bytes": 3002,
+      "sha256": "2b8c4ea7ece98da475b06b14a13614bf2ca964723e7369dfa72ee415546781c7"
+    },
+    {
+      "path": "supabase/tests/progress_photos_per_entry.sql",
+      "bytes": 3021,
+      "sha256": "240c029731ac65ef9f9dc1c9d54663eba5c4837d40ff08bc0f9323a2f57c4013"
+    },
+    {
+      "path": "supabase/tests/summary_refinements.sql",
+      "bytes": 3879,
+      "sha256": "426d039670fdc26df2c265ae4d60d81751b8f5d642a7759a9c4b8bcf6a9ef43f"
+    },
+    {
+      "path": "supabase/tests/summary_streaks.sql",
+      "bytes": 7369,
+      "sha256": "133b42a41b035be0a71713043f54dfaba0be204c3189b16a3d654f1d29293149"
+    }
+  ],
+  "logs": [
+    {
+      "path": "dist/pre-guide-review-check-authorized.log",
+      "bytes": 59950,
+      "sha256": "d03fb76c2cb766a76b8db7541a5fceab7c576c054e0af167c9af76a842a65c26"
+    },
+    {
+      "path": "dist/pre-guide-review-full-sql.log",
+      "bytes": 992,
+      "sha256": "7ae58efde669896380fd0027bccf07050ded190da6f707372f84e0432bc1cdb9"
+    },
+    {
+      "path": "dist/pre-guide-review-sql.log",
+      "bytes": 60514,
+      "sha256": "3e2c4afc8a077337974a4cb637ef3431b6cb8d4f8e033b06314703abada4e1c0"
+    },
+    {
+      "path": "apps/mobile/dist/pre-guide-review-browser.log",
+      "bytes": 39436,
+      "sha256": "749e0c558272c6919a565f6e7a905c8e1d0b1a6561db1a0362dad773c6958017"
+    },
+    {
+      "path": "apps/mobile/dist/pre-guide-review-browser-targeted.log",
+      "bytes": 11528,
+      "sha256": "507a83e301a0209988743c08cd070f601fed86a8fcc365369d81316cdbb103fc"
+    }
+  ],
+  "report": {
+    "path": "output/pdf/Sustain_Implementation_Guide.pdf",
+    "pages": 94,
+    "sha256": "106282e4420e4c85587247dfab4cb67bbb2b4a4e1be19be318abf5f278723595",
+    "manuscriptWords": 32543
+  },
+  "reference": {
+    "path": "C:/Users/wangj/Downloads/Sustain_System_Design_and_Implementation_Report.pdf",
+    "sha256": "e81e40597e4c67fad629014d137abd07e531f9d56bf6452ec39f1adf92f5523e"
+  }
+}

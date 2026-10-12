@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Animated, Platform, StyleSheet, Text, View } from "react-native";
+import {
+  Animated,
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 import { useReducedMotion } from "./motion";
 import { Pressable } from "./pressable";
 import { colors } from "./theme";
@@ -9,11 +17,13 @@ export function SegmentedControl<T extends string>({
   value,
   onChange,
   label,
+  style,
 }: {
   options: ReadonlyArray<{ value: T; label: string }>;
   value: T;
   onChange: (value: T) => void;
   label: string;
+  style?: StyleProp<ViewStyle>;
 }) {
   const [width, setWidth] = useState(0);
   const position = useRef(new Animated.Value(0)).current;
@@ -35,7 +45,7 @@ export function SegmentedControl<T extends string>({
   return (
     <View
       accessibilityLabel={label}
-      style={styles.track}
+      style={[styles.track, style]}
       onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
     >
       {width > 0 && (

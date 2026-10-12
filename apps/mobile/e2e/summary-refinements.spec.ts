@@ -389,7 +389,7 @@ test("retired completion disappears from saved widgets, rules and configuration"
   ).toHaveCount(0);
   await expect(
     page.getByRole("checkbox", { name: "Food logging", exact: true }),
-  ).toHaveCount(0);
+  ).toBeVisible();
 });
 
 test("original Summary and editor have stable visual captures", async ({

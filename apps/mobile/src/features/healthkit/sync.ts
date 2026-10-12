@@ -6,11 +6,8 @@ import {
   markVitalsDeleted,
 } from "../vitals/sync";
 import { healthKitRecordId } from "./identity";
-import {
-  healthKitAvailability,
-  readHealthKitData,
-  requestHealthKitAuthorization,
-} from "./reader";
+import { healthKitAvailability, readHealthKitData } from "./reader";
+import { connectSteps } from "../steps/storage";
 import { loadHealthKitSyncState, saveHealthKitSyncState } from "./state";
 import type { HealthKitImportResult, HealthKitSyncState } from "./types";
 
@@ -27,11 +24,11 @@ export async function connectHealthKit(
   const availability = await healthKitAvailability();
   if (!availability.available)
     throw new Error(availability.reason ?? "Apple Health is unavailable.");
-  await requestHealthKitAuthorization();
-  const state = await loadHealthKitSyncState(userId);
-  const connectedState: HealthKitSyncState = { ...state, connected: true };
-  await saveHealthKitSyncState(userId, connectedState);
-  return connectedState;
+  await connectSteps(userId, undefined, async () => {
+    const state = await loadHealthKitSyncState(userId);
+    await saveHealthKitSyncState(userId, { ...state, connected: true });
+  });
+  return loadHealthKitSyncState(userId);
 }
 
 async function tombstoneVitalIds(

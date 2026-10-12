@@ -41,3 +41,16 @@ Preferences now specify one lifting, cardio or mixed session, total available ti
 ## 2026-09-18: Multi-select preferences and legacy validation compatibility
 
 Goals/styles use validated arrays and shared option catalogs. A boundary normalizer upgrades legacy singular fields and merged aliases; empty/unknown selections remain explicit errors. The single-session planner blends all selected preferences within the existing total-time and effort limits. The removed weekly-frequency profile field defaults only for legacy storage compatibility and does not return to the form. Named field validation replaces raw schema errors, before paid model requests where applicable. Version 15 is deployed without a migration.
+
+## 2026-10-11: Match deployed consent contract and optional preferences
+
+Reproduced the reported HTTP 400 on hosted v16 with disposable authenticated accounts and valid UTC/America/New_York zones. Its strict request schema rejected the current client's `consentVersion` and `includeTrainingHistory` keys before provider use. A second validation issue required blank optional muscle focus and limitations to be present. Deploying the matching consent-aware v17 fixes the contract; focus defaults to an empty recommendation selection and limitations to empty text. The privacy/consent migration was already applied for the meal repair. No consent fields are stripped and requests are not retried automatically.
+
+The planner uses the shared notice version and validates its wire body locally. Server errors distinguish request/preferences, time zone, date, consent, authentication, provider billing/rate limits/access/model configuration and incomplete response failures. Retain training-only context, request-specific history permission, quota/refund behavior, structured action validation and editable draft handoff.
+
+One live generation with optional preference fields and history permission omitted returned seven complete exercises and persisted one workout action. The disposable account and its generated records were deleted. This proves hosted request/provider/persistence success; actual iPhone draft navigation, native gestures and accessibility remain separate device checks.
+
+
+## 2026-10-11: Authorize each request through its primary AI action
+
+At the user's explicit direction, remove the redundant processing toggle and always-visible disclosure. Estimate foods / Generate workout plan now authorizes only the request initiated by that button. AI privacy details retains input/provider/retention/cancellation/manual-entry context. Opening the screen/details never sends, and automatic retries remain disabled. Keep current server consent/version validation and receipts; provider, purpose and input categories are unchanged, so the notice version remains unchanged. Optional workout history stays independently off by default and inline with its label. Existing review, editing, saving, quotas and errors remain.

@@ -37,7 +37,6 @@ function request(
   group: string,
   key: string,
   body: string,
-  title: string,
   trigger: ScheduleRequest["trigger"],
   data: Record<string, string | number>,
 ): ScheduleRequest {
@@ -46,7 +45,7 @@ function request(
     owner: user,
     source,
     group,
-    title,
+    title: "Sustain",
     body,
     trigger,
     data: { v: 2, userId: user, source, ...data },
@@ -64,7 +63,9 @@ export function customPlan(
     const title = reminderTitle(r),
       body = ["blood_pressure", "weight"].includes(r.kind)
         ? `Time to track ${title.toLowerCase()}.`
-        : `Time for ${title}.`;
+        : ["medication", "supplement"].includes(r.kind)
+          ? `Time to take ${title}.`
+          : `Time for ${title}.`;
     const futureStart = r.startDate > localDay(now);
     const earlyComplete = activeReminderTimes(r).some(
       (t) =>
@@ -97,7 +98,6 @@ export function customPlan(
             r.id,
             `${o.localDay}:${o.scheduledTime}`,
             body,
-            title,
             { kind: "date", at: o.date.getTime() },
             {
               reminderId: r.id,
@@ -121,7 +121,6 @@ export function customPlan(
               r.id,
               `${index}:${day ?? "daily"}`,
               body,
-              title,
               {
                 kind: "calendar",
                 hour,
@@ -172,7 +171,6 @@ export function routinePlan(
               kind,
               `${s.id}:${key}`,
               routineBody(kind, s.id),
-              "HealthApp",
               { kind: "date", at: date.getTime() },
               { ...data, occurrenceDay: key },
             ),
@@ -190,7 +188,6 @@ export function routinePlan(
               kind,
               `${s.id}:${day ?? "daily"}`,
               routineBody(kind, s.id),
-              "HealthApp",
               {
                 kind: "calendar",
                 hour,

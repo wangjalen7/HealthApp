@@ -22,6 +22,7 @@ import { supabase } from "../../lib/supabase";
 const goalsSchema = z.object({
   calorieCalculation: z.record(z.string(), z.unknown()).optional(),
   fluidCalculation: z.record(z.string(), z.unknown()).optional(),
+  stepGoal: z.number().int().positive().max(2147483647).optional(),
   calorieGoal: z.number().int().min(0).max(20000).optional(),
   proteinGoal: z.number().int().min(0).max(5000).optional(),
   waterGoalMl: z.number().positive().max(20000).optional(),
@@ -33,6 +34,7 @@ export type DailyGoals = z.infer<typeof goalsSchema>;
 const goalColumns: Record<keyof DailyGoals, string> = {
   calorieCalculation: "calorie_goal_calculation",
   fluidCalculation: "fluid_goal_calculation",
+  stepGoal: "daily_step_goal",
   calorieGoal: "daily_calorie_goal",
   proteinGoal: "daily_protein_goal",
   waterGoalMl: "daily_water_goal_ml",
@@ -119,7 +121,7 @@ export async function getDailyGoals(userId: string): Promise<DailyGoals> {
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      "daily_calorie_goal, daily_protein_goal, daily_water_goal_ml, weight_goal_lb, bp_systolic_goal, bp_diastolic_goal, calorie_goal_calculation, fluid_goal_calculation",
+      "daily_step_goal, daily_calorie_goal, daily_protein_goal, daily_water_goal_ml, weight_goal_lb, bp_systolic_goal, bp_diastolic_goal, calorie_goal_calculation, fluid_goal_calculation",
     )
     .eq("id", userId)
     .maybeSingle();

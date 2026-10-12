@@ -186,8 +186,7 @@ export function CoachSetup({
           {initial ? "Coach settings" : "Set up your Coach"}
         </Text>
         <Text style={styles.copy}>
-          Choose the data and preferences Coach can use. Suggestions are
-          estimates and always require your review.
+          Choose what Coach can use. Review AI estimates before saving.
         </Text>
       </View>
       <View style={styles.sectionCard}>
@@ -359,8 +358,7 @@ export function CoachSetup({
           {consent ? <Text style={styles.checkmark}>{"\u2713"}</Text> : null}
         </View>
         <Text style={styles.consentText}>
-          I allow AI Coach to process the selected structured health data with
-          OpenAI to provide personalized guidance.
+          Send selected health data to OpenAI for guidance.
         </Text>
       </Pressable>
       {feedback ? (

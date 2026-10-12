@@ -1,5 +1,7 @@
 # ADR-002: Read-only, source-aware HealthKit imports
 
+2026-10-11 addition: optional device-local cumulative Steps uses a separate read permission and cache; it does not extend cloud vital imports. See [ADR-011](ADR-011-device-local-apple-health-steps.md).
+
 **Status:** Accepted — 2026-08-30
 
 ## Decision
@@ -21,3 +23,8 @@ Defer all HealthKit workout import. Manual cardio remains available, and generic
 - Any native HealthKit package/configuration change requires a new EAS iOS build. TypeScript and UI-only changes continue through Metro from Windows.
 - Web and non-iOS builds use the same Supabase/manual features and can display Apple-origin records already synced by an iPhone, but they cannot request Apple Health access or read the device Health store directly.
 - Background HealthKit delivery and writing data back to Apple Health are deliberately deferred until their value and privacy impact justify the extra capability surface.
+
+
+## 2026-10-11: Consolidated connection with device-local steps
+
+The shared read-only authorization set now includes Steps alongside the existing weight/BP/pulse quantities. Profile and Steps use one connection flow; existing users can update access from the Apple Health settings screen. Both flags persist in the drainable Steps queue, and the shared disconnect stops both readers. Source/cloud behavior is unchanged: derived steps remain device-local, while other imported readings synchronize. The connection disclosure states that distinction. No workouts, write permission or background delivery is added. See ADR-011.

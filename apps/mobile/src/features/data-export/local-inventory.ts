@@ -3,6 +3,8 @@ export function exportableDeviceKey(key: string, user: string): boolean {
   if (!key.split(/[:.]/).includes(user)) return false;
   return [
     "healthapp:summary-layout:",
+    "healthapp:steps:",
+    "healthapp:steps-connected:",
     "healthapp:routines:",
     "healthapp:workout-preferences:",
     "healthapp:goal-helper-draft:",

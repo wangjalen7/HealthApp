@@ -1,3 +1,4 @@
+import { AiPrivacyDetails } from "../privacy/ai-privacy-details";
 import { IconButton } from "../../ui/icon-button";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -12,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { aiConsentVersion } from "../../../../../supabase/functions/_shared/ai-privacy";
 import {
   estimatedFoodSchema,
   type EstimatedFood,
@@ -108,7 +110,6 @@ export function AiMealEditor({
 }) {
   const [description, setDescription] = useState("");
   const [photo, setPhoto] = useState<{ uri: string; base64: string }>();
-  const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState(false);
   const [picking, setPicking] = useState(false);
@@ -123,11 +124,13 @@ export function AiMealEditor({
   const disabled = busy || adding || picking;
 
   useEffect(() => {
-    if (!visible) { setPhoto(undefined); setConsent(false); return; }
+    if (!visible) {
+      setPhoto(undefined);
+      return;
+    }
     generation.current += 1;
     setDescription("");
     setPhoto(undefined);
-    setConsent(false);
     setItems([]);
     labelChoices.current.clear();
     newLabelDefault.current = true;
@@ -161,7 +164,7 @@ export function AiMealEditor({
   }
 
   async function analyze() {
-    if (disabled || !consent || request.current) return;
+    if (disabled || request.current) return;
     const controller = new AbortController();
     request.current = controller;
     const current = generation.current;
@@ -170,7 +173,12 @@ export function AiMealEditor({
     setFeedback("");
     try {
       const result = await estimateMeal(
-        { description, imageBase64: photo?.base64, consent: true, consentVersion: "2026-09-25.1" },
+        {
+          description,
+          imageBase64: photo?.base64,
+          consent: true,
+          consentVersion: aiConsentVersion,
+        },
         controller.signal,
       );
       if (current !== generation.current) return;
@@ -226,7 +234,9 @@ export function AiMealEditor({
     } finally {
       clearTimeout(timeout);
       if (request.current === controller) request.current = undefined;
-      if (current === generation.current) { setBusy(false); setConsent(false); }
+      if (current === generation.current) {
+        setBusy(false);
+      }
     }
   }
 
@@ -311,11 +321,9 @@ export function AiMealEditor({
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.copy}>
-            Take a photo, describe your meal, or use both. AI separates the
-            foods and estimates how much you ate. Each account can request up to
-            20 estimates per day.
-          </Text>
+          {!items.length ? (
+            <Text style={styles.copy}>Describe your meal or add a photo.</Text>
+          ) : null}
           <Field
             label="Meal description"
             value={description}
@@ -358,27 +366,14 @@ export function AiMealEditor({
                   />
                 </View>
               ) : null}
-              <Pressable
-                accessibilityRole="checkbox"
-                accessibilityLabel="Allow AI meal processing"
-                accessibilityState={{ checked: consent, disabled }}
-                disabled={disabled}
-                onPress={() => setConsent((value) => !value)}
-                style={styles.consent}
-              >
-                <Text style={styles.check}>{consent ? "☑" : "☐"}</Text>
-                <Text style={styles.consentText}>
-                  Send this meal description and selected photo through Supabase to OpenAI for this estimate. Avoid identifying details. Provider retention rules apply; cancelling cannot recall a sent request. Manual food entry remains available.
-                  HealthApp does not upload the photo to your photo archive.
-                  Estimates can be inaccurate; review before saving.
-                </Text>
-              </Pressable>
+              <AiPrivacyDetails details="Estimate foods sends this meal description and photo through Supabase to OpenAI. Avoid identifying details; OpenAI retention policies apply. Photos are not added to your photo archive. Cancelling cannot recall a sent request. Manual entry remains available." />
+              <Text style={styles.copy}>
+                20 estimates/day. Check portions and nutrition before saving.
+              </Text>
               <Action
                 primary
                 label={busy ? "Estimating foods…" : "Estimate foods"}
-                disabled={
-                  disabled || !consent || (!description.trim() && !photo)
-                }
+                disabled={disabled || (!description.trim() && !photo)}
                 onPress={() => void analyze()}
               />
               {busy ? (
@@ -406,9 +401,7 @@ export function AiMealEditor({
                 Review {items.length} estimated foods
               </Text>
               <Text style={styles.copy}>
-                Edit each one-serving label, portion, and nutrition estimate.
-                Counted foods can use pieces, slices, dumplings, or another item
-                unit.
+                Check portions, serving sizes and nutrition before adding.
               </Text>
               <View style={styles.saveLabelRow}>
                 <View style={styles.saveLabelCopy}>
@@ -424,7 +417,7 @@ export function AiMealEditor({
                       : items.some((item) => item.saveToMyFoods)
                         ? "Some foods included"
                         : "No foods included"}
-                    . All foods still count in your meal totals.
+                    . Meal totals include all foods.
                   </Text>
                 </View>
                 <Switch
@@ -461,9 +454,6 @@ export function AiMealEditor({
                       <View style={styles.saveLabelCopy}>
                         <Text style={styles.saveLabelTitle}>
                           Create label in My Foods
-                        </Text>
-                        <Text style={styles.saveLabelDescription}>
-                          Turn off to log this food only.
                         </Text>
                       </View>
                       <Switch
@@ -842,19 +832,6 @@ const styles = StyleSheet.create({
   actionText: { color: colors.blue, fontWeight: "600", fontSize: 15 },
   disabled: { opacity: 0.5 },
   photo: { width: "100%", height: 200, borderRadius: 12 },
-  consent: {
-    flexDirection: "row",
-    gap: 12,
-    alignItems: "flex-start",
-    paddingVertical: 8,
-  },
-  check: { fontSize: 26, color: colors.blue },
-  consentText: {
-    flex: 1,
-    fontSize: 14,
-    color: colors.secondary,
-    lineHeight: 21,
-  },
   calories: { fontSize: 16, color: colors.text, fontWeight: "600" },
   saveLabelRow: {
     alignItems: "center",

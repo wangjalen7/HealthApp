@@ -302,15 +302,12 @@ function Flow() {
       : "You’re ready.",
   };
   const copies = {
-    name: "A preferred name is enough. Choose units for your setup and goal estimates.",
-    goals:
-      "Set your own targets, or explore an editable estimate. Everything here is optional.",
-    fluids:
-      "Water and other beverages count toward your fluid goal. Food moisture stays separate.",
+    name: "Choose your name and units.",
+    goals: "Set optional targets or calculate an estimate.",
+    fluids: "Your fluid goal includes beverages, not food moisture.",
     convenience:
       "Choose what helps. You can change these choices later in Profile.",
-    summary:
-      "Here’s what is actually saved. You can edit any item before you start.",
+    summary: "Review your saved settings.",
   };
   const skip = () =>
     void perform(() => move(setupSteps[Math.min(index + 1, 4)]));
@@ -434,9 +431,7 @@ function Flow() {
             />
           </View>
           <Text style={ui.caption}>
-            Use the same saved estimates and target-date planning as Profile, or
-            enter targets below. Calculation measurements do not add health
-            readings.
+            Calculation inputs do not add health readings.
           </Text>
           <SetupField
             label="Daily calories (kcal)"
@@ -457,8 +452,7 @@ function Flow() {
             numeric
           />
           <Text style={ui.caption}>
-            Leave any target empty to keep your saved value. No weight-loss goal
-            is required.
+            Leave targets blank to keep saved values.
           </Text>
         </>
       ) : state.step === "fluids" ? (
@@ -488,11 +482,6 @@ function Flow() {
               onPress={() => setHelper("fluids")}
             />
           </View>
-          <Text style={ui.caption}>
-            Choose Suggested or Custom in the helper. Review your result, then
-            use it when you're ready. Your edits and calculations are kept for
-            later.
-          </Text>
         </>
       ) : state.step === "convenience" ? (
         <>
@@ -508,10 +497,9 @@ function Flow() {
             </>
           ) : null}
           <View style={ui.surface}>
-            <Text style={ui.label}>Reminders when you want them</Text>
+            <Text style={ui.label}>Reminders</Text>
             <Text style={ui.copy}>
-              After setup, open Reminders in Profile to choose routine or custom
-              reminders. Notification permission is requested only when you
+              Set reminders in Profile later. Permission is requested when you
               enable one.
             </Text>
           </View>

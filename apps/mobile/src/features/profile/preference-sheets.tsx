@@ -43,7 +43,6 @@ export function AppearanceSheet({ onClose }: { onClose: () => void }) {
             .finally(() => setBusy(false));
         }}
       />
-      <Text style={styles.copy}>System follows your iPhone appearance.</Text>
       <ErrorMessage message={error} />
       <SettingsButton label="Done" onPress={onClose} disabled={busy} />
     </SettingsSheet>

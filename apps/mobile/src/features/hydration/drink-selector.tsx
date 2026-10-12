@@ -234,26 +234,22 @@ export function DrinkSelector({
           </View>
         </>
       ) : null}
-      <Text style={styles.copy}>
-        {!selected
-          ? "Choose the drink you want to log."
-          : alcoholStatus === "alcoholic"
-            ? "Alcohol is logged separately and does not count toward your fluid goal. This does not mean it contains no water."
+      {selected ? (
+        <Text style={styles.copy}>
+          {alcoholStatus === "alcoholic"
+            ? "Alcohol is recorded separately from your fluid goal."
             : alcoholStatus === "unknown"
-              ? "Save the volume now. Goal contribution stays pending until you confirm whether it contains alcohol."
-              : "The consumed beverage volume counts toward your fluid goal. This is not a measure of hydration efficiency. Calories are logged separately in Food."}
-      </Text>
+              ? "Volume is saved; goal contribution waits for alcohol classification."
+              : "Beverage volume counts toward your goal. Log calories in Food."}
+        </Text>
+      ) : null}
       {["bubble_tea", "broth"].includes(categoryId ?? "") ? (
         <Text style={styles.copy}>
-          Enter the liquid portion only; exclude toppings, solids and uneaten
-          ice. Log this fluid once.
+          Log only the liquid; exclude solids and uneaten ice.
         </Text>
       ) : null}
       {categoryId === "alcohol_free" ? (
-        <Text style={styles.copy}>
-          Choose this only for a confirmed alcohol-free drink. For an uncertain
-          mixed drink, choose Other.
-        </Text>
+        <Text style={styles.copy}>Unsure about alcohol? Choose Other.</Text>
       ) : null}
     </View>
   );

@@ -6,6 +6,11 @@ import { healthKitReadAuthorizationTypes } from "./permissions";
 test("requests blood-pressure quantities without the crashing correlation combination", () => {
   assert.ok(
     healthKitReadAuthorizationTypes.includes(
+      "HKQuantityTypeIdentifierStepCount",
+    ),
+  );
+  assert.ok(
+    healthKitReadAuthorizationTypes.includes(
       "HKQuantityTypeIdentifierBloodPressureSystolic",
     ),
   );

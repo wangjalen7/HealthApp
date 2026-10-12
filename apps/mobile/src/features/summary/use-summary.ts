@@ -18,6 +18,8 @@ import { loadSummaryData } from "./data";
 import { dayKey, deviceZone } from "./calendar";
 import type { Widget, WidgetType } from "./layout";
 
+import { useSteps } from "../steps/use-steps";
+
 export function useSummary(widgets: Widget[], editing: boolean) {
   const { session, configured } = useAuth();
   const user = session?.user.id ?? "";
@@ -31,6 +33,7 @@ export function useSummary(widgets: Widget[], editing: boolean) {
   const day = dayKey(now),
     zone = deviceZone(),
     scope = `${user}:${day}:${zone}`;
+  const steps = useSteps(user, "D", undefined, true, false);
   const vitals = useResource(user, () => loadCachedVitals(user), !!user);
   const goals = useResource(scope, () => getDailyGoals(user), !!user);
   const nutrition = useResource(
@@ -87,6 +90,7 @@ export function useSummary(widgets: Widget[], editing: boolean) {
     actionRead.enabled,
   );
   const current = useRef({
+    steps,
     vitals,
     goals,
     nutrition,
@@ -98,6 +102,7 @@ export function useSummary(widgets: Widget[], editing: boolean) {
     actions,
   });
   current.current = {
+    steps,
     vitals,
     goals,
     nutrition,

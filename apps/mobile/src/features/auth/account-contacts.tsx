@@ -128,7 +128,7 @@ export function AccountContacts({
       <Text style={ui.copy}>
         {recoveryOnly
           ? "Optional. Verify an email so you can recover access to your account."
-          : "Keep your sign-in email up to date. Changing it keeps your account and health records together."}
+          : "Changing your email keeps your existing account and records."}
       </Text>
       {!recoveryOnly ? (
         <>
@@ -146,8 +146,7 @@ export function AccountContacts({
           </Text>
           <>
             <Text style={ui.copy}>
-              If your email contains a confirmation link instead, open it and
-              then check its status here.
+              Received a confirmation link? Open it, then check status here.
             </Text>
             <SetupButton
               secondary

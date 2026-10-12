@@ -37,7 +37,7 @@ test("retiring food-day completion preserves other widgets and active habits", a
   assert.equal(result.migrated, true);
   assert.deepEqual(result.layout.widgets, [
     weight,
-    { ...mixed, config: { habits: ["calorie_target"] } },
+    { ...mixed, config: { habits: ["food_logging", "calorie_target"] } },
   ]);
   let stored = raw;
   const store = createLayoutStore({
@@ -54,7 +54,7 @@ test("retiring food-day completion preserves other widgets and active habits", a
   const duplicate = {
     ...mixed,
     id: "active",
-    config: { habits: ["calorie_target"] },
+    config: { habits: ["calorie_target", "food_logging"] },
   };
   assert.equal(
     readLayout(JSON.stringify({ version: 1, widgets: [mixed, duplicate] }))
@@ -377,7 +377,7 @@ test("default Summary contains only the original eight widgets in their original
   );
 });
 
-test("logging-only widgets retire without removing records or unrelated layout settings", () => {
+test("all supported logging widgets and mixed selections survive layout reload", () => {
   const logging = [
     "daily_logging",
     "food_logging",
@@ -404,7 +404,6 @@ test("logging-only widgets retire without removing records or unrelated layout s
   );
   assert.equal(result.recovered, false);
   assert.deepEqual(result.layout.widgets, [
-    { ...mixed, config: { habits: ["protein_target", "training"] } },
-    normal,
+    ...widgets, mixed, normal,
   ]);
 });

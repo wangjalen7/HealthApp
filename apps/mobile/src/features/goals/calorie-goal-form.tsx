@@ -264,8 +264,7 @@ export function CalorieGoalForm({
           {r ? (
             <Text style={[s.copy, { marginBottom: 16 }]}>
               Previous estimate: {r.target.toLocaleString()} kcal/day.
-              Recalculate explicitly to update it; your applied goal stays
-              unchanged.
+              Recalculate to update; your applied goal stays unchanged.
             </Text>
           ) : null}
           <Text style={[s.copy, { marginBottom: 16 }]}>

@@ -65,6 +65,40 @@ const deps = {
   consumeQuota: async () => true,
 };
 
+test("current app text and JPEG requests pass strict validation and record consent before provider use", async () => {
+  for (const input of [
+    { description: "200g pasta", consent: true, consentVersion: aiConsentVersion },
+    { description: "", imageBase64: "/9j/AAAA", consent: true, consentVersion: aiConsentVersion },
+  ]) {
+    const steps: string[] = [];
+    const handler = createMealHandler({
+      ...deps,
+      recordConsent: async (userId, version) => {
+        assert.equal(userId, "test-user");
+        assert.equal(version, aiConsentVersion);
+        steps.push("consent");
+      },
+      consumeQuota: async () => { steps.push("quota"); return true; },
+      fetch: async (_url, init) => {
+        steps.push("provider");
+        const body = JSON.parse(String(init?.body));
+        assert.equal(body.store, false);
+        assert.equal(JSON.stringify(body).includes("consentVersion"), false);
+        return new Response(JSON.stringify(response));
+      },
+    });
+    // Use the exact wire body, without the request fixture's version injection.
+    const reply = await handler(new Request("https://example.test", {
+      method: "POST",
+      headers: { Authorization: "Bearer test-token" },
+      body: JSON.stringify(input),
+    }));
+    assert.equal(reply.status, 200);
+    assert.deepEqual((await reply.json()).items, result.items);
+    assert.deepEqual(steps, ["consent", "quota", "provider"]);
+  }
+});
+
 test("meal sharing requires the current notice and a saved minimal consent receipt",async()=>{
   let paid=0;
   const handler=createMealHandler({...deps,fetch:async()=>{paid++;throw Error("not allowed");}});

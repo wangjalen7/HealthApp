@@ -345,9 +345,16 @@ test("existing custom BP history survives a replacement that cannot yet schedule
 test("a pending meal tap survives failed login, opens today's logger once and creates no meal", async ({
   page,
   backend,
-}) => {
+}, info) => {
   backend.emailConfirmed = false;
   await seedIntent(page, "meals", "breakfast");
+  await page.goto("/sign-in");
+  await expect(button(page, "Sign in")).toBeVisible();
+  await button(page, "Sign in").click({ trial: true });
+  await expect(page.getByTestId("sustain-launch-cover")).toHaveCount(0);
+  await expect(page.getByText("Sign in to open your reminder.", { exact: true })).toHaveCount(0);
+  await expect(button(page, "Cancel reminder navigation")).toHaveCount(0);
+  await page.screenshot({ path: info.outputPath("regular-reminder-login.png") });
   await login(page);
   await expect(page.getByText(/Email not confirmed/)).toBeVisible();
   expect((await read(page, intentKey)).pending).toBeDefined();
@@ -371,7 +378,34 @@ test("a pending meal tap survives failed login, opens today's logger once and cr
   await expect(page.getByText("Hi Review,", { exact: true })).toBeVisible();
 });
 
-test("meal tap preserves an existing draft and wrong-account or cancelled intents do not navigate", async ({
+test("a supplement tap uses normal login and opens its reminder without marking it taken", async ({ page, backend }, info) => {
+  void backend;
+  await page.addInitScript(({ user, intentKey }) => {
+    const id = "synthetic-creatine";
+    localStorage.setItem(`healthapp:reminders:${user}`, JSON.stringify([{
+      id, userId: user, kind: "supplement", name: "Creatine", time: "12:00",
+      additionalTimes: [], repeat: "daily", startDate: "2026-01-01", weekdays: [],
+      enabled: true, notificationIds: [], createdAt: "2026-01-01T12:00:00Z", updatedAt: "2026-01-01T12:00:00Z",
+    }]));
+    if (!localStorage.getItem(intentKey)) localStorage.setItem(intentKey, JSON.stringify({
+      seen: [], pending: { key: "supplement-tap", expiresAt: Date.now() + 1800000,
+        payload: { v: 2, userId: user, source: "custom", reminderId: id } },
+    }));
+  }, { user, intentKey });
+  await page.goto("/sign-in");
+  await expect(button(page, "Sign in")).toBeVisible();
+  await expect(page.getByText("Sign in to open your reminder.", { exact: true })).toHaveCount(0);
+  await expect(button(page, "Cancel reminder navigation")).toHaveCount(0);
+  await login(page);
+  await expect(page).toHaveURL(/\/reminders(?:\?|$)/);
+  await expect(page.getByLabel("Reminder name", { exact: true })).toHaveValue("Creatine");
+  await expect.poll(async () => (await read(page, intentKey)).pending).toBeUndefined();
+  expect(await read(page, `healthapp:reminder-completions:${user}`)).toBeNull();
+  await expect(page.getByTestId("sustain-entry-cover")).toHaveCount(0);
+  await page.screenshot({ path: info.outputPath("supplement-destination.png") });
+});
+
+test("meal tap preserves an existing draft", async ({
   page,
   backend,
 }) => {
@@ -405,44 +439,23 @@ test("Rest Today only stores the local-day preference and creates no workout or 
   await seedIntent(page, "workout");
   await login(page);
   await button(page, "Rest Today").click();
-  await expect(page.getByText(/No workout was recorded/)).toBeVisible();
+  await expect(page.getByText(/no workout was logged/)).toBeVisible();
   expect((await read(page)).restDay).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   expect(backend.tables.workout_sessions ?? []).toHaveLength(0);
   expect(backend.tables.cardio_entries ?? []).toHaveLength(0);
   expect(await read(page, `healthapp:reminder-completions:${user}`)).toBeNull();
 });
 
-test("notification intent cancellation and incompatible account sign-in clear the pending destination", async ({
+test("incompatible account sign-in clears the pending destination without reminder-specific login controls", async ({
   page,
   backend,
 }) => {
   void backend;
   await seedIntent(page, "weight", "weight", "different-account");
   await page.goto("/sign-in");
-  await expect(button(page, "Cancel reminder navigation")).toBeVisible();
-  await button(page, "Cancel reminder navigation").click();
-  expect((await read(page, intentKey)).pending).toBeUndefined();
-  await page.evaluate(
-    ({ intentKey }) =>
-      localStorage.setItem(
-        intentKey,
-        JSON.stringify({
-          seen: [],
-          pending: {
-            key: "different-tap",
-            payload: {
-              v: 2,
-              userId: "different-account",
-              source: "routine",
-              category: "weight",
-              slot: "weight",
-            },
-            expiresAt: Date.now() + 300000,
-          },
-        }),
-      ),
-    { intentKey },
-  );
+  await expect(button(page, "Sign in")).toBeVisible();
+  await expect(button(page, "Cancel reminder navigation")).toHaveCount(0);
+  expect((await read(page, intentKey)).pending).toBeDefined();
   await login(page);
   await expect(page.getByText("Hi Review,", { exact: true })).toBeVisible();
   await expect

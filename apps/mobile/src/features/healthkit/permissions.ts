@@ -6,4 +6,5 @@ export const healthKitReadAuthorizationTypes = [
   "HKQuantityTypeIdentifierBloodPressureSystolic",
   "HKQuantityTypeIdentifierBloodPressureDiastolic",
   "HKQuantityTypeIdentifierHeartRate",
+  "HKQuantityTypeIdentifierStepCount",
 ] as const;

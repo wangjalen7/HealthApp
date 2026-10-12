@@ -172,8 +172,8 @@ function FluidForm({
         <>
           {r ? (
             <Text style={[s.copy, { marginBottom: 16 }]}>
-              Your saved estimate is from the previous calculation. Recalculate
-              to update it; your applied goal stays unchanged.
+              Recalculate to update the estimate; your applied goal stays
+              unchanged.
             </Text>
           ) : null}
           <Group title="Goal Type" icon="water">
@@ -230,9 +230,7 @@ function FluidForm({
                   });
                 }}
               />
-            ) : (
-              <Text style={s.copy}>Choose how to display your daily goal.</Text>
-            )}
+            ) : null}
           </Group>
           {h.error ? (
             <Text accessibilityRole="alert" style={s.error}>

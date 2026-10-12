@@ -7,6 +7,7 @@ import {
   openAiCompatibleSchema,
   parseCoachModelResult,
   type CoachHandlerDependencies,
+  workoutProviderFailure,
 } from "./handler.ts";
 import {
   coachModelResultSchema,
@@ -583,6 +584,81 @@ const workoutFixture = {
   })),
   cardio: null,
 };
+
+test("current wire request generates a workout with optional fields omitted", async () => {
+  const steps: string[] = [];
+  const handler = createCoachHandler(dependencies({
+    allowLegacyChat: false,
+    recordConsent: async (user, version, history) => {
+      assert.equal(user, profile.userId);
+      assert.equal(version, aiConsentVersion);
+      assert.equal(history, false);
+      steps.push("consent");
+    },
+    loadContext: async (_token, _user, input) => {
+      assert.equal(input.includeTrainingHistory, false);
+      assert.deepEqual(input.workoutPreferences?.focus, []);
+      assert.equal(input.workoutPreferences?.limitations, "");
+      steps.push("context");
+      return { profile, snapshot: {}, messages: [] };
+    },
+    fetch: async () => {
+      steps.push("provider");
+      return providerResponse({ result: { ...baseResult, actions: [workoutFixture] } });
+    },
+  }));
+  const reply = await handler(new Request("https://example.test", {
+    method: "POST", headers: { Authorization: "Bearer token" },
+    body: JSON.stringify({
+      message: "Generate workout", timezone: "America/New_York", localDate: "2026-10-11",
+      consentVersion: aiConsentVersion,
+      workoutPreferences: {
+        goals: ["strength_muscle"], styles: ["science"], location: "gym",
+        equipment: ["dumbbells"], experience: "beginner", minutes: 45,
+        readiness: "ready", novelty: "mix",
+      },
+    }),
+  }));
+  assert.equal(reply.status, 200);
+  assert.equal((await reply.json()).actions[0].payload.exercises.length, 3);
+  assert.deepEqual(steps, ["consent", "context", "provider"]);
+});
+
+test("invalid time zones and missing required fields fail before quota and provider calls", async () => {
+  const { defaultWorkoutPreferences } = await import("../_shared/workout-planning.ts");
+  let paid = 0;
+  const handler = createCoachHandler(dependencies({ consumeQuota: async () => { paid++; throw Error("must not call"); } }));
+  for (const [patch, code] of [
+    [{ timezone: "Invalid/Timezone" }, "invalid_timezone"],
+    [{ timezone: "" }, "invalid_timezone"],
+    [{ localDate: "bad" }, "invalid_date"],
+    [{ message: "" }, "invalid_request"],
+  ] as const) {
+    const reply = await handler(new Request("https://example.test", {
+      method: "POST", headers: { Authorization: "Bearer token" },
+      body: JSON.stringify({ message: "Generate workout", timezone: "UTC", localDate: "2026-10-11", consentVersion: aiConsentVersion, workoutPreferences: defaultWorkoutPreferences, ...patch }),
+    }));
+    assert.equal(reply.status, 400);
+    assert.equal((await reply.json()).code, code);
+  }
+  assert.equal(paid, 0);
+});
+
+test("workout provider errors distinguish billing, rate limits, access and model configuration", () => {
+  for (const [status, code, expected] of [
+    [429, "insufficient_quota", "provider_billing"],
+    [429, "rate_limit_exceeded", "provider_rate_limited"],
+    [401, "invalid_api_key", "provider_access"],
+    [403, "permission_denied", "provider_access"],
+    [404, "model_not_found", "provider_model"],
+    [400, "bad_schema", "provider_request"],
+    [503, "unavailable", "provider_error"],
+  ] as const) {
+    const failure = workoutProviderFailure(status, { error: { code, message: "private provider details" } });
+    assert.equal(failure.code, expected);
+    assert.equal(failure.message.includes("private provider details"), false);
+  }
+});
 
 test("planner schema requires a routine for normal replies and allows safety without a draft", () => {
   assert.equal(

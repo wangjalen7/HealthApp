@@ -68,7 +68,7 @@ test("email signup, confirmation, all-optional skip, and saved completion surviv
   await page.screenshot({ path: info.outputPath("completion-skipped.png") });
   await button(page, "Start tracking").click();
   await expect(
-    page.getByText("Your daily snapshot", { exact: true }),
+    page.getByRole("heading", { name: /^Hi / }),
   ).toBeVisible();
   expect(backend.tables.account_setup[0].preferred_name).toBeNull();
   expect(backend.tables.profiles[0].daily_calorie_goal).toBeNull();
@@ -77,7 +77,7 @@ test("email signup, confirmation, all-optional skip, and saved completion surviv
   await page.reload();
   await emailLogin(page);
   await expect(
-    page.getByText("Your daily snapshot", { exact: true }),
+    page.getByRole("heading", { name: /^Hi / }),
   ).toBeVisible();
   await expect(
     page.getByText("Let’s make this yours.", { exact: true }),

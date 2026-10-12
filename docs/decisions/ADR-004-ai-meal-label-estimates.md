@@ -20,3 +20,8 @@ Validate strict structured output on both sides. Use a reproducible one-serving 
 - Nutrition and portions are estimates, particularly hidden ingredients and unmeasured photos. Confidence and assumptions remain visible; this feature gives no diagnoses or dietary prescriptions.
 - Missing credentials show a clear setup message while manual logging remains usable. Activation, deployment and live-quality evaluation are documented in [AI_MEAL_SETUP.md](../AI_MEAL_SETUP.md).
 - Broader daily coaching, USDA grounding, persisted raw AI sessions and a measured food-photo evaluation dataset remain outside this first feature.
+
+
+## 2026-10-11: Authorize each request through its primary AI action
+
+At the user's explicit direction, remove the redundant processing toggle and always-visible disclosure. Estimate foods / Generate workout plan now authorizes only the request initiated by that button. AI privacy details retains input/provider/retention/cancellation/manual-entry context. Opening the screen/details never sends, and automatic retries remain disabled. Keep current server consent/version validation and receipts; provider, purpose and input categories are unchanged, so the notice version remains unchanged. Optional workout history stays independently off by default and inline with its label. Existing review, editing, saving, quotas and errors remain.

@@ -26,7 +26,7 @@ function success(result, stage) {
 const email = `streak-test-${randomUUID()}@example.invalid`, password = `${randomUUID()}Aa!9`;
 let user;
 try {
-  const request = { p_habits: ['daily_logging', 'food_logging', 'food_complete', 'calorie_target', 'protein_target', 'fluid_logging', 'fluid_target', 'training', 'weight', 'bp'], p_zone: 'America/New_York' };
+  const request = { p_habits: ['daily_logging', 'food_logging', 'calorie_target', 'protein_target', 'fluid_logging', 'fluid_target', 'training', 'weight', 'bp'], p_zone: 'America/New_York' };
   const anonymous = await call('/rest/v1/rpc/initialize_summary_streaks', request);
   assert.ok(anonymous.status >= 400);
   assert.equal(anonymous.data?.code, '42501', 'RPC must exist and reject anonymous execution');
@@ -40,14 +40,14 @@ try {
   success(initialized, 'Initialize streak widget');
   const path = `/rest/v1/streak_rules?user_id=eq.${user}&order=habit,effective_day`;
   const first = await call(path, undefined, token, publicKey, 'GET'); success(first, 'Read rules');
-  assert.equal(first.data.length, 10);
+  assert.equal(first.data.length, 9);
   assert.ok(first.data.every(row => row.user_id === user && row.enabled));
   assert.equal(first.data.find(row => row.habit === 'calorie_target').config.calorieMode, 'under');
   assert.equal(first.data.find(row => row.habit === 'bp').config.includeImports, true);
   success(await call('/rest/v1/rpc/initialize_summary_streaks', request, token), 'Retry initialization');
   const second = await call(path, undefined, token, publicKey, 'GET'); success(second, 'Read retry');
   assert.deepEqual(second.data, first.data, 'Retry must preserve existing rules');
-  console.log('PASS: live RPC resolves exact p_habits/p_zone signature, rejects anonymous access, initializes all ten server habits, and preserves rules on retry.');
+  console.log('PASS: live RPC resolves exact p_habits/p_zone signature, rejects anonymous access, initializes all nine supported server habits, and preserves rules on retry.');
 } finally {
   if (user) {
     success(await call(`/auth/v1/admin/users/${user}`, undefined, adminKey, adminKey, 'DELETE'), 'Remove fixture');

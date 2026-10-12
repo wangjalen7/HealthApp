@@ -67,8 +67,7 @@ export function SecuritySettings({ userId }: { userId: string }) {
   return (
     <View>
       <Text style={styles.copy}>
-        Devices enrolled for Face ID sign-in. This is not a list of all active
-        account sessions.
+        Face ID devices only; other active sessions are not listed.
       </Text>
       {!devices && !error ? <ActivityIndicator /> : null}
       {devices?.length === 0 ? (

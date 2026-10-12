@@ -143,12 +143,27 @@ function WorkoutContent() {
     location: "",
     notes: "",
   });
-  useEffect(() => observeDraftReset(userId, () => {
-    draftRevision.current++;
-    draftRef.current = { muscleGroups: [], entries: [], location: "", notes: "" };
-    setSelectedGroups([]); setEntryDay(undefined); setEntries([]); setLocation(""); setNotes("");
-    setFeedback(""); entryNames.current.clear(); guidanceRequests.current.clear();
-  }), [userId, setSelectedGroups, setEntryDay, setEntries, setLocation, setNotes]);
+  useEffect(
+    () =>
+      observeDraftReset(userId, () => {
+        draftRevision.current++;
+        draftRef.current = {
+          muscleGroups: [],
+          entries: [],
+          location: "",
+          notes: "",
+        };
+        setSelectedGroups([]);
+        setEntryDay(undefined);
+        setEntries([]);
+        setLocation("");
+        setNotes("");
+        setFeedback("");
+        entryNames.current.clear();
+        guidanceRequests.current.clear();
+      }),
+    [userId, setSelectedGroups, setEntryDay, setEntries, setLocation, setNotes],
+  );
   const draft = useMemo<WorkoutDraft>(
     () => ({
       entryDay,
@@ -505,7 +520,7 @@ function WorkoutContent() {
       return setFeedback("Choose one or more muscle groups first.");
     if (!entries.length)
       return setFeedback(
-        "Add an exercise, choose its muscle group, set count, every rep target, and a working weight.",
+        "Complete each exercise’s muscle group, sets, reps and weight.",
       );
     const incomplete = entries
       .map((entry, index) =>
@@ -599,6 +614,27 @@ function WorkoutContent() {
           <Text accessibilityRole="header" style={styles.title}>
             Workout
           </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Steps"
+            onPress={() =>
+              router.push({
+                pathname: "/(app)/steps",
+                params: { from: "workout" },
+              })
+            }
+            style={{
+              minHeight: 44,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              alignSelf: "flex-start",
+            }}
+          >
+            <Icon name="steps" size={18} color={colors.green} />
+            <Text style={{ color: colors.blue, fontWeight: "600" }}>Steps</Text>
+            <Icon name="chevron" size={12} color={colors.secondary} />
+          </Pressable>
           {routineWorkout === "true" ? <RestToday /> : null}
           <EntryDateField
             value={section === "lifting" ? entryDay : cardio.entryDay}
@@ -611,15 +647,14 @@ function WorkoutContent() {
           />
           <AiActionCard
             title="Plan workout with AI"
-            subtitle="AI creates editable lifting and cardio drafts"
             onPress={() => router.push("/(app)/coach")}
           />
           {planned ? (
             <View style={{ gap: 8, marginBottom: 16 }}>
               <Text accessibilityLiveRegion="polite" style={styles.draftStatus}>
                 {planned === "combo"
-                  ? "AI drafts added to Lifting and Cardio. Edit both sections before logging your completed session."
-                  : "AI draft added. Edit the suggestions below before logging your completed session."}
+                  ? "AI drafts ready in Lifting and Cardio. Review both before logging."
+                  : "AI draft ready. Review before logging."}
               </Text>
               {planned === "combo" ? (
                 <Pressable
@@ -657,9 +692,7 @@ function WorkoutContent() {
           {section === "lifting" &&
           draftLoaded &&
           workoutDraftHasContent(draft) ? (
-            <Text style={styles.draftStatus}>
-              Unfinished workout saved on this device.
-            </Text>
+            <Text style={styles.draftStatus}>Draft saved on this device.</Text>
           ) : null}
           {section === "lifting" ? (
             <>

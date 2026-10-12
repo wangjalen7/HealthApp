@@ -34,13 +34,11 @@ export function RestToday() {
   );
   return (
     <View style={styles.card}>
-      <Text style={styles.copy}>
-        Workout or rest day? Make today work for you.
-      </Text>
+      <Text style={styles.copy}>Taking a rest day?</Text>
       {done ? (
         <Text accessibilityLiveRegion="polite" style={styles.copy}>
-          Rest day noted. No workout was recorded. Workout reminders resume on
-          your next selected day.
+          Rest day saved. Reminders resume on your next scheduled day; no
+          workout was logged.
         </Text>
       ) : (
         <SettingsButton

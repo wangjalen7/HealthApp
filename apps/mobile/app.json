@@ -73,7 +73,7 @@
       [
         "@kingstinct/react-native-healthkit",
         {
-          "NSHealthShareUsageDescription": "Sustain reads weight, blood pressure, and pulse paired with blood pressure to display your trends and sync these readings to your private Sustain account.",
+          "NSHealthShareUsageDescription": "Sustain reads your optional step counts to show activity on this iPhone. It can also read weight, blood pressure, and paired pulse to display trends and sync those readings to your private Sustain account.",
           "NSHealthUpdateUsageDescription": false,
           "background": false
         }

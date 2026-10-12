@@ -1,5 +1,7 @@
 import { test, expect, signIn, quickLog } from "./fixture";
 import type { Page } from "@playwright/test";
+import { aiConsentVersion } from "../../../supabase/functions/_shared/ai-privacy";
+import { mealEstimateRequestSchema } from "../../../supabase/functions/_shared/meal-estimate";
 
 async function openAiEstimator(page: Page) {
   await page.getByRole("button", { name: "Add food", exact: true }).click();
@@ -114,30 +116,68 @@ const dumplingEstimate = {
   ],
 };
 
-test("meal label toggles derive mixed state and save all foods with only selected labels", async ({ page, backend }) => {
+test("meal label toggles derive mixed state and save all foods with only selected labels", async ({
+  page,
+  backend,
+}) => {
   await signIn(page);
-  await page.route("**/functions/v1/estimate-meal", (route) => route.fulfill({ json: estimate }));
-  await quickLog(page, "Food"); await openAiEstimator(page);
-  await page.getByLabel("Meal description", { exact: true }).fill("pasta and chicken");
-  await page.getByRole("checkbox", { name: "Allow AI meal processing" }).click();
-  await page.getByRole("button", { name: "Estimate foods", exact: true }).click();
-  const all = page.getByRole("switch", { name: "Create labels for this meal", exact: true });
+  await page.route("**/functions/v1/estimate-meal", (route) =>
+    route.fulfill({ json: estimate }),
+  );
+  await quickLog(page, "Food");
+  await openAiEstimator(page);
+  await page
+    .getByLabel("Meal description", { exact: true })
+    .fill("pasta and chicken");
+  await page
+    .getByRole("button", { name: "Estimate foods", exact: true })
+    .click();
+  const all = page.getByRole("switch", {
+    name: "Create labels for this meal",
+    exact: true,
+  });
   await all.click();
-  for (let i = 1; i <= 3; i++) await expect(page.getByRole("switch", { name: "Create reusable label for Food " + i, exact: true })).not.toBeChecked();
+  for (let i = 1; i <= 3; i++)
+    await expect(
+      page.getByRole("switch", {
+        name: "Create reusable label for Food " + i,
+        exact: true,
+      }),
+    ).not.toBeChecked();
   await all.click();
-  for (let i = 1; i <= 3; i++) await expect(page.getByRole("switch", { name: "Create reusable label for Food " + i, exact: true })).toBeChecked();
+  for (let i = 1; i <= 3; i++)
+    await expect(
+      page.getByRole("switch", {
+        name: "Create reusable label for Food " + i,
+        exact: true,
+      }),
+    ).toBeChecked();
   await all.click();
-  await page.getByRole("switch", { name: "Create reusable label for Food 2", exact: true }).click();
+  await page
+    .getByRole("switch", {
+      name: "Create reusable label for Food 2",
+      exact: true,
+    })
+    .click();
   await expect(page.getByText(/Some foods included/)).toBeVisible();
-  await page.getByLabel("Food 2 description", { exact: true }).fill("Updated sauce description");
-  await page.getByRole("button", { name: "Add foods to meal", exact: true }).click();
+  await page
+    .getByLabel("Food 2 description", { exact: true })
+    .fill("Updated sauce description");
+  await page
+    .getByRole("button", { name: "Add foods to meal", exact: true })
+    .click();
   await page.getByRole("radio", { name: "dinner", exact: true }).click();
   await page.getByRole("button", { name: "Save meal", exact: true }).click();
   await expect(page.getByText("Meal saved.", { exact: true })).toBeVisible();
   expect(backend.tables.nutrition_entries).toHaveLength(3);
   expect(backend.tables.user_food_profiles).toHaveLength(1);
   expect(backend.tables.user_food_profiles[0].food_name).toBe("Tomato sauce");
-  expect(backend.tables.nutrition_entries.reduce((sum, row) => sum + Number(row.calories), 0)).toBe(636);
+  expect(
+    backend.tables.nutrition_entries.reduce(
+      (sum, row) => sum + Number(row.calories),
+      0,
+    ),
+  ).toBe(636);
 });
 
 test("AI text meal creates separate editable labels and exact saved portions", async ({
@@ -151,6 +191,8 @@ test("AI text meal creates separate editable labels and exact saved portions", a
     const body = route.request().postDataJSON();
     expect(body.description).toContain("pasta");
     expect(body.consent).toBe(true);
+    expect(body.consentVersion).toBe(aiConsentVersion);
+    expect(mealEstimateRequestSchema.safeParse(body).success).toBe(true);
     expect(body.imageBase64).toBeUndefined();
     await route.fulfill({ json: estimate });
   });
@@ -161,10 +203,7 @@ test("AI text meal creates separate editable labels and exact saved portions", a
     .fill("2 cups pasta, tomato sauce, and 150g chicken");
   await expect(
     page.getByRole("button", { name: "Estimate foods", exact: true }),
-  ).toBeDisabled();
-  await page
-    .getByRole("checkbox", { name: "Allow AI meal processing" })
-    .click();
+  ).toBeEnabled();
   await page
     .getByRole("button", { name: "Estimate foods", exact: true })
     .click();
@@ -243,9 +282,6 @@ test("AI count estimate saves an editable number of food items", async ({
   await page
     .getByLabel("Meal description", { exact: true })
     .fill("8 pork dumplings");
-  await page
-    .getByRole("checkbox", { name: "Allow AI meal processing" })
-    .click();
   let estimateCalls = 0;
   await page.route("**/functions/v1/estimate-meal", (route) => {
     estimateCalls += 1;
@@ -309,9 +345,6 @@ test("AI count estimate saves an editable number of food items", async ({
     .getByLabel("Meal description", { exact: true })
     .fill("8 steamed pork dumplings");
   await page
-    .getByRole("checkbox", { name: "Allow AI meal processing" })
-    .click();
-  await page
     .getByRole("button", { name: "Estimate foods", exact: true })
     .click();
   await page
@@ -346,9 +379,6 @@ test("each AI food can independently skip its reusable label", async ({
   await page
     .getByLabel("Meal description", { exact: true })
     .fill("pasta, tomato sauce, and grilled chicken");
-  await page
-    .getByRole("checkbox", { name: "Allow AI meal processing" })
-    .click();
   await page.route("**/functions/v1/estimate-meal", (route) =>
     route.fulfill({ json: estimate }),
   );
@@ -395,9 +425,6 @@ test("AI errors retain input, retry works, and cancel/close never adds foods", a
   await page
     .getByLabel("Meal description", { exact: true })
     .fill("pasta with sauce and chicken");
-  await page
-    .getByRole("checkbox", { name: "Allow AI meal processing" })
-    .click();
   let calls = 0;
   await page.route("**/functions/v1/estimate-meal", async (route) => {
     calls++;
@@ -423,9 +450,12 @@ test("AI errors retain input, retry works, and cancel/close never adds foods", a
   await expect(
     page.getByLabel("Meal description", { exact: true }),
   ).toHaveValue("pasta with sauce and chicken");
-  await expect(page.getByRole("checkbox", { name: "Allow AI meal processing" })).not.toBeChecked();
-  await expect(page.getByRole("button", { name: "Estimate foods", exact: true })).toBeDisabled();
-  await page.getByRole("checkbox", { name: "Allow AI meal processing" }).click();
+  await expect(
+    page.getByRole("switch", { name: "Send meal to OpenAI" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Estimate foods", exact: true }),
+  ).toBeEnabled();
   await page
     .getByRole("button", { name: "Estimate foods", exact: true })
     .click();
@@ -471,15 +501,14 @@ test("AI photo is prepared as JPEG and sent with optional description", async ({
   await page
     .getByLabel("Meal description", { exact: true })
     .fill("Pasta, sauce and chicken; no butter");
-  await page
-    .getByRole("checkbox", { name: "Allow AI meal processing" })
-    .click();
   let sent = false;
   await page.route("**/functions/v1/estimate-meal", async (route) => {
     const body = route.request().postDataJSON();
     expect(body.imageBase64).toMatch(/^\/9j\//);
     expect(body.description).toContain("no butter");
     expect(body.consent).toBe(true);
+    expect(body.consentVersion).toBe(aiConsentVersion);
+    expect(mealEstimateRequestSchema.safeParse(body).success).toBe(true);
     sent = true;
     await route.fulfill({ json: estimate });
   });
@@ -511,9 +540,6 @@ test("AI rejects a non-food photo without creating food labels", async ({
       "base64",
     ),
   });
-  await page
-    .getByRole("checkbox", { name: "Allow AI meal processing" })
-    .click();
   await page.route("**/functions/v1/estimate-meal", (route) =>
     route.fulfill({
       json: {
@@ -548,9 +574,6 @@ test("cancelled AI response is ignored and existing meal portions survive anothe
   await page.getByRole("radio", { name: "dinner", exact: true }).click();
   await openAiEstimator(page);
   await page.getByLabel("Meal description", { exact: true }).fill("pasta");
-  await page
-    .getByRole("checkbox", { name: "Allow AI meal processing" })
-    .click();
   let release: (() => void) | undefined;
   let count = 0;
   await page.route("**/functions/v1/estimate-meal", async (route) => {
@@ -574,8 +597,9 @@ test("cancelled AI response is ignored and existing meal portions survive anothe
   await expect(page.getByText(/Estimation stopped/)).toBeVisible();
   await expect(page.getByText(/Review 1 estimated foods/)).toHaveCount(0);
   expect(backend.tables.user_food_profiles ?? []).toHaveLength(0);
-  await expect(page.getByRole("checkbox", { name: "Allow AI meal processing" })).not.toBeChecked();
-  await page.getByRole("checkbox", { name: "Allow AI meal processing" }).click();
+  await expect(
+    page.getByRole("switch", { name: "Send meal to OpenAI" }),
+  ).toHaveCount(0);
   await page
     .getByRole("button", { name: "Estimate foods", exact: true })
     .click();
@@ -587,9 +611,6 @@ test("cancelled AI response is ignored and existing meal portions survive anothe
   expect(backend.tables.user_food_profiles).toHaveLength(1);
   await openAiEstimator(page);
   await page.getByLabel("Meal description", { exact: true }).fill("chicken");
-  await page
-    .getByRole("checkbox", { name: "Allow AI meal processing" })
-    .click();
   await page
     .getByRole("button", { name: "Estimate foods", exact: true })
     .click();

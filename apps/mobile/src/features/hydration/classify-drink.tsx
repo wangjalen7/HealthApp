@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { Modal } from "../../ui/modal";
 import { Pressable } from "../../ui/pressable";
+import { IconButton } from "../../ui/icon-button";
 import { trackingStyles } from "../../ui/tracking-styles";
 import { colors } from "../../ui/theme";
 import { useAuth } from "../auth/auth-provider";
@@ -23,10 +24,12 @@ export function ClassifyDrink({
   entry,
   onChanged,
   buttonStyle,
+  compact = false,
 }: {
   entry: HydrationHistoryEntry;
   onChanged: () => Promise<void>;
   buttonStyle?: StyleProp<ViewStyle>;
+  compact?: boolean;
 }) {
   const { session } = useAuth();
   const [visible, setVisible] = useState(false);
@@ -34,23 +37,31 @@ export function ClassifyDrink({
   const [alcohol, setAlcohol] = useState<AlcoholStatus>("unknown");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const open = () => {
+    setCategory(getDrinkCategory(entry.categoryId)?.id ?? "other");
+    setAlcohol((entry.alcoholStatus as AlcoholStatus | null) ?? "unknown");
+    setError("");
+    setVisible(true);
+  };
   return (
     <>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Classify ${entry.fluidName}`}
-        onPress={() => {
-          setCategory(getDrinkCategory(entry.categoryId)?.id ?? "other");
-          setAlcohol(
-            (entry.alcoholStatus as AlcoholStatus | null) ?? "unknown",
-          );
-          setError("");
-          setVisible(true);
-        }}
-        style={[{ minHeight: 44, justifyContent: "center" }, buttonStyle]}
-      >
-        <Text style={{ color: colors.blue }}>Change drink category</Text>
-      </Pressable>
+      {compact ? (
+        <IconButton
+          variant="plain"
+          name="edit"
+          label={`Edit ${entry.fluidName} entry`}
+          onPress={open}
+        />
+      ) : (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Classify ${entry.fluidName}`}
+          onPress={open}
+          style={[{ minHeight: 44, justifyContent: "center" }, buttonStyle]}
+        >
+          <Text style={{ color: colors.blue }}>Change drink category</Text>
+        </Pressable>
+      )}
       <Modal
         visible={visible}
         animationType="slide"
@@ -66,8 +77,7 @@ export function ClassifyDrink({
             {entry.fluidName}
           </Text>
           <Text style={{ color: colors.secondary, marginBottom: 16 }}>
-            Changing the category recalculates this entry's goal contribution.
-            Its consumed volume stays the same.
+            Category changes update goal contribution, keeping the saved volume.
           </Text>
           <DrinkSelector
             inline

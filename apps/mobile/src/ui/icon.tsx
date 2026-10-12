@@ -3,6 +3,7 @@ import type { ColorValue } from "react-native";
 import { Platform } from "react-native";
 
 export type IconName =
+  | "steps"
   | "face-id"
   | "sun"
   | "ruler"
@@ -68,6 +69,12 @@ export function Icon({
             importantForAccessibility: "no-hide-descendants" as const,
           })}
     >
+      {name === "steps" && (
+        <>
+          <Path d="M8 3c2 0 3 3 3 5s-1 3-3 3-3-1-3-3 1-5 3-5Zm8 7c2 0 3 3 3 5s-1 3-3 3-3-1-3-3 1-5 3-5Z" />
+          <Path d="M6 14h4v3H6zm8 7h4" />
+        </>
+      )}
       {name === "face-id" && (
         <Path d="M8 3H5a2 2 0 0 0-2 2v3m13-5h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3m8 0h3a2 2 0 0 0 2-2v-3M8 8v2m8-2v2m-4-2v5h-1m-3 3c2 2 6 2 8 0" />
       )}

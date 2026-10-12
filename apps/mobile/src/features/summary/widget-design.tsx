@@ -8,6 +8,7 @@ export const widgetIdentity: Record<
   WidgetType,
   { icon: IconName; color: string }
 > = {
+  steps: { icon: "steps", color: colors.green },
   weight: { icon: "weight", color: colors.purple },
   bp: { icon: "heart", color: colors.pink },
   calories: { icon: "food", color: colors.orange },
@@ -39,7 +40,7 @@ export function WidgetHeading({
       {onEdit && (type === "streaks" || type === "actions") ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Edit ${title} widget`}
+          accessibilityLabel={`Edit ${type === "streaks" ? "Streaks" : title} widget`}
           accessibilityHint="Choose the items displayed in this widget."
           onPress={onEdit}
           style={{

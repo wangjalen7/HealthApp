@@ -163,7 +163,7 @@ Status key: `[ ]` planned, `[-]` in progress, `[x]` complete.
 - [ ] Add plateau/deload detection and exercise substitutions based on available equipment and limitations.
 - [ ] Add validated four-to-twelve-week bodybuilding programs after next-workout quality is proven.
 - [ ] Add remaining-macro meal combinations, reusable meal plans, and grocery-list generation.
-- [ ] Expand Apple Health recovery context with sleep, steps, resting heart rate, and HRV.
+- [ ] Expand Apple Health recovery context with sleep, resting heart rate, and HRV; Steps history is implemented as device-local activity tracking.
 - [ ] Add separately consented progress-photo comparison and body-measurement trends.
 - [ ] Add reviewed Coach reminder suggestions, evidence-focused supplement research, rest timers, warmups, and post-workout ratings.
 - [ ] Release 4: USDA external food search/fallback and richer source filters.
@@ -194,7 +194,12 @@ Status key: `[ ]` planned, `[-]` in progress, `[x]` complete.
 - [ ] Publish the signup email after custom SMTP or a Supabase plan upgrade is configured; the current Free/default-provider restriction blocks template changes.
 - [x] Implement privacy/legal drafts and controls, specific AI permission/minimization, export coverage, native storage/backup preparation, permission cleanup and shared accessibility improvements; document applicability, providers, operations and release blockers.
 - [ ] Resolve operator/contact/countries/age/monetization, consumer-health legal review, provider terms/retention, backup restoration, licenses and App Store declarations before public release.
-- [ ] After separate authorization, deploy privacy migration 202609250001 and updated AI functions, release a compatible rebuilt client, and verify hosted privacy/export/deletion with disposable accounts.
+- [x] Repair current AI meal request compatibility: apply privacy migration 202609250001, deploy matching estimate-meal v17, and verify text/JPEG request contracts and browser journeys.
+- [x] Implement optional cumulative Apple Health steps, account-synced nullable goal, configurable Summary widget and D/W/M detail; verify calendar/averages/cache/lifecycle, SQL/hosted goals and browser navigation. Physical-iPhone/Watch comparison remains in the existing native-validation item.
+- [x] Remove chart-data buttons/sheets, restore all supported streak choices and persistence, simplify streak cards/details, and deploy/verify the workout-planning request repair including omitted optional fields.
+- [x] Review all screen surfaces and simplify repetitive copy, redundant presentation and explanatory containers; compact AI consent without bypassing explicit sharing, preserve independent history/reusable-label choices, and verify AI/logging/settings/onboarding flows and narrow light/dark layouts. Existing diagonal-chart and physical-device checks remain documented separately.
+- [x] Refine AI entry sizing and action-based request authorization with expandable privacy details; consolidate Apple Health access, add compact D/W/M/6M/Y Steps with in-chart selection and stable refresh, and align label/fluid History icons plus conditional note expansion. Verify request contracts, preserved caches/anchors, responsive layouts, save/retry/cancellation and deletion; native-device checks remain in the existing validation item.
+- [ ] Release a compatible rebuilt client and verify the remaining hosted privacy/export/deletion flows with disposable accounts. Privacy migration 202609250001, estimate-meal v17 and coach-chat v17 are deployed as of 2026-10-11; native privacy/backup changes still need a rebuilt client.
 - [-] **In progress** - Complete physical-iPhone validation of native privacy/backup protection, permission denial, Sustain entry/standalone splash, reminders (delivery, taps, permissions, recurrence, capacity, DST/time zones), goal-helper calendars, keyboard, dark mode, Dynamic Type, VoiceOver/Voice Control/Switch Control, privacy lock, onboarding and device cleanup.
 
 - [x] Reorganize Profile into grouped settings with focused goal, preference, health-data and account/security destinations.
@@ -221,6 +226,13 @@ Status key: `[ ]` planned, `[-]` in progress, `[x]` complete.
 
 - [x] Independently review Sustain and produce a beginner-friendly system design, implementation, deployment, scaling and interview PDF.
 
+- [x] Review the current implementation before expanding the system-design report; trace active flows and failure boundaries, rerun checks, and record current findings separately from the earlier PDF and deployment evidence.
+- [x] Author and visually verify a standalone expanded implementation PDF with actual database/API/native call paths, beginner-friendly worked examples, design alternatives, evidence boundaries and deep software-engineering interview drills.
+
 - [x] Apply Sustain Home Screen branding to the app name, icon and permission prompts; verify native configuration.
+- [x] Correct remaining HealthApp routine-notification titles and reminder help text; verify scheduling checks and development native branding.
+- [x] Remove Privacy & Legal links from Welcome/authentication screens and retain access through Profile settings; verify the updated browser journey.
+- [x] Standardize notification titles and purpose text, retire generic previews, and use ordinary login while retaining the protected post-login reminder destination.
+- [ ] Obtain explicit cloud-build approval, build/install the replacement Sustain Dev binary and verify a newly delivered iPhone notification uses the Sustain name and logo.
 
 - [x] Coordinate independent Summary/History loading, centered secure entry, cohesive Quick Log/History presentation and cardio history navigation.

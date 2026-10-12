@@ -157,20 +157,9 @@ export default function ComingSoonScreen() {
             <Circle cx={256} cy={210} r={3} fill="#929AD0" fillOpacity={0.5} />
           </Svg>
         </View>
-        <Text style={styles.eyebrow}>UNDER WRAPS</Text>
         <Text accessibilityRole="header" style={styles.title}>
           Coming soon.
         </Text>
-        <Text style={styles.copy}>
-          Something new is taking shape.{"\n"}We're keeping the details quiet.
-          For now.
-        </Text>
-      </View>
-      <View style={styles.footer}>
-        <View style={styles.status}>
-          <View style={styles.dot} />
-          <Text style={styles.statusText}>IN THE WORKS</Text>
-        </View>
       </View>
     </ScreenScrollView>
   );
@@ -179,7 +168,6 @@ export default function ComingSoonScreen() {
 const styles = StyleSheet.create({
   page: {
     paddingHorizontal: 24,
-    justifyContent: "space-between",
     gap: 24,
     maxWidth: 620,
   },
@@ -204,14 +192,6 @@ const styles = StyleSheet.create({
     aspectRatio: 320 / 300,
     marginBottom: 20,
   },
-  eyebrow: {
-    color: colors.purple,
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 3,
-    textAlign: "center",
-    marginBottom: 14,
-  },
   title: {
     color: colors.text,
     fontSize: 38,
@@ -219,30 +199,5 @@ const styles = StyleSheet.create({
     letterSpacing: -1.4,
     textAlign: "center",
     marginBottom: 16,
-  },
-  copy: {
-    color: colors.secondary,
-    fontSize: 16,
-    lineHeight: 25,
-    textAlign: "center",
-    maxWidth: 310,
-  },
-  footer: { alignItems: "center", paddingTop: 12, paddingBottom: 12 },
-  status: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.separator,
-  },
-  dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.purple },
-  statusText: {
-    color: colors.secondary,
-    fontSize: 10,
-    letterSpacing: 1.8,
-    fontWeight: "600",
   },
 });

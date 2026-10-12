@@ -6,6 +6,7 @@ import {
   poundsToKilograms,
 } from "../goals/calculator";
 export const goalKinds = [
+  "steps",
   "calories",
   "protein",
   "fluids",
@@ -14,6 +15,7 @@ export const goalKinds = [
 ] as const;
 export type GoalKind = (typeof goalKinds)[number];
 export const goalLabels: Record<GoalKind, string> = {
+  steps: "Steps",
   calories: "Calories",
   protein: "Protein",
   fluids: "Fluids",
@@ -35,6 +37,10 @@ export function goalDisplay(
   weight?: VitalSample,
 ) {
   switch (kind) {
+    case "steps":
+      return goals.stepGoal === undefined
+        ? "Not Set"
+        : `${goals.stepGoal.toLocaleString()} steps/day`;
     case "calories":
       return goals.calorieGoal === undefined
         ? "Not Set"

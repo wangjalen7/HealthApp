@@ -268,15 +268,6 @@ export function RecipeManager({
         >
           {mode === "list" ? (
             <>
-              <View style={styles.infoCard}>
-                <Text style={styles.infoTitle}>
-                  Build once, log any portion
-                </Text>
-                <Text style={styles.infoCopy}>
-                  Create a recipe here by adding each ingredient and its exact
-                  amount. Later, add the finished recipe to a meal as one food.
-                </Text>
-              </View>
               <Pressable
                 onPress={beginCreate}
                 style={styles.primaryButton}
@@ -290,10 +281,6 @@ export function RecipeManager({
               {!loading && !recipes.length ? (
                 <View style={styles.emptyCard}>
                   <Text style={styles.emptyTitle}>No recipes yet</Text>
-                  <Text style={styles.emptyCopy}>
-                    A pasta batch might make six servings. A sandwich can make
-                    one.
-                  </Text>
                 </View>
               ) : null}
               {recipes.map((recipe) => {
@@ -382,8 +369,7 @@ export function RecipeManager({
                 value={yieldServings}
               />
               <Text style={styles.helper}>
-                Use 1 when the whole item is one serving, such as a sandwich.
-                Use the batch yield for foods such as pasta or soup.
+                Enter the number of servings in the whole recipe.
               </Text>
               <View style={styles.summaryCard}>
                 <Text style={styles.summaryEyebrow}>WHOLE RECIPE</Text>
@@ -555,13 +541,6 @@ const styles = StyleSheet.create({
   },
   headerSpacer: { width: 64 },
   content: { gap: 12, padding: 20, paddingBottom: 44 },
-  infoCard: {
-    backgroundColor: colors.blueSoft,
-    borderRadius: 14,
-    padding: 16,
-  },
-  infoTitle: { color: colors.text, fontSize: 17, fontWeight: "700" },
-  infoCopy: { color: colors.secondary, lineHeight: 20, marginTop: 5 },
   primaryButton: {
     alignItems: "center",
     backgroundColor: colors.blue,

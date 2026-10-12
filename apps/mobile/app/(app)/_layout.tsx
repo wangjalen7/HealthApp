@@ -129,6 +129,7 @@ export default function AppLayout() {
             tabBarIcon: ({ color }) => <Icon name="history" color={color} />,
           }}
         />
+        <Tabs.Screen name="steps" options={{ href: null }} />
         <Tabs.Screen name="workout" options={{ href: null }} />
         <Tabs.Screen
           name="history/[id]"

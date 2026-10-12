@@ -445,8 +445,7 @@ export default function EditHistoryScreen() {
             <Text style={styles.foodBrand}>{food.brand}</Text>
           ) : null}
           <Text style={styles.help}>
-            Change the amount consumed or its unit. Nutrition totals will be
-            recalculated from the saved serving.
+            Totals recalculate from the saved serving.
           </Text>
           {food.servingLabel ? (
             <Text style={styles.serving}>Serving: {food.servingLabel}</Text>

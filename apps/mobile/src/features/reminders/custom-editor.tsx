@@ -343,7 +343,7 @@ export function CustomEditor({
           ) : null}
           {draft.repeat === "interval" ? (
             <Text style={styles.copy}>
-              Open HealthApp regularly to refresh every-few-days reminders.
+              Open Sustain regularly to refresh every-few-days reminders.
             </Text>
           ) : null}
           <ErrorMessage message={error} />

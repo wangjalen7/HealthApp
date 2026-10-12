@@ -1,0 +1,47 @@
+# Sustain interface cleanup — 2026-10-11
+
+Reviewed the route and shared-component inventory (115 TSX files), visible copy, checkbox/switch dependencies, and existing browser journeys. Changed 34 screen/feature components plus the shared AI entry card. Kept the existing theme, navigation and storage/request contracts.
+
+| Surface | Cleanup and retained context |
+| --- | --- |
+| Summary and widget editor/picker | Removed the repeated daily subtitle, gallery descriptions/size lists beside previews, and a repeated streak week label. Shortened reorder guidance. All supported streaks, widget sizes, previews, configuration and progress remain available. |
+| Food, label and recipe logging | Compact AI entry button; shorter serving/conversion guidance; removed duplicate ON/OFF text beside the scaling switch. Removed the recipe introduction card and instructional empty-state example. Kept amounts, units, nutrition, barcode provenance, scaling, reusable-label choices and saved meal snapshots. |
+| Fluids | Short classification guidance; show the missing-category instruction only as validation. Kept explicit alcohol classification, pending contribution, separate alcohol totals and liquid-only guidance where relevant. |
+| Workout and cardio | Compact AI entry button, short draft/review notices and validation guidance. Planner step headings use a smaller, clear hierarchy. Kept independent lifting/cardio dates and drafts, exercise inputs, RIR/rest/technique and replacement confirmation. |
+| Weight, blood pressure and Steps | Existing concise logging forms and graph interactions retained. Follow-up: consolidated Steps controls, D/W/M/6M/Y, chart popovers and stable refresh behavior; removed exploratory/missing-history paragraphs. Dates, units, cache freshness and accurate missing-day averaging remain. Previously removed graph-data popups remain absent. |
+| History and progress photos | Shortened food amount-edit guidance. Kept timestamps, original sources, nutrition completeness, immutable serving context, photo limits, editing and destructive confirmations. |
+| Goals and calculators | Shortened estimate-versus-applied-goal, protein/BP and reference-category copy. Removed obvious display-unit guidance. Kept required calculation inputs, positive-integer step validation, adult/special-care limits, low-intake warnings, effective streak dates and expandable formula/reference explanations. |
+| Profile, health data and privacy | Shortened personal details, Apple Health, sync and privacy copy. Export uses concise inline information instead of an extra explanation card. Kept data destinations, local/cloud distinctions, disconnect scope, export sensitivity and complete deletion scope at confirmation. |
+| Reminders | Removed duplicate web-preview/day-selection instructions; shortened rest-day copy. Kept enable/schedule controls, platform limitations, permission errors, conflicts and deletion/unsaved-change confirmations. |
+| Authentication and onboarding | Shortened contact/device and setup guidance; removed repeated unit and fluid-helper instructions. Kept verification/recovery steps, optional setup, saved-value behavior, Face ID/security choices and permission timing. |
+| Soon and legal | Removed repeated “under wraps”/“in the works” copy and badge from Soon, retaining its existing artwork/theme. Legal documents, draft status and licenses remain accessible and unchanged. |
+
+## Controls and consent
+
+- Follow-up at the user's explicit request: removed the redundant meal processing switch. Estimate foods authorizes each request and preserves server consent/version validation. Opening details or entering data sends nothing.
+- Meal and workout requests share a discreet AI privacy details button containing data, Supabase/OpenAI, retention, cancellation and manual-entry information. Generate workout plan authorizes that request directly.
+- Workout-history sharing remains an independent optional switch, off by default. The legacy Coach setup consent gate and data selections remain intact with shorter wording.
+- Multi-select goals/styles/equipment, per-food/bulk reusable-label choices, serving scaling, reminder schedules, session persistence and permissions all affect behavior and remain available. Primary AI actions now provide request-specific authorization without a separate acknowledgment toggle.
+- Removed cosmetic duplicate switch-state text, gallery metadata and explanatory containers; no persisted preference or health record was reset.
+
+## Initial cleanup verification (before AI/Steps follow-up)
+
+The focused AI run passed all 15 browser cases: description/JPEG preparation and requests, explicit consent, retry/cancellation/close, review/edit/remove, optional reusable labels, meal saving, lifting/cardio/mixed drafts, draft replacement, optional inputs and actionable errors. Added two journeys that prove privacy details do not grant consent, meal reopening resets it, and history sharing remains separate. Inspected synthetic light and 320px dark screenshots with 150% browser text; actions remain reachable, labels wrap and new controls have comfortable targets. Static inspection found no empty View containers in changed components.
+
+Final lint and TypeScript pass; `npm run check` passes 271 app and 74 Edge tests (345 total). Local iOS/Hermes export passes. The 121-case full browser run initially passed 116, with four cleanup-related copy/duplicate-message failures and the previously recorded diagonal-chart gesture failure. Removed duplicate fluid guidance, retained the precise positive-integer step error and updated obsolete reminder-copy expectations. The final 19-case rerun passes all AI journeys and the four corrected cases: 120/121 unique browser journeys pass across the runs. The existing diagonal gesture assertion remains unresolved; the populated chart/range/history case passes. See the pre-existing finding in IMPLEMENTATION_REVIEW_2026-09-25.md.
+
+Evidence: `dist/interface-cleanup-ai-browser.log`, `dist/interface-cleanup-full-browser.log`, `dist/interface-cleanup-final-browser.log`, `dist/interface-cleanup-final-check.log`, `dist/interface-cleanup-final-lint.log`, `dist/interface-cleanup-final-typecheck.log`, `dist/interface-cleanup-ios-export.log`, and synthetic screenshots/error artifacts in `dist/interface-cleanup-visuals` and `dist/interface-cleanup-full-evidence`.
+
+Browser text enlargement is a wrapping stress test, not native Dynamic Type certification. No physical iPhone is connected, so native VoiceOver/Dynamic Type, camera/photo permissions and touch behavior remain unverified. Provider responses in these UI tests are synthetic; this cleanup does not change or redeploy the backend. Previous hosted workout success is documented separately in ADR-005.
+
+## AI, Steps and History follow-up verification
+
+Removed the meal/workout processing acknowledgment switches at the user's explicit request. Primary actions authorize each individual request and still supply the required consent/version fields. The collapsed AI privacy details retain provider/data/retention, photo handling, cancellation and manual-entry information. Workout-history sharing stays independently optional/off and inline. Meal's AI entry matches the other method cards at 390px and 320px.
+
+Steps groups five range choices, date navigation, metric and chart without the old explanatory blocks or value buttons. The selected value appears inside the graph without changing layout height. Background loading no longer drives the pull-to-refresh control, fixing the page shift on range changes. Weekly/monthly long-range aggregation preserves completed-day and missing/zero policies. Apple Health access is consolidated for Steps and existing vitals, preserving cached values and incremental anchors.
+
+Manage food labels and Fluids History now use plain edit/delete icons with 44-point touch targets and an 8-point gap. Category/alcohol editing, retry and destructive confirmation remain. Workout/cardio notes measure the full and two-line text layouts at the current width/font scale; Show more appears only for clipped previews. Hidden measurements are clipped and excluded from accessibility/scroll bounds. Browser checks cover one-line, exactly two-line, longer and wrapping notes, including width changes.
+
+Final lint/TypeScript, 275 app tests and 74 Edge tests pass (349 total); the final local iOS/Hermes export passes. Forty unique targeted browser journeys pass across final runs: 13 AI, 2 interface, 4 Steps, 6 Profile, 4 privacy, 2 drinks, 6 loading/layout and 3 History actions. Corrected obsolete settings and ambiguous modal test selectors; affected cases pass on rerun. This is targeted verification, not a rerun of the earlier complete 121-case suite. Its previously recorded diagonal-gesture issue remains outside this follow-up.
+
+Evidence: dist/ai-steps-history-final-check.log, ai-steps-history-ios-export.log, ai-steps-complete-browser.log, ai-steps-settings-final-browser.log, history-actions-final-browser.log and history-actions-confirmation-browser.log. Inspected light/dark, 320px and enlarged-text screenshots, including History notes and food-label/fluid actions. Native permission behavior, actual phone/Watch totals, iPhone touch/VoiceOver/Dynamic Type and native text measurement still require physical-device validation. These runs use synthetic data/provider responses; no backend deployment or cloud build was performed.

@@ -1,5 +1,5 @@
 import { z } from "zod";
-// Retain legacy identifiers for reading historical rules without offering them.
+// Shared catalog for the Summary picker, editor and historical rules.
 export const legacyHabits = [
   "daily_logging",
   "food_logging",
@@ -13,21 +13,8 @@ export const legacyHabits = [
   "reminder",
 ] as const;
 export type Habit = (typeof legacyHabits)[number];
-export const habits = [
-  "calorie_target",
-  "protein_target",
-  "fluid_target",
-  "training",
-] as const;
-export const retiredHabits: readonly string[] = [
-  "food_complete",
-  "daily_logging",
-  "food_logging",
-  "fluid_logging",
-  "weight",
-  "bp",
-  "reminder",
-];
+export const habits = legacyHabits;
+export const retiredHabits: readonly string[] = ["food_complete"];
 export const habitLabels: Record<Habit, string> = {
   daily_logging: "Daily logging",
   food_logging: "Food logging",
@@ -59,6 +46,7 @@ export const actionRoutes = {
 } as const;
 const empty = z.strictObject({});
 const configSchemas = {
+  steps: empty,
   weight: empty,
   bp: empty,
   calories: empty,
@@ -83,7 +71,7 @@ const configSchemas = {
     habits: z
       .array(z.enum(habits))
       .min(1)
-      .max(4)
+      .max(habits.length)
       .refine((a) => new Set(a).size === a.length),
   }),
 };
@@ -124,6 +112,12 @@ const definition = (
   schema: configSchemas[type],
 });
 export const registry: Record<WidgetType, Definition> = {
+  steps: definition(
+    "steps",
+    "Steps",
+    "Apple Health steps and an optional daily goal",
+    ["steps", "goals"],
+  ),
   weight: definition("weight", "Weight", "Latest reading and measured time", [
     "vitals",
   ]),
@@ -172,7 +166,7 @@ export const registry: Record<WidgetType, Definition> = {
   streaks: definition(
     "streaks",
     "Streaks",
-    "Calorie, protein, fluid and training goals",
+    "Logging, health goals, training and reminders",
     ["streaks"],
     false,
     { habits: ["calorie_target", "training"] },

@@ -38,10 +38,19 @@ export function useCardioLog() {
   const editVersion = useRef(0);
   const saveInFlight = useRef(false);
   const loadedAccount = useRef<string | undefined>(undefined);
-  useEffect(() => observeDraftReset(session?.user.id, () => {
-    editVersion.current++;
-    setActivityType(undefined); setEntryDay(undefined); setDuration(""); setDistance(""); setNotes(""); setFeedback("");
-  }), [session?.user.id]);
+  useEffect(
+    () =>
+      observeDraftReset(session?.user.id, () => {
+        editVersion.current++;
+        setActivityType(undefined);
+        setEntryDay(undefined);
+        setDuration("");
+        setDistance("");
+        setNotes("");
+        setFeedback("");
+      }),
+    [session?.user.id],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -140,7 +149,7 @@ export function useCardioLog() {
           distanceMiles < 0))
     )
       return setFeedback(
-        "Choose an activity, enter a whole-minute duration, and an optional valid distance.",
+        "Choose an activity and enter whole minutes; distance is optional.",
       );
     saveInFlight.current = true;
     setSaving(true);
@@ -229,9 +238,7 @@ export function CardioLog({ log }: { log: ReturnType<typeof useCardioLog> }) {
         distanceMiles: distance.trim() ? Number(distance) : undefined,
         notes,
       }) ? (
-        <Text style={styles.draftStatus}>
-          Unfinished cardio saved on this device.
-        </Text>
+        <Text style={styles.draftStatus}>Draft saved on this device.</Text>
       ) : null}
       <Text style={styles.label}>Activity</Text>
       <View style={styles.chips}>

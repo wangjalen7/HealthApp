@@ -33,6 +33,7 @@ import { Icon, type IconName } from "../../ui/icon";
 import { colors } from "../../ui/profile-theme";
 import { useAppAppearance } from "../../ui/appearance";
 const icons: Record<GoalKind, IconName> = {
+  steps: "steps",
   calories: "food",
   protein: "protein",
   fluids: "water",

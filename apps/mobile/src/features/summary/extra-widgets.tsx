@@ -5,7 +5,7 @@ import { WidgetHeading, widgetStyles } from "./widget-design";
 import { todaysMeals } from "./meals";
 import { streakWeek } from "./streak-week";
 import { useRef, useState } from "react";
-import { StyleSheet, Switch, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Pressable } from "../../ui/pressable";
 import { colors } from "../../ui/theme";
@@ -18,12 +18,11 @@ import { type SummaryData } from "./data";
 import { trainingSummary } from "./training";
 import { evaluateStreak } from "../streaks/engine";
 import {
-  explanations,
   ruleConfigSchema,
   type RuleConfig,
 } from "../streaks/model";
 import { effectiveRuleDay, saveRule } from "../streaks/repository";
-import { weekdayLabels, reminderTitle } from "../reminders/model";
+import { weekdayLabels } from "../reminders/model";
 import { Action } from "./dashboard";
 import { WidgetSkeleton } from "./widget-skeleton";
 export function ExtraWidget({
@@ -287,7 +286,7 @@ export function ExtraWidget({
   if (widget.type !== "streaks") return null;
   return (
     <View style={styles.card}>
-      <WidgetHeading type="streaks" title="Streaks" />
+      <WidgetHeading type="streaks" title={widget.config.habits?.length === 1 ? habitLabels[widget.config.habits[0]] : "Streaks"} />
       {stale}
       {widget.config.habits?.map((habit) => {
         const result = evaluateStreak(habit, data.rules, data.sources, now),
@@ -306,22 +305,20 @@ export function ExtraWidget({
             onPress={() => setSelected(habit)}
             style={{ minHeight: 60, gap: 6, paddingVertical: 8 }}
           >
-            <Text style={styles.title}>{habitLabels[habit]}</Text>
+            {widget.config.habits?.length !== 1 ? <Text style={styles.title}>{habitLabels[habit]}</Text> : null}
             {!result.activation ? (
               <Text style={styles.copy}>
-                Save this layout to begin tracking
+                Save to start tracking
               </Text>
             ) : (
               <>
                 <Text style={styles.value}>
-                  {result.unknown ? "Unverified" : result.current}{" "}
-                  {habit === "training" ? "week streak" : "days"}
+                  {result.unknown ? "Unverified" : `${result.current} ${habit === "training" ? "week streak" : "days"}`}
                 </Text>
                 {result.unknown && previous ? (
                   <Text style={styles.copy}>
                     Last verified: {previous.current}{" "}
-                    {habit === "training" ? "weeks" : "days"} · stale until
-                    history is available
+                    {habit === "training" ? "weeks" : "days"}
                   </Text>
                 ) : null}
                 {habit === "training" && period ? (
@@ -329,13 +326,11 @@ export function ExtraWidget({
                     {period.count} of {period.target} days this week
                   </Text>
                 ) : null}
-                <Text style={styles.copy}>
+                {!result.unknown || previous ? <Text style={styles.copy}>
                   Best streak:{" "}
                   {result.unknown && previous ? previous.best : result.best}{" "}
                   {habit === "training" ? "weeks" : "days"}
-                  {result.unknown ? " · incomplete coverage" : ""}
-                </Text>
-                <Text style={styles.copy}>This week</Text>
+                </Text> : <Text style={styles.copy}>History incomplete</Text>}
                 <View
                   testID={`streak-week-${habit}`}
                   style={{ flexDirection: "row" }}
@@ -457,8 +452,7 @@ function StreakDetail({
     ...(existing?.config ?? ruleConfigSchema.parse({})),
     calorieMode: existing?.config.calorieMode === "over" ? "over" : "under",
   });
-  const [enabled, setEnabled] = useState(existing?.enabled ?? true),
-    [message, setMessage] = useState(""),
+  const [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false);
   const result = evaluateStreak(habit, data.rules, data.sources, now);
   const goals = data.sources.goals
@@ -479,7 +473,8 @@ function StreakDetail({
               : "Food";
   return (
     <SettingsSheet title={habitLabels[habit]} icon="calendar" onClose={close}>
-      <Text style={styles.copy}>{explanations[habit]}</Text>
+      <Text style={styles.value}>{result.unknown ? "Unverified" : `${result.current} ${habit === "training" ? "weeks" : "days"}`}</Text>
+      <Text style={styles.copy}>{result.unknown ? "History incomplete" : `Best: ${result.best} ${habit === "training" ? "weeks" : "days"}`}</Text>
       <Action
         label={`Open ${action} log`}
         onPress={() => {
@@ -487,24 +482,6 @@ function StreakDetail({
           router.push(actionRoutes[action]);
         }}
       />
-      <Text style={styles.copy}>
-        Best streak: {result.best} {habit === "training" ? "weeks" : "days"}
-        {result.activation
-          ? ` since ${result.activation}`
-          : ". Tracking not enabled yet."}
-        {result.unknown
-          ? ". Some periods are unknown; no verified run is claimed across them."
-          : ""}
-      </Text>
-      <View style={styles.row}>
-        <Text style={styles.title}>Enable this streak</Text>
-        <Switch
-          accessibilityLabel="Enable this streak"
-          value={enabled}
-          onValueChange={setEnabled}
-          trackColor={{ true: colors.blue, false: colors.separator }}
-        />
-      </View>
       {habit === "training" ? (
         <IntegerSlider
           label="Training days per week"
@@ -532,17 +509,7 @@ function StreakDetail({
               />
             ))}
           </View>
-          <View style={styles.row}>
-            <Text style={styles.copy}>Include imported readings</Text>
-            <Switch
-              accessibilityLabel="Include imported readings"
-              value={config.includeImports}
-              onValueChange={(includeImports) =>
-                setConfig({ ...config, includeImports })
-              }
-              trackColor={{ true: colors.blue, false: colors.separator }}
-            />
-          </View>
+          <Text style={styles.copy}>Manual and Apple Health readings count.</Text>
         </>
       ) : null}
       {habit === "calorie_target" ? (
@@ -562,33 +529,16 @@ function StreakDetail({
             onChange={(calorieMode) => setConfig({ ...config, calorieMode })}
           />
           <Text style={styles.copy}>
-            Uses saved food totals only. Empty days do not count. Today is
-            provisional; adding, editing or deleting food recalculates progress.
+            Saved food totals · today updates as you log.
           </Text>
         </>
       ) : null}
       {habit === "reminder" ? (
-        <>
-          <Text style={styles.copy}>
-            On this device. Schedule edits apply to streaks from the next local
-            day.
-          </Text>
-          {data.reminders
-            .filter((r) => r.repeat !== "once")
-            .map((r) => (
-              <Action
-                key={r.id}
-                selected={config.reminderId === r.id}
-                label={`${config.reminderId === r.id ? "✓ " : ""}${reminderTitle(r)}`}
-                onPress={() => setConfig({ ...config, reminderId: r.id })}
-              />
-            ))}
-        </>
+        <Text style={styles.copy}>On this device. Choose the reminder in Edit Streaks.</Text>
       ) : null}
+      {["training", "weight", "calorie_target"].includes(habit) ? <>
       <Text style={styles.copy}>
-        Streak settings take effect {effectiveRuleDay(habit, !!existing, now)}.
-        Numerical health targets are edited in Profile and apply to streaks from
-        the next day. Earlier history is not backfilled with today's goals.
+        Changes apply {effectiveRuleDay(habit, !!existing, now)}.
       </Text>
       {message ? (
         <Text accessibilityRole="alert" style={styles.copy}>
@@ -606,7 +556,7 @@ function StreakDetail({
             return;
           }
           setBusy(true);
-          void saveRule(user, habit, enabled, parsed.data)
+          void saveRule(user, habit, true, parsed.data)
             .then(() => {
               reload();
               close();
@@ -619,28 +569,7 @@ function StreakDetail({
             .finally(() => setBusy(false));
         }}
       />
-      <Text accessibilityRole="header" style={styles.title}>
-        Recorded periods
-      </Text>
-      {result.periods
-        .slice(-60)
-        .reverse()
-        .map((p) => (
-          <Text key={p.day} style={styles.copy}>
-            {p.day} · {stateLabel(p.state)} · {Math.round(p.count * 10) / 10}/
-            {Math.round(p.target * 10) / 10}
-            {p.provisional ? " · current period" : ""}
-            {p.explanation === "goal_unavailable"
-              ? " · historical target unavailable"
-              : p.explanation === "paused"
-                ? " · paused"
-                : ""}
-          </Text>
-        ))}
-      <Text style={styles.copy}>
-        Device-local dates, Monday–Sunday weeks. Traveling can change historical
-        day grouping. Scheduled off-days are neutral.
-      </Text>
+      </> : null}
     </SettingsSheet>
   );
 }

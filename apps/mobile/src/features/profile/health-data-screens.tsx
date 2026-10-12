@@ -13,7 +13,10 @@ import {
 } from "./settings-ui";
 import { loadPendingData, syncLabel, type PendingData } from "./sync-status";
 import { PendingChanges } from "./pending-changes";
-import { synchronizeHealthData, disconnectHealthKit } from "../healthkit/unified-sync";
+import {
+  synchronizeHealthData,
+  disconnectHealthKit,
+} from "../healthkit/unified-sync";
 import {
   connectHealthKit,
   healthKitAvailability,
@@ -64,7 +67,9 @@ export function AppleHealthScreen() {
               : "Checking Apple Health"}
         </Text>
         <Text style={styles.copy}>
-          Optional read-only imports of weight, blood pressure and paired pulse from this iPhone. Connecting copies these readings and their source identifiers into your private Sustain account in Supabase for synchronization across devices. Manual logging works without connecting.
+          Read steps, weight, blood pressure and paired pulse from this iPhone.
+          Step totals stay on this device. Other readings and source identifiers
+          sync to your private Supabase account.
         </Text>
         {state?.lastImportedAt ? (
           <Text style={styles.copy}>
@@ -73,7 +78,7 @@ export function AppleHealthScreen() {
         ) : null}
         <Text style={styles.copy}>
           {availability?.reason ??
-            "Manage read permissions in the Health app. Apple Health does not reveal whether an empty result means no readings or denied permission."}
+            "Manage access in Apple Health. Empty results can mean no readings or denied access."}
         </Text>
       </View>
       <ErrorMessage message={error} />
@@ -94,10 +99,42 @@ export function AppleHealthScreen() {
           }}
         />
       ) : null}
-      {state?.connected ? <SettingsButton label={busy ? "Disconnecting..." : "Disconnect Apple Health"} secondary disabled={busy} onPress={() => {
-        setBusy(true); setError("");
-        void disconnectHealthKit(user).then(load).catch(() => setError("Could not disconnect. Try again.")).finally(()=>setBusy(false));
-      }} /> : (
+      {state?.connected ? (
+        <>
+          <SettingsButton
+            label="Manage Apple Health access"
+            secondary
+            disabled={busy || !availability?.available}
+            onPress={() => {
+              setBusy(true);
+              setError("");
+              void connectHealthKit(user)
+                .then(load)
+                .catch((e) =>
+                  setError(
+                    e instanceof Error
+                      ? e.message
+                      : "Could not open Apple Health access. Try again.",
+                  ),
+                )
+                .finally(() => setBusy(false));
+            }}
+          />
+          <SettingsButton
+            label={busy ? "Disconnecting..." : "Disconnect Apple Health"}
+            secondary
+            disabled={busy}
+            onPress={() => {
+              setBusy(true);
+              setError("");
+              void disconnectHealthKit(user)
+                .then(load)
+                .catch(() => setError("Could not disconnect. Try again."))
+                .finally(() => setBusy(false));
+            }}
+          />
+        </>
+      ) : (
         <SettingsButton
           label={busy ? "Connecting..." : "Connect Apple Health"}
           disabled={busy || !availability?.available}
@@ -118,7 +155,9 @@ export function AppleHealthScreen() {
         />
       )}
       <Text style={styles.copy}>
-        Disconnect stops future imports on this device after any current sync finishes. It does not delete imported records or revoke iOS permission. Manage read permissions in Apple Health; delete imported copies separately in History or delete the account.
+        Disconnect stops imports after the current sync. Imported records and
+        iOS permissions remain; manage access in Apple Health and delete copies
+        in History.
       </Text>
       <SettingsButton
         label="Sync & Pending Changes"
@@ -183,9 +222,8 @@ export function SyncScreen() {
             : "No successful account sync recorded yet."}
         </Text>
         <Text style={styles.copy}>
-          Automatic synchronization stays on. Manual sync also imports Apple
-          Health when connected; other unconfirmed saves have individual retry
-          actions below.
+          Sync runs automatically and includes connected Apple Health data.
+          Retry unconfirmed saves below.
         </Text>
         {status?.attention && status.issue ? (
           <Text style={styles.copy}>{status.issue}</Text>
@@ -271,8 +309,7 @@ export function ExportScreen() {
   return (
     <DetailScreen title="Export Data">
       <Text style={styles.copy}>
-        Export your saved health records, goals and account information in a
-        portable archive.
+        Health records, goals and account details in CSV and JSON.
       </Text>
       <SettingsGroup>
         <SettingsRow
@@ -293,16 +330,13 @@ export function ExportScreen() {
       ) : !error ? (
         <ActivityIndicator />
       ) : null}
-      <View style={styles.card}>
-        <Text style={styles.label}>About your export</Text>
+      <View style={{ gap: 8 }}>
         <Text style={styles.copy}>
-          Includes spreadsheet-friendly CSV files and complete JSON records.
-          Photo metadata stays in the records even when photo files are
-          excluded.
+          Photo metadata is included even without photo files.
         </Text>
         <Text style={styles.copy}>
-          Large photo exports can take time and need free space. The archive
-          contains private health information; choose where to save or share it.
+          Photo exports need time and free space. This archive contains private
+          health data; choose its destination carefully.
         </Text>
       </View>
       <ErrorMessage message={error} />

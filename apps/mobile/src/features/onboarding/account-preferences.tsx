@@ -51,10 +51,6 @@ export function UnitChoices({
           </Pressable>
         ))}
       </View>
-      <Text style={ui.caption}>
-        Display preferences keep underlying quantities and existing record
-        units.
-      </Text>
     </View>
   );
 }

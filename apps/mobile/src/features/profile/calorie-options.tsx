@@ -81,8 +81,8 @@ export function CalorieOptions({
         </Text>
       ) : null}
       <Text style={styles.caption}>
-        Options outside the calculator's supported range are unavailable. Review
-        or change your plan with Edit &amp; Recalculate.
+        Use Edit &amp; Recalculate to change the plan or review unavailable
+        options.
       </Text>
     </View>
   );

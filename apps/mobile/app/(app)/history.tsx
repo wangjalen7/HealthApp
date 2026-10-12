@@ -10,6 +10,7 @@ import { ScreenScrollView } from "../../src/ui/screen-scroll-view";
 import { Pressable } from "../../src/ui/pressable";
 import { colors } from "../../src/ui/theme";
 import { HistorySkeleton } from "../../src/ui/skeleton";
+import { HistoryNotes } from "../../src/features/training/history-notes";
 import { useHistoryData } from "../../src/features/training/use-history-data";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
@@ -608,44 +609,6 @@ function ExerciseHistory({
   );
 }
 
-function HistoryNotes({
-  notes,
-  kind,
-}: {
-  notes: string;
-  kind: "workout" | "cardio";
-}) {
-  const [expanded, setExpanded] = useState(false);
-  return (
-    <View style={styles.notesSection}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={
-          (expanded ? "Collapse " : "Expand ") + kind + " notes"
-        }
-        accessibilityState={{ expanded }}
-        onPress={() => setExpanded((current) => !current)}
-        style={styles.notesToggle}
-      >
-        <Text style={styles.notesLabel}>Notes</Text>
-        <Text style={styles.notesAction}>
-          {expanded ? "Show less" : "Show more"}
-        </Text>
-        <View style={{ transform: [{ rotate: expanded ? "90deg" : "0deg" }] }}>
-          <Icon name="chevron" size={16} color={colors.secondary} />
-        </View>
-      </Pressable>
-      <Text
-        style={styles.notes}
-        numberOfLines={expanded ? undefined : 2}
-        ellipsizeMode="tail"
-      >
-        {notes}
-      </Text>
-    </View>
-  );
-}
-
 function WorkoutHistoryCard({
   session,
   onDelete,
@@ -1237,23 +1200,16 @@ function FluidHistory({
                             : "Alcohol logged separately"}
                         </Text>
                       ) : null}
-                      <ClassifyDrink
-                        entry={entry}
-                        onChanged={onHydrationChanged}
-                        buttonStyle={{
-                          justifyContent: "flex-end",
-                          paddingBottom: 4,
-                        }}
-                      />
-                      <View style={[styles.cardActions, { marginTop: 0 }]}>
+                      <View style={styles.cardActions}>
+                        <ClassifyDrink
+                          compact
+                          entry={entry}
+                          onChanged={onHydrationChanged}
+                        />
                         <IconButton
                           variant="plain"
                           name="delete"
                           label={`Delete ${entry.fluidName} entry`}
-                          style={{
-                            justifyContent: "flex-start",
-                            paddingTop: 4,
-                          }}
                           onPress={() => onDeleteHydration(entry)}
                           destructive
                         />
@@ -1549,30 +1505,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontStyle: "italic",
     marginTop: 5,
-  },
-  notesSection: {
-    borderTopColor: colors.fill,
-    borderTopWidth: 1,
-    marginTop: 12,
-  },
-  notesToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    minHeight: 44,
-  },
-  notesLabel: {
-    flex: 1,
-    color: colors.secondary,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  notesAction: { color: colors.blue, fontSize: 13 },
-  notes: {
-    color: colors.secondary,
-    fontSize: 13,
-    lineHeight: 20,
-    paddingBottom: 8,
   },
   location: {
     color: colors.blue,

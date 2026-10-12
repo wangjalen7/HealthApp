@@ -28,6 +28,7 @@ import { registry, type Widget, type WidgetType } from "./layout";
 import type { useSummary } from "./use-summary";
 import { WidgetSkeleton } from "./widget-skeleton";
 import { ExtraWidget } from "./extra-widgets";
+import { StepsWidget } from "../steps/widget";
 import { Action } from "./dashboard";
 export type WidgetContext = {
   samples: VitalSample[];
@@ -330,6 +331,14 @@ export const widgetRegistry = Object.fromEntries(
     {
       ...definition,
       render: (widget: Widget, context: WidgetContext) => {
+        if (type === "steps")
+          return (
+            <StepsWidget
+              widget={widget}
+              steps={context.resources.steps}
+              goal={context.goals.stepGoal}
+            />
+          );
         const extras = ["training", "meals", "actions", "streaks"].includes(
           type,
         );

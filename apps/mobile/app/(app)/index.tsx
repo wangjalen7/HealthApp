@@ -18,6 +18,7 @@ import { Dashboard } from "../../src/features/summary/dashboard";
 import { widgetRegistry } from "../../src/features/summary/widget-renderers";
 import { type Widget } from "../../src/features/summary/layout";
 import { initializeWidgetHabits } from "../../src/features/streaks/initialize";
+import { reminderTitle } from "../../src/features/reminders/model";
 import { useSummary } from "../../src/features/summary/use-summary";
 
 export default function SummaryScreen() {
@@ -85,6 +86,16 @@ function SummaryContent() {
       ) : null}
       {session ? (
         <Dashboard
+          reminders={(
+            data.streaks.data?.reminders ??
+            data.actions.data?.reminders ??
+            []
+          )
+            .filter((reminder) => reminder.repeat !== "once")
+            .map((reminder) => ({
+              id: reminder.id,
+              label: reminderTitle(reminder),
+            }))}
           header={(begin, ready) => (
             <>
               <View style={styles.summaryHeader}>
@@ -95,7 +106,6 @@ function SummaryContent() {
                   >
                     Hi {firstName},
                   </Text>
-                  <Text style={styles.snapshot}>Your daily snapshot</Text>
                 </View>
                 <Pressable
                   accessibilityRole="button"
@@ -169,7 +179,6 @@ const styles = StyleSheet.create({
     letterSpacing: -1,
     marginTop: 3,
   },
-  snapshot: { color: colors.secondary, fontSize: 15, marginTop: 3 },
   summaryHeader: {
     alignItems: "flex-start",
     flexDirection: "row",

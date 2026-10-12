@@ -129,9 +129,8 @@ export function GenderField({
       />
       <Disclosure title="About these categories">
         <Text style={helperStyles.copy}>
-          These options map to the formulas' sex-based reference categories, not
-          gender identity. Choose the reference you want to use, or keep a
-          manual goal if neither fits.
+          Formulas use sex-based references, not gender identity. Choose a
+          reference or use a manual goal.
         </Text>
       </Disclosure>
     </View>

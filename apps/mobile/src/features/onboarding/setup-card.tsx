@@ -12,9 +12,7 @@ export function SetupCard({ needed }: { needed: boolean }) {
   return (
     <View style={[ui.surface, { marginVertical: 14 }]}>
       <Text style={ui.label}>Make your daily view yours</Text>
-      <Text style={ui.copy}>
-        Set up optional goals and preferences whenever you’re ready.
-      </Text>
+      <Text style={ui.copy}>Add optional goals and preferences.</Text>
       <SetupButton
         label="Open Profile setup"
         secondary

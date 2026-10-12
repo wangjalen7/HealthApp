@@ -1,4 +1,5 @@
 import {
+  coachRequestSchema,
   coachActionPayloadSchema,
   coachProfileSchema,
   coachResponseSchema,
@@ -223,7 +224,7 @@ export async function sendCoachMessage(
   signal?: AbortSignal,
 ) {
   const { data, error } = await supabase.functions.invoke("coach-chat", {
-    body: input,
+    body: coachRequestSchema.parse(input),
     signal,
   });
   if (error) {
@@ -238,6 +239,10 @@ export async function sendCoachMessage(
         /* Keep the connection fallback. */
       }
     }
+    if (response?.status === 401)
+      message = "Your session expired. Sign in again to plan a workout.";
+    if (response?.status === 404)
+      message = "Workout planning is not configured on the server. Try again later.";
     throw new Error(message);
   }
   const parsed = coachResponseSchema.safeParse(data);

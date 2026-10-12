@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useAuth } from "../auth/auth-provider";
 import { useAccountSetup } from "../onboarding/provider";
 import { cachedVitals } from "../vitals/storage";
@@ -44,7 +44,15 @@ import { dayKey, shiftDay } from "../summary/calendar";
 import { CalorieOptions } from "./calorie-options";
 
 export function GoalEditor() {
-  const { kind: raw } = useLocalSearchParams<{ kind: string }>();
+  const {
+    kind: raw,
+    returnTo,
+    stepFrom,
+  } = useLocalSearchParams<{
+    kind: string;
+    returnTo?: string;
+    stepFrom?: string;
+  }>();
   const kind = goalKinds.includes(raw as GoalKind)
     ? (raw as GoalKind)
     : undefined;
@@ -123,6 +131,16 @@ export function GoalEditor() {
   return (
     <DetailScreen
       title={kind === "weight" ? "Target Weight" : `${goalLabels[kind]} Goal`}
+      backLabel={returnTo === "steps" ? "Back to Steps" : undefined}
+      onBack={
+        returnTo === "steps"
+          ? () =>
+              router.replace({
+                pathname: "/(app)/steps",
+                params: { from: stepFrom ?? "summary" },
+              })
+          : undefined
+      }
     >
       <ErrorMessage message={error} />
       {!goals ? (
@@ -176,8 +194,7 @@ export function GoalEditor() {
                   : ""}
               </Text>
               <Text style={styles.copy}>
-                The saved estimate is separate from your applied goal. Open it
-                to review inputs or recalculate.
+                Calculated estimates are separate from your applied goal.
               </Text>
               {result.kind === "calories" &&
               result.inputs.weightKg !== undefined ? (
@@ -238,11 +255,13 @@ export function GoalEditor() {
           ) : (
             <SettingsButton
               label={
-                kind === "protein"
-                  ? "Edit protein goal"
-                  : kind === "weight"
-                    ? "Edit target weight"
-                    : "Edit blood pressure goal"
+                kind === "steps"
+                  ? "Edit step goal"
+                  : kind === "protein"
+                    ? "Edit protein goal"
+                    : kind === "weight"
+                      ? "Edit target weight"
+                      : "Edit blood pressure goal"
               }
               onPress={() => setManual(true)}
             />
@@ -324,35 +343,39 @@ function ManualGoalSheet({
   const [baseline] = useState(goals);
   const [initial] = useState(() => ({
     value:
-      kind === "calories"
-        ? goals.calorieGoal === undefined
+      kind === "steps"
+        ? goals.stepGoal === undefined
           ? ""
-          : String(goals.calorieGoal)
-        : kind === "protein"
-          ? goals.proteinGoal === undefined
+          : String(goals.stepGoal)
+        : kind === "calories"
+          ? goals.calorieGoal === undefined
             ? ""
-            : String(goals.proteinGoal)
-          : kind === "fluids"
-            ? goals.waterGoalMl === undefined
+            : String(goals.calorieGoal)
+          : kind === "protein"
+            ? goals.proteinGoal === undefined
               ? ""
-              : displayNumber(
-                  fluid === "ml"
-                    ? goals.waterGoalMl
-                    : millilitersToFluidOunces(goals.waterGoalMl),
-                  2,
-                )
-            : kind === "weight"
-              ? goals.weightGoalLb === undefined
+              : String(goals.proteinGoal)
+            : kind === "fluids"
+              ? goals.waterGoalMl === undefined
                 ? ""
                 : displayNumber(
-                    units === "us"
-                      ? goals.weightGoalLb
-                      : poundsToKilograms(goals.weightGoalLb),
+                    fluid === "ml"
+                      ? goals.waterGoalMl
+                      : millilitersToFluidOunces(goals.waterGoalMl),
                     2,
                   )
-              : goals.systolicGoal === undefined
-                ? ""
-                : String(goals.systolicGoal),
+              : kind === "weight"
+                ? goals.weightGoalLb === undefined
+                  ? ""
+                  : displayNumber(
+                      units === "us"
+                        ? goals.weightGoalLb
+                        : poundsToKilograms(goals.weightGoalLb),
+                      2,
+                    )
+                : goals.systolicGoal === undefined
+                  ? ""
+                  : String(goals.systolicGoal),
     second:
       goals.diastolicGoal === undefined ? "" : String(goals.diastolicGoal),
     automatic: goals.proteinGoal === undefined,
@@ -385,6 +408,16 @@ function ManualGoalSheet({
       };
       const n = number(value);
       let patch: Partial<DailyGoals> = {};
+      if (kind === "steps") {
+        if (
+          n !== undefined &&
+          (!Number.isInteger(n) || n <= 0 || n > 2147483647)
+        )
+          throw Error(
+            "Enter a positive whole number of steps, or leave blank to remove the goal.",
+          );
+        patch = { stepGoal: n };
+      }
       if (kind === "calories")
         patch = {
           calorieGoal: n,
@@ -439,15 +472,17 @@ function ManualGoalSheet({
     }
   }
   const label =
-    kind === "calories"
-      ? "Calories / day"
-      : kind === "protein"
-        ? "Protein / day (g)"
-        : kind === "fluids"
-          ? `Fluids / day (${fluid === "ml" ? "mL" : "fl oz"})`
-          : kind === "weight"
-            ? `Target weight (${units === "us" ? "lb" : "kg"})`
-            : "Systolic (mmHg)";
+    kind === "steps"
+      ? "Steps / day"
+      : kind === "calories"
+        ? "Calories / day"
+        : kind === "protein"
+          ? "Protein / day (g)"
+          : kind === "fluids"
+            ? `Fluids / day (${fluid === "ml" ? "mL" : "fl oz"})`
+            : kind === "weight"
+              ? `Target weight (${units === "us" ? "lb" : "kg"})`
+              : "Systolic (mmHg)";
   return (
     <SettingsSheet
       title={`Edit ${kind === "weight" ? "Target Weight" : goalLabels[kind]}`}
@@ -480,8 +515,8 @@ function ManualGoalSheet({
                 onChange={(v) => setAutomatic(v === "automatic")}
               />
               <Text style={styles.copy}>
-                Automatic uses 0.7 g per pound of your latest recorded weight,
-                rounded to whole grams.
+                Automatic: 0.7 g/lb of your latest weight, rounded to whole
+                grams.
                 {automaticProtein(weight) !== undefined
                   ? ` Currently ${automaticProtein(weight)} g/day.`
                   : " Record a weight to resolve the amount."}{" "}
@@ -508,8 +543,7 @@ function ManualGoalSheet({
                 disabled={busy}
               />
               <Text style={styles.copy}>
-                These values are your tracking goals; changing them does not
-                record a blood pressure reading.
+                Goal changes do not add a blood pressure reading.
               </Text>
             </>
           ) : null}

@@ -18,7 +18,9 @@ test("workout questionnaire replaces the Coach tab and fits a narrow phone", asy
   ).toHaveCount(0);
   await expect(tabs.filter({ hasText: "Soon" })).toHaveCount(1);
   await page.getByRole("tab", { name: "Soon", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Coming soon.", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Coming soon.", exact: true }),
+  ).toBeVisible();
   await quickLog(page, "Workout");
   await page
     .getByRole("button", { name: "Plan workout with AI", exact: true })
@@ -61,15 +63,21 @@ test("workout questionnaire replaces the Coach tab and fits a narrow phone", asy
   await expect(
     page.getByText("Training days per week", { exact: true }),
   ).toHaveCount(0);
-  await page
-    .getByRole("button", { name: "Generate workout plan", exact: true })
-    .click();
   await expect(
-    page.getByText(
-      "Allow sharing your preferences with OpenAI for this plan, or cancel and log manually.",
-      { exact: true },
-    ),
-  ).toBeVisible();
+    page.getByRole("switch", {
+      name: "Send preferences to OpenAI",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("switch", {
+      name: "Include my workout history",
+      exact: true,
+    }),
+  ).not.toBeChecked();
+  await expect(
+    page.getByRole("button", { name: "Generate workout plan", exact: true }),
+  ).toBeEnabled();
 });
 
 test("planner retries generation and fills an editable workout directly without chat", async ({
@@ -179,12 +187,6 @@ test("planner retries generation and fills an editable workout directly without 
   await page.getByRole("radio", { name: "Home", exact: true }).click();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page
-    .getByRole("switch", {
-      name: "Send my preferences to OpenAI for this plan",
-      exact: true,
-    })
-    .click();
-  await page
     .getByRole("button", { name: "Generate workout plan", exact: true })
     .click();
   await expect(
@@ -200,8 +202,12 @@ test("planner retries generation and fills an editable workout directly without 
     use_hydration: false,
     use_photo_metadata: false,
   });
-  await expect(page.getByRole("switch", { name: "Send my preferences to OpenAI for this plan", exact: true })).not.toBeChecked();
-  await page.getByRole("switch", { name: "Send my preferences to OpenAI for this plan", exact: true }).click();
+  await expect(
+    page.getByRole("switch", {
+      name: "Send preferences to OpenAI",
+      exact: true,
+    }),
+  ).toHaveCount(0);
   await page
     .getByRole("button", { name: "Generate workout plan", exact: true })
     .click();
@@ -226,10 +232,17 @@ test("planner retries generation and fills an editable workout directly without 
   await expect(
     page.getByLabel("Number of sets", { exact: true }).first(),
   ).toHaveValue("3");
-  await expect(page.getByRole("button", { name: "Exercise guide for Bodyweight squat", exact: true })).toHaveCount(0);
-  await expect(page.getByText("Lower with control.", { exact: true })).toBeVisible();
   await expect(
-    page.getByText("Unfinished workout saved on this device.", { exact: true }),
+    page.getByRole("button", {
+      name: "Exercise guide for Bodyweight squat",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("Lower with control.", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Draft saved on this device.", { exact: true }),
   ).toBeVisible();
 });
 
@@ -364,12 +377,6 @@ for (const sessionType of ["cardio", "combo"] as const) {
       await page.getByRole("button", { name: "Continue", exact: true }).click();
       await page.getByRole("radio", { name: "Home", exact: true }).click();
       await page.getByRole("button", { name: "Continue", exact: true }).click();
-      await page
-        .getByRole("switch", {
-          name: "Send my preferences to OpenAI for this plan",
-          exact: true,
-        })
-        .click();
       await page
         .getByRole("button", { name: "Generate workout plan", exact: true })
         .click();
@@ -557,8 +564,12 @@ test("multi-select preferences migrate old choices and explain missed selections
     .getByLabel("Describe your equipment", { exact: true })
     .fill("Suspension trainer");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await expect(page.getByRole("switch", { name: "Send my preferences to OpenAI for this plan", exact: true })).not.toBeChecked();
-  await page.getByRole("switch", { name: "Send my preferences to OpenAI for this plan", exact: true }).click();
+  await expect(
+    page.getByRole("switch", {
+      name: "Send preferences to OpenAI",
+      exact: true,
+    }),
+  ).toHaveCount(0);
   await page
     .getByRole("button", { name: "Generate workout plan", exact: true })
     .click();

@@ -329,6 +329,23 @@ function titleFrom(message: string) {
   return title.length < message.trim().length ? `${title}…` : title;
 }
 
+export function workoutProviderFailure(status: number, body: Record<string, unknown>) {
+  const providerError = body.error && typeof body.error === "object"
+    ? body.error as Record<string, unknown> : {};
+  const billing = ["insufficient_quota", "credit_balance_exhausted", "organization_spend_limit_exceeded", "project_spend_limit_exceeded", "organization_usage_limit_exceeded"];
+  if (status === 429 && (billing.includes(String(providerError.code)) || providerError.type === "insufficient_quota"))
+    return { code: "provider_billing", message: "Workout planning has reached the server's OpenAI credit or spending limit. The app operator needs to update API billing before you retry.", status: 503 };
+  if (status === 429)
+    return { code: "provider_rate_limited", message: "Workout planning is busy. Wait briefly, then try again.", status: 429 };
+  if (status === 401 || status === 403)
+    return { code: "provider_access", message: "Workout planning cannot access OpenAI. The app operator needs to check the server API key and project permissions.", status: 503 };
+  if (status === 404 || providerError.code === "model_not_found")
+    return { code: "provider_model", message: "The workout model is unavailable. The app operator needs to update the server model configuration.", status: 503 };
+  if (status === 400 || status === 422)
+    return { code: "provider_request", message: "OpenAI rejected the workout integration. The app operator needs to update the server before you retry.", status: 502 };
+  return { code: "provider_error", message: "AI workout planning is temporarily unavailable. Try again later; your workout draft has not changed.", status: 502 };
+}
+
 export function createCoachHandler(deps: CoachHandlerDependencies) {
   const json = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), {
@@ -364,9 +381,12 @@ export function createCoachHandler(deps: CoachHandlerDependencies) {
     let input: CoachRequest;
     try {
       input = coachRequestSchema.parse(await readJson(request));
-      new Intl.DateTimeFormat("en-US", { timeZone: input.timezone }).format();
     } catch (error) {
       if (error instanceof z.ZodError) {
+        if (error.issues.some((issue) => issue.path[0] === "timezone"))
+          return fail("invalid_timezone", "Your device time zone is missing or invalid. Check Date & Time settings, then reopen the planner.", 400);
+        if (error.issues.some((issue) => issue.path[0] === "localDate"))
+          return fail("invalid_date", "Your device date is invalid. Check Date & Time settings, then reopen the planner.", 400);
         const preferenceIssues = error.issues
           .filter((issue) => issue.path[0] === "workoutPreferences")
           .map((issue) => ({ path: issue.path.slice(1) }));
@@ -381,9 +401,14 @@ export function createCoachHandler(deps: CoachHandlerDependencies) {
       }
       return fail(
         "invalid_request",
-        "Check your request and time zone, then try again.",
+        "The workout request is incomplete or incompatible. Reopen the planner in the updated app and try again.",
         400,
       );
+    }
+    try {
+      new Intl.DateTimeFormat("en-US", { timeZone: input.timezone }).format();
+    } catch {
+      return fail("invalid_timezone", "Your device time zone is not supported. Check Date & Time settings, then reopen the planner.", 400);
     }
     if (input.consentVersion !== aiConsentVersion)
       return fail("consent_required", "Review and allow sharing with OpenAI for this request in the updated app.", 403);
@@ -540,7 +565,7 @@ export function createCoachHandler(deps: CoachHandlerDependencies) {
             }),
           },
         );
-        const body = (await provider.json()) as Record<string, unknown>;
+        const body = (await provider.json().catch(() => ({}))) as Record<string, unknown>;
         providerRequestId = provider.headers.get("x-request-id");
         providerResponseStatus =
           typeof body.status === "string" ? body.status : null;
@@ -564,13 +589,8 @@ export function createCoachHandler(deps: CoachHandlerDependencies) {
             cachedTokens: runningUsage.cachedTokens,
             requestId: providerRequestId,
           });
-          return fail(
-            provider.status === 429 ? "provider_limit" : "provider_error",
-            provider.status === 429
-              ? "OpenAI billing, spending, or rate limits prevented this response."
-              : "AI Coach could not respond right now. Try again later.",
-            502,
-          );
+          const failure = workoutProviderFailure(provider.status, body);
+          return fail(failure.code, failure.message, failure.status);
         }
         addUsage(runningUsage, usageFrom(body));
         providerResponse = body;
